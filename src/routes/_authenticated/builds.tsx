@@ -55,6 +55,7 @@ function BuildsPage() {
               <div className="flex items-start justify-between gap-2"><div><p className="lcars-label">{b?.name ?? "Unknown build"}</p><h3 className="font-display text-lg text-primary">{l.name}</h3></div>{l.is_active && <Badge className="bg-accent text-accent-foreground">ACTIVE</Badge>}</div>
               {l.notes && <p className="mt-2 text-sm text-muted-foreground">{l.notes}</p>}
               <LoadoutConfiguration loadoutId={l.id} />
+              <LoadoutReadiness loadoutId={l.id} buildId={buildId} />
               <LoadoutEquipment loadoutId={l.id} buildId={l.build_id} />
             </div>;
           })}
@@ -119,6 +120,22 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
 }
 
 
+
+function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: string }) {
+  const equipment = useQuery({ queryKey: ["readiness_equipment", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_equipment" as never).select("slot").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
+  const traits = useQuery({ queryKey: ["readiness_traits", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_traits" as never).select("id").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
+  const boffs = useQuery({ queryKey: ["readiness_boffs", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_boffs" as never).select("id").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
+  const ship = useQuery({ queryKey: ["readiness_ship", buildId], queryFn: async () => { const {data,error}=await supabase.from("user_ships" as never).select("sto_ships(*)").eq("current_build_id",buildId).maybeSingle(); if(error) throw error; return (data as any)?.sto_ships ?? null; }});
+  const s:any=ship.data||{};
+  const weaponSlots=(s.fore_weapon_slots||0)+(s.aft_weapon_slots||0)+(s.experimental_weapon?1:0);
+  const consoleSlots=(s.engineering_console_slots||0)+(s.science_console_slots||0)+(s.tactical_console_slots||0)+(s.universal_console_slots||0);
+  const hangars=s.hangar_bays||0;
+  const expected=weaponSlots+consoleSlots+4+hangars;
+  const filled=(equipment.data as any[]||[]).length;
+  const checks=[{label:"Ship systems",ok:(equipment.data as any[]||[]).some(x=>x.slot==="Deflector")&&(equipment.data as any[]||[]).some(x=>x.slot==="Impulse Engines")&&(equipment.data as any[]||[]).some(x=>x.slot==="Warp Core")&&(equipment.data as any[]||[]).some(x=>x.slot==="Shields")},{label:"Weapons / consoles / hangars",ok:expected===0?true:filled>=expected},{label:"Traits",ok:(traits.data as any[]||[]).length>0},{label:"Bridge officers",ok:(boffs.data as any[]||[]).length>0}];
+  const score=Math.round(checks.filter(x=>x.ok).length/checks.length*100);
+  return <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Loadout Readiness</p><p className="text-xs text-muted-foreground">Completeness check — not a DPS rating</p></div><span className="text-lg font-bold text-primary">{score}%</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{checks.map(x=><div key={x.label} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span>{x.label}</span><span className={x.ok?"text-primary":"text-muted-foreground"}>{x.ok?"READY":"MISSING"}</span></div>)}</div></div>;
+}
 
 function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const qc = useQueryClient();
