@@ -246,6 +246,184 @@ export type Database = {
           },
         ]
       }
+      sto_ships: {
+        Row: {
+          aft_weapon_slots: number | null
+          base_hull: number | null
+          base_shields: number | null
+          bridge_officer_stations: Json | null
+          created_at: string
+          data_version: string | null
+          description: string | null
+          engineering_console_slots: number | null
+          experimental_weapon_slot: boolean | null
+          faction: string | null
+          fore_weapon_slots: number | null
+          hangar_bays: number | null
+          hull_modifier: number | null
+          id: string
+          image_url: string | null
+          impulse_modifier: number | null
+          inertia: number | null
+          name: string
+          science_console_slots: number | null
+          shield_modifier: number | null
+          ship_class: string | null
+          ship_trait: string | null
+          source_reference: string | null
+          special_console: string | null
+          special_mechanics: string | null
+          special_weapons: string | null
+          tactical_console_slots: number | null
+          tier: string | null
+          turn_rate: number | null
+          universal_console_slots: number | null
+          updated_at: string
+        }
+        Insert: {
+          aft_weapon_slots?: number | null
+          base_hull?: number | null
+          base_shields?: number | null
+          bridge_officer_stations?: Json | null
+          created_at?: string
+          data_version?: string | null
+          description?: string | null
+          engineering_console_slots?: number | null
+          experimental_weapon_slot?: boolean | null
+          faction?: string | null
+          fore_weapon_slots?: number | null
+          hangar_bays?: number | null
+          hull_modifier?: number | null
+          id?: string
+          image_url?: string | null
+          impulse_modifier?: number | null
+          inertia?: number | null
+          name: string
+          science_console_slots?: number | null
+          shield_modifier?: number | null
+          ship_class?: string | null
+          ship_trait?: string | null
+          source_reference?: string | null
+          special_console?: string | null
+          special_mechanics?: string | null
+          special_weapons?: string | null
+          tactical_console_slots?: number | null
+          tier?: string | null
+          turn_rate?: number | null
+          universal_console_slots?: number | null
+          updated_at?: string
+        }
+        Update: {
+          aft_weapon_slots?: number | null
+          base_hull?: number | null
+          base_shields?: number | null
+          bridge_officer_stations?: Json | null
+          created_at?: string
+          data_version?: string | null
+          description?: string | null
+          engineering_console_slots?: number | null
+          experimental_weapon_slot?: boolean | null
+          faction?: string | null
+          fore_weapon_slots?: number | null
+          hangar_bays?: number | null
+          hull_modifier?: number | null
+          id?: string
+          image_url?: string | null
+          impulse_modifier?: number | null
+          inertia?: number | null
+          name?: string
+          science_console_slots?: number | null
+          shield_modifier?: number | null
+          ship_class?: string | null
+          ship_trait?: string | null
+          source_reference?: string | null
+          special_console?: string | null
+          special_mechanics?: string | null
+          special_weapons?: string | null
+          tactical_console_slots?: number | null
+          tier?: string | null
+          turn_rate?: number | null
+          universal_console_slots?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_ships: {
+        Row: {
+          character_id: string
+          created_at: string
+          current_build_id: string | null
+          custom_name: string
+          date_acquired: string | null
+          id: string
+          notes: string | null
+          ownership_status: string
+          sto_ship_id: string
+          t6_upgraded: boolean
+          t6x_upgraded: boolean
+          t6x2_upgraded: boolean
+          theme_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          character_id: string
+          created_at?: string
+          current_build_id?: string | null
+          custom_name: string
+          date_acquired?: string | null
+          id?: string
+          notes?: string | null
+          ownership_status?: string
+          sto_ship_id: string
+          t6_upgraded?: boolean
+          t6x_upgraded?: boolean
+          t6x2_upgraded?: boolean
+          theme_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          character_id?: string
+          created_at?: string
+          current_build_id?: string | null
+          custom_name?: string
+          date_acquired?: string | null
+          id?: string
+          notes?: string | null
+          ownership_status?: string
+          sto_ship_id?: string
+          t6_upgraded?: boolean
+          t6x_upgraded?: boolean
+          t6x2_upgraded?: boolean
+          theme_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_ships_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_ships_current_build_id_fkey"
+            columns: ["current_build_id"]
+            isOneToOne: false
+            referencedRelation: "builds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_ships_sto_ship_id_fkey"
+            columns: ["sto_ship_id"]
+            isOneToOne: false
+            referencedRelation: "sto_ships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
