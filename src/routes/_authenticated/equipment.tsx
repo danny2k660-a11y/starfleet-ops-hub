@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Trash2, Package } from "lucide-react";
+import { Plus, Search, Trash2, Package, Boxes } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -70,9 +70,9 @@ function Page() {
         <Select value={category} onValueChange={setCategory}><SelectTrigger className="sm:w-48"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="All">All categories</SelectItem>{categories.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map(e=><div key={e.id} className="rounded-lg border border-border bg-card/70 p-4">
+        {filtered.map(e=><div key={e.id} className="rounded-lg border border-border bg-card/70 p-4 transition hover:border-primary/50">
           <div className="flex items-start justify-between gap-2"><div><p className="font-medium">{e.name}</p><div className="mt-1 flex flex-wrap gap-1"><Badge variant="secondary">{e.category}</Badge>{e.rarity&&<Badge variant="outline">{e.rarity}</Badge>}{e.mark&&<Badge variant="outline">{e.mark}</Badge>}</div></div><Button size="icon" variant="ghost" onClick={()=>remove.mutate(e.id)}><Trash2 className="size-4 text-destructive"/></Button></div>
-          {e.slot&&<p className="mt-3 text-xs text-muted-foreground">Slot: {e.slot}</p>}{e.mods&&<p className="mt-1 text-xs text-muted-foreground">Mods: {e.mods}</p>}<p className="mt-2 text-xs text-muted-foreground">Qty {e.quantity}{e.character_id?" • Character-bound":" • Account"}</p>
+          {e.slot&&<p className="mt-3 text-xs text-muted-foreground">Slot: {e.slot}</p>}{e.mods&&<p className="mt-1 text-xs text-muted-foreground">Mods: {e.mods}</p>}<p className="mt-2 text-xs text-muted-foreground">Qty {e.quantity}{e.character_id?" • Character-bound":" • Account"}</p><div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground"><Boxes className="size-3"/> Ready for loadout fitting</div>
           <Button variant="ghost" size="sm" className="mt-2 px-0" onClick={()=>edit(e)}><Package className="mr-1 size-4"/> Edit fitting</Button>
         </div>)}
       </div>
