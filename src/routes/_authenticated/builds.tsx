@@ -57,7 +57,7 @@ function BuildsPage() {
               {l.notes && <p className="mt-2 text-sm text-muted-foreground">{l.notes}</p>}
               <LoadoutConfiguration loadoutId={l.id} />
               <LoadoutReadiness loadoutId={l.id} buildId={l.build_id} />
-              <ThemeCompliance loadoutId={l.id} buildId={buildId} />
+              <ThemeCompliance loadoutId={l.id} buildId={l.build_id} />
               <LoadoutEquipment loadoutId={l.id} buildId={l.build_id} />
             </div>;
           })}
