@@ -392,6 +392,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
         </DialogHeader>
 
         {!editing ? (
+          <div>
           <div className="mb-3 rounded-lg border border-primary/20 bg-primary/5 p-3"><p className="lcars-label">Theme identity</p><p className="font-medium text-primary">{themeName(ship.theme_id)}</p></div>
           <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             <div><p className="lcars-label text-[10px]">Character</p>{ship.characters?.name}</div>
