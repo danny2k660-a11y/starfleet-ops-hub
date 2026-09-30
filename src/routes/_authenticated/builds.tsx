@@ -121,7 +121,7 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
 function LoadoutEquipment({ loadoutId }: { loadoutId: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [slot, setSlot] = useState("");
+  const [slot, setSlot] = useState("Fore Weapon 1");
   const [equipmentId, setEquipmentId] = useState("");
   const equipment = useQuery({
     queryKey: ["equipment_items"],
@@ -162,7 +162,18 @@ function LoadoutEquipment({ loadoutId }: { loadoutId: string }) {
     {!!assigned.data?.length && <div className="mt-3 space-y-2">{assigned.data.map((a: any) => <div key={a.id} className="flex items-center justify-between rounded border border-border px-3 py-2"><div><span className="text-xs text-muted-foreground">{a.slot}</span><p className="text-sm text-primary">{a.equipment_items?.name ?? "Equipment"}</p></div><Button size="icon" variant="ghost" onClick={() => remove.mutate(a.id)}><Trash2 className="size-3 text-destructive" /></Button></div>)}</div>}
     <Dialog open={open} onOpenChange={setOpen}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle className="font-display text-primary">Assign equipment</DialogTitle></DialogHeader>
       <div className="space-y-4">
-        <div className="space-y-1"><Label>Slot</Label><Input value={slot} onChange={e => setSlot(e.target.value)} placeholder="Fore Weapon 1, Tactical Console 2, Deflector…" /></div>
+        <div className="space-y-1"><Label>Ship fitting slot</Label><Select value={slot} onValueChange={setSlot}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+      {[
+        "Fore Weapon 1","Fore Weapon 2","Fore Weapon 3","Fore Weapon 4","Fore Weapon 5","Fore Weapon 6","Fore Weapon 7",
+        "Aft Weapon 1","Aft Weapon 2","Aft Weapon 3","Aft Weapon 4","Aft Weapon 5","Aft Weapon 6","Aft Weapon 7",
+        "Experimental Weapon","Hangar Bay 1","Hangar Bay 2",
+        "Engineering Console 1","Engineering Console 2","Engineering Console 3","Engineering Console 4","Engineering Console 5",
+        "Science Console 1","Science Console 2","Science Console 3","Science Console 4","Science Console 5",
+        "Tactical Console 1","Tactical Console 2","Tactical Console 3","Tactical Console 4","Tactical Console 5",
+        "Universal Console 1","Universal Console 2","Universal Console 3","Universal Console 4",
+        "Deflector","Impulse Engines","Warp Core","Shields"
+      ].map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}
+    </Select></div>
         <div className="space-y-1"><Label>Equipment</Label><Select value={equipmentId} onValueChange={setEquipmentId}><SelectTrigger><SelectValue placeholder="Select stored equipment" /></SelectTrigger><SelectContent>{(equipment.data ?? []).map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}{e.mark ? ` — ${e.mark}` : ""}</SelectItem>)}</SelectContent></Select></div>
       </div>
       <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button disabled={!slot.trim() || !equipmentId || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Assigning…" : "Assign equipment"}</Button></DialogFooter>
