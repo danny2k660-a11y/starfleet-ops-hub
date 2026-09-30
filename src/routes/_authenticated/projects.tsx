@@ -1,26 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { AppShell } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-import { PlaceholderPage } from "@/components/app-shell";
+export const Route = createFileRoute("/_authenticated/projects")({ head:()=>({meta:[{title:"Projects — STO Command Center"}]}), component:Page });
 
-export const Route = createFileRoute("/_authenticated/projects")({
-  head: () => ({
-    meta: [
-      { title: "Projects — STO Command Center" },
-      { name: "description", content: "Grinds, reputation projects, upgrades and anything else you are working towards." },
-      { property: "og:title", content: "Projects — STO Command Center" },
-      { property: "og:description", content: "Grinds, reputation projects, upgrades and anything else you are working towards." },
-    ],
-  }),
-  component: Page,
-});
-
-function Page() {
-  return (
-    <PlaceholderPage
-      title="Projects"
-      subtitle="Long-term goals"
-      description="Grinds, reputation projects, upgrades and anything else you are working towards."
-      planned={["Project checklists", "Target dates", "Linked characters", "Progress tracking"]}
-    />
-  );
+function Page(){
+ const qc=useQueryClient(); const [name,setName]=useState(""); const [description,setDescription]=useState("");
+ const projects=useQuery({queryKey:["projects"],queryFn:async()=>{const {data,error}=await supabase.from("projects" as never).select("*,characters(name),project_tasks(*)").order("updated_at",{ascending:false});if(error)throw error;return data??[];}});
+ const add=useMutation({mutationFn:async()=>{const {error}=await supabase.from("projects" as never).insert({name:name.trim(),description:description.trim()||null});if(error)throw error;},onSuccess:()=>{setName("");setDescription("");qc.invalidateQueries({queryKey:["projects"]});toast.success("Project created");},onError:(e:Error)=>toast.error(e.message)});
+ const toggle=useMutation({mutationFn:async(t:any)=>{const {error}=await supabase.from("project_tasks" as never).update({done:!t.done}).eq("id",t.id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["projects"]})});
+ const del=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("projects" as never).delete().eq("id",id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["projects"]})});
+ return <AppShell title="Projects" subtitle="Goals, grinds and long-term operations"><div className="space-y-5">
+ <div><p className="lcars-label">Mission control</p><h2 className="font-display text-2xl text-primary">Project Tracker</h2><p className="mt-2 text-sm text-muted-foreground">Keep ship builds, reputation grinds, upgrade plans and campaign goals in one place.</p></div>
+ <Card><CardHeader><CardTitle className="text-base">New project</CardTitle></CardHeader><CardContent><div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input value={name} onChange={e=>setName(e.target.value)} placeholder="Project name"/><Input value={description} onChange={e=>setDescription(e.target.value)} placeholder="What are you working towards?"/><Button disabled={!name.trim()||add.isPending} onClick={()=>add.mutate()}><Plus className="mr-1 h-4 w-4"/>Create</Button></div></CardContent></Card>
+ <div className="grid gap-4 md:grid-cols-2">{(projects.data as any[]||[]).map(p=>{const tasks=p.project_tasks||[];const done=tasks.filter((t:any)=>t.done).length;const progress=tasks.length?Math.round(done/tasks.length*100):p.progress;return <Card key={p.id} className="border-primary/20"><CardHeader><div className="flex items-start justify-between gap-2"><div><CardTitle className="text-base">{p.name}</CardTitle>{p.characters?.name&&<p className="mt-1 text-xs text-muted-foreground">{p.characters.name}</p>}</div><Button variant="ghost" size="icon" onClick={()=>del.mutate(p.id)}><Trash2 className="h-4 w-4"/></Button></div></CardHeader><CardContent><p className="text-sm text-muted-foreground">{p.description||"No description yet."}</p><div className="mt-4"><div className="mb-1 flex justify-between text-xs"><span>Progress</span><span>{progress}%</span></div><div className="h-2 overflow-hidden rounded bg-muted"><div className="h-full bg-primary transition-all" style={{width:progress+"%"}}/></div></div><div className="mt-4 space-y-1">{tasks.slice(0,8).map((t:any)=><button key={t.id} onClick={()=>toggle.mutate(t)} className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-muted">{t.done?<CheckCircle2 className="h-4 w-4 text-primary"/>:<span className="h-4 w-4 rounded-full border"/>}<span className={t.done?"line-through text-muted-foreground":""}>{t.title}</span></button>)}</div></CardContent></Card>})}</div>
+ {!projects.isLoading&&!(projects.data as any[])?.length&&<div className="panel p-8 text-center text-sm text-muted-foreground">No projects yet. Create your first fleet operation above.</div>}
+ </div></AppShell>
 }
