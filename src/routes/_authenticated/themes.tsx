@@ -11,7 +11,7 @@ import { AppShell } from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute("/_authenticated/themes")({
-  head: () => ({ meta: [{ title: "Themes — STO Command Center" }] }),
+  head: () =>\n      {rules.isError&&<div className="panel mb-4 p-4 text-center text-sm text-destructive">Unable to load theme rules. Refresh and try again.</div>} ({ meta: [{ title: "Themes — STO Command Center" }] }),
   component: Page,
 });
 
