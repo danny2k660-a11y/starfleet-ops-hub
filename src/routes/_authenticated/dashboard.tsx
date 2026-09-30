@@ -20,7 +20,7 @@ const cards: Card[] = [
   { label: "Projects", icon: ListChecks, to: "/projects", key: "projects", hint: "Goals and grinds" },
   { label: "Inventory", icon: Package, to: "/inventory", key: "inventory", hint: "Tracked equipment" },
   { label: "Resources", icon: Database, to: "/resources", key: "resources", hint: "Currencies and materials" },
-  { label: "Themes", icon: Palette, to: "/themes", key: "themes", hint: "Theme presets" },
+  { label: "Themes", icon: Palette, to: "/themes", key: "themes", hint: "Theme presets & custom rules" },
 ];
 
 function useCount(table: "characters" | "user_ships" | "builds") {
@@ -36,10 +36,10 @@ function Dashboard() {
   const ships = useCount("user_ships");
   const builds = useCount("builds");
   const projects = useQuery({ queryKey: ["dashboard-projects"], queryFn: async () => { const { count, error } = await supabase.from("projects" as never).select("id",{count:"exact",head:true}); if(error) throw error; return count ?? 0; }});
-  const resources = useQuery({ queryKey: ["dashboard-resources"], queryFn: async () => { const { count, error } = await supabase.from("resource_balances" as never).select("id",{count:"exact",head:true}); if(error) throw error; return count ?? 0; }});
+  const resources = useQuery({ queryKey: ["dashboard-resources"], queryFn: async () => { const { count, error } = await supabase.from("resource_balances" as never).select("id",{count:"exact",head:true}); if(error) throw error; return count ?? 0; }});\n  const themeRules = useQuery({ queryKey: ["dashboard-theme-rules"], queryFn: async () => { const { count, error } = await supabase.from("theme_rules" as never).select("id",{count:"exact",head:true}); if(error) throw error; return count ?? 0; }});
   const recentShips = useQuery({ queryKey: ["dashboard-recent-ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,characters(name),sto_ships(name),builds(name,status)").order("created_at",{ascending:false}).limit(5); if(error) throw error; return data as any[]; }});
   const activeProjects = useQuery({ queryKey: ["dashboard-active-projects"], queryFn: async () => { const { data, error } = await supabase.from("projects" as never).select("id,name,status,priority,progress,characters(name)").eq("status","active").order("updated_at",{ascending:false}).limit(5); if(error) throw error; return data as any[]; }});
-  const counts: Record<string, number | null> = { characters: characters.data ?? null, ships: ships.data ?? null, builds: builds.data ?? null, projects: projects.data ?? null, resources: resources.data ?? null };
+  const counts: Record<string, number | null> = { characters: characters.data ?? null, ships: ships.data ?? null, builds: builds.data ?? null, projects: projects.data ?? null, resources: resources.data ?? null, themes: themeRules.data ?? null };
 
   return <AppShell title="Dashboard" subtitle="Fleet status overview">
     <div className="space-y-6">
