@@ -13,8 +13,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import type { LinkProps } from "@tanstack/react-router";
+
 export type NavItem = {
-  to: string;
+  to: NonNullable<LinkProps["to"]>;
   label: string;
   icon: LucideIcon;
 };
