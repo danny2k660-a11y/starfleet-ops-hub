@@ -417,9 +417,10 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>None</SelectItem>
-                  {builds.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  {builds.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}{b.id === ship.current_build_id ? " • CURRENT" : ""}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">This saves the selected build as the ship's active build link. Build ownership remains separate from the ship catalogue record.</p>
             </div>
             <div className="space-y-1"><Label>Ownership</Label>
               <Select value={status} onValueChange={setStatus}>
