@@ -232,7 +232,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
     queryKey: ["loadout_ship", buildId],
     queryFn: async () => {
       const { data, error } = await supabase.from("user_ships" as never)
-        .select("character_id, sto_ships(*)")
+        .select("id,character_id,sto_ship_id,custom_name,theme_id,sto_ships(*)")
         .eq("current_build_id", buildId)
         .maybeSingle();
       if (error) throw error;
