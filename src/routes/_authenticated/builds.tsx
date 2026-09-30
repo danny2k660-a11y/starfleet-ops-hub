@@ -1,26 +1,72 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Search, Wrench, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
-import { PlaceholderPage } from "@/components/app-shell";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import { AppShell } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type Build = Tables<"builds">;
+type Ship = Tables<"ship_instances">;
+type Character = Tables<"characters">;
 
 export const Route = createFileRoute("/_authenticated/builds")({
-  head: () => ({
-    meta: [
-      { title: "Builds — STO Command Center" },
-      { name: "description", content: "Builds belong to one of your ships and can hold several saved loadout variants." },
-      { property: "og:title", content: "Builds — STO Command Center" },
-      { property: "og:description", content: "Builds belong to one of your ships and can hold several saved loadout variants." },
-    ],
-  }),
-  component: Page,
+  head: () => ({ meta: [{ title: "Builds — STO Command Center" }, { name: "description", content: "Create and manage ship builds, variants and build status." }] }),
+  component: BuildsPage,
 });
 
-function Page() {
-  return (
-    <PlaceholderPage
-      title="Builds"
-      subtitle="Ship build configurations"
-      description="Builds belong to one of your ships and can hold several saved loadout variants."
-      planned={["Build per ship instance", "Multiple loadouts", "Build role and status", "Build notes"]}
-    />
-  );
+function BuildsPage() {
+  const qc = useQueryClient();
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<Build | null>(null);
+  const builds = useQuery({ queryKey: ["builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("*, ship_instances(*, characters(*))").order("updated_at", { ascending: false }); if (error) throw error; return data as unknown as (Build & { ship_instances: Ship & { characters: Character | null } | null })[]; } });
+  const ships = useQuery({ queryKey: ["ship_instances"], queryFn: async () => { const { data, error } = await supabase.from("ship_instances").select("*, characters(*)").order("name"); if (error) throw error; return data as unknown as (Ship & { characters: Character | null })[]; } });
+  const filtered = useMemo(() => (builds.data ?? []).filter(b => `${b.name} ${b.role ?? ""} ${b.status ?? ""} ${b.ship_instances?.name ?? ""}`.toLowerCase().includes(q.toLowerCase())), [builds.data, q]);
+
+  const remove = useMutation({ mutationFn: async (id: string) => { const { error } = await supabase.from("builds").delete().eq("id", id); if (error) throw error; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["builds"] }); toast.success("Build deleted"); setSelected(null); }, onError: (e: Error) => toast.error(e.message) });
+
+  return <AppShell title="Builds" subtitle="Ship build configurations"><div className="space-y-6">
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="lcars-label">Build library</p><h2 className="font-display text-2xl text-primary sm:text-3xl">Builds</h2></div><Button onClick={() => { setSelected(null); setOpen(true); }} className="glow-primary"><Plus className="mr-1 size-4" /> New build</Button></div>
+    <div className="panel p-4"><div className="relative"><Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" /><Input className="pl-8" placeholder="Search builds, roles or ships…" value={q} onChange={e => setQ(e.target.value)} /></div></div>
+    {builds.isLoading ? <p className="text-muted-foreground">Loading build library…</p> : filtered.length === 0 ? <div className="panel p-8 text-center text-muted-foreground"><Wrench className="mx-auto mb-2 size-8 text-primary" />{builds.data?.length ? "No builds match your search." : "No builds yet. Create one and attach it to a ship."}</div> :
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.map(b => <button key={b.id} onClick={() => { setSelected(b); setOpen(true); }} className="panel p-5 text-left transition hover:border-primary"><div className="flex items-start justify-between gap-3"><div><p className="lcars-label">{b.ship_instances?.name ?? "Unassigned ship"}</p><h3 className="font-display text-xl text-primary">{b.name}</h3></div><Wrench className="size-5 text-accent" /></div><div className="mt-3 flex flex-wrap gap-2">{b.role && <Badge variant="outline">{b.role}</Badge>}<Badge variant="secondary">{b.status}</Badge>{b.ship_instances?.characters?.name && <Badge variant="outline">{b.ship_instances.characters.name}</Badge>}</div></button>)}</div>}
+    <BuildDialog open={open} onOpenChange={setOpen} build={selected} ships={ships.data ?? []} onDeleted={() => selected && remove.mutate(selected.id)} />
+  </div></AppShell>;
+}
+
+function BuildDialog({ open, onOpenChange, build, ships, onDeleted }: { open: boolean; onOpenChange: (v: boolean) => void; build: (Build & { ship_instances: Ship & { characters: Character | null } | null }) | null; ships: (Ship & { characters: Character | null })[]; onDeleted: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState(build?.name ?? "");
+  const [shipId, setShipId] = useState(build?.ship_instance_id ?? "__none__");
+  const [role, setRole] = useState(build?.role ?? "");
+  const [status, setStatus] = useState(build?.status ?? "draft");
+  const [notes, setNotes] = useState(build?.notes ?? "");
+
+  const save = useMutation({ mutationFn: async () => {
+    const { data: u } = await supabase.auth.getUser();
+    const payload = { name: name.trim(), ship_instance_id: shipId === "__none__" ? null : shipId, role: role || null, status, notes: notes || null };
+    if (build) { const { error } = await supabase.from("builds").update(payload).eq("id", build.id); if (error) throw error; }
+    else { const { error } = await supabase.from("builds").insert({ ...payload, user_id: u.user!.id }); if (error) throw error; }
+  }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["builds"] }); toast.success(build ? "Build updated" : "Build created"); onOpenChange(false); }, onError: (e: Error) => toast.error(e.message) });
+
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle className="font-display text-primary">{build ? "Edit build" : "New build"}</DialogTitle></DialogHeader>
+    <div className="space-y-4">
+      <div className="space-y-1"><Label>Build name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Elite CSV — Terran" /></div>
+      <div className="space-y-1"><Label>Ship instance</Label><Select value={shipId} onValueChange={setShipId}><SelectTrigger><SelectValue placeholder="Select ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">Unassigned</SelectItem>{ships.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select></div>
+      <div className="space-y-1"><Label>Role</Label><Input value={role} onChange={e => setRole(e.target.value)} placeholder="CSV, BO, FAW, Science, Carrier…" /></div>
+      <div className="space-y-1"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="testing">Testing</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="retired">Retired</SelectItem></SelectContent></Select></div>
+      <div className="space-y-1"><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Theme rules, target content, gear notes…" /></div>
+    </div>
+    <DialogFooter className="gap-2">{build && <Button variant="ghost" className="mr-auto text-destructive" onClick={() => { if (confirm("Delete this build?")) onDeleted(); }}><Trash2 className="mr-1 size-4" /> Delete</Button>}<Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : build ? "Save changes" : "Create build"}</Button></DialogFooter>
+  </DialogContent></Dialog>;
 }
