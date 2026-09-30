@@ -76,7 +76,7 @@ function Page() {
           <Button variant="ghost" size="sm" className="mt-2 px-0" onClick={()=>edit(e)}><Package className="mr-1 size-4"/> Edit fitting</Button>
         </div>)}
       </div>
-      {!filtered.length&&<div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">No equipment matches your search.</div>}
+      {items.isError?<div className="panel p-6 text-center text-destructive">Unable to load equipment. Refresh and try again.</div>:!filtered.length&&<div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">No equipment matches your search.</div>}
     </div>
     <Dialog open={open} onOpenChange={v=>{setOpen(v);if(!v)reset();}}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
       <DialogHeader><DialogTitle className="font-display text-primary">{editing?"Edit equipment":"Add equipment"}</DialogTitle></DialogHeader>
