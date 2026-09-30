@@ -64,7 +64,7 @@ function CharactersPage() {
               <div className="mt-3 flex flex-wrap gap-2">{c.career && <Badge variant="outline">{c.career}</Badge>}{c.species && <Badge variant="outline">{c.species}</Badge>}{c.level != null && <Badge variant="secondary">Lv {c.level}</Badge>}</div>
             </button>
           )}</div>}
-        <CharacterDialog open={open} onOpenChange={setOpen} character={selected} onDeleted={() => remove.mutate(selected!.id)} />
+        <CharacterDialog key={selected?.id ?? "new"} open={open} onOpenChange={setOpen} character={selected} onDeleted={() => remove.mutate(selected!.id)} />
         {selected && <CharacterOps characterId={selected.id} characterName={selected.name} />}
       </div>
     </AppShell>
