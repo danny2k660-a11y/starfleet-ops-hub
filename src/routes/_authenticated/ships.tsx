@@ -151,7 +151,7 @@ function ShipsPage() {
         </Select>
       </div>
 
-      {ships.isLoading ? (
+      {ships.isError ? (\n        <div className="panel p-6 text-center text-destructive">Unable to load the fleet registry. Refresh and try again.</div>\n      ) : ships.isLoading ? (
         <p className="text-muted-foreground">Scanning fleet…</p>
       ) : filtered.length === 0 ? (
         <div className="panel p-8 text-center text-muted-foreground">
