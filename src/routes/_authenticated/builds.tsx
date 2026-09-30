@@ -252,7 +252,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       if (error) throw error; return (data ?? []) as any[];
     },
   });
-  const ownedEquipment = useMemo(() => (equipment.data ?? []).filter((e: any) => !e.character_id || !shipCharacterId || e.character_id === shipCharacterId), [equipment.data, shipCharacterId]);
+  const ownedEquipment = useMemo(() => (equipment.data ?? []).filter((e: any) => !e.character_id || e.character_id === shipCharacterId), [equipment.data, shipCharacterId]);
 
   const assigned = useQuery({
     queryKey: ["loadout_equipment", loadoutId],
