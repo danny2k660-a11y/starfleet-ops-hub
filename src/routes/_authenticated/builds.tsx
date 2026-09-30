@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Wrench, Trash2 } from "lucide-react";
+import { Plus, Search, Wrench, Trash2, Package } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +54,7 @@ function BuildsPage() {
             return <div key={l.id} className="panel p-4">
               <div className="flex items-start justify-between gap-2"><div><p className="lcars-label">{b?.name ?? "Unknown build"}</p><h3 className="font-display text-lg text-primary">{l.name}</h3></div>{l.is_active && <Badge className="bg-accent text-accent-foreground">ACTIVE</Badge>}</div>
               {l.notes && <p className="mt-2 text-sm text-muted-foreground">{l.notes}</p>}
+              <LoadoutEquipment loadoutId={l.id} />
             </div>;
           })}
         </div>
@@ -114,4 +115,57 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
       <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button disabled={!buildId || !name.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : "Create loadout"}</Button></DialogFooter>
     </DialogContent></Dialog>
   </>;
+}
+
+
+function LoadoutEquipment({ loadoutId }: { loadoutId: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [slot, setSlot] = useState("");
+  const [equipmentId, setEquipmentId] = useState("");
+  const equipment = useQuery({
+    queryKey: ["equipment_items"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("equipment_items").select("*").order("name");
+      if (error) throw error; return (data ?? []) as any[];
+    },
+  });
+  const assigned = useQuery({
+    queryKey: ["loadout_equipment", loadoutId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("loadout_equipment" as never).select("*, equipment_items(*)").eq("loadout_id", loadoutId);
+      if (error) throw error; return (data ?? []) as any[];
+    },
+  });
+  const save = useMutation({
+    mutationFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in");
+      const { error } = await supabase.from("loadout_equipment" as never).upsert(
+        { user_id: u.user.id, loadout_id: loadoutId, equipment_id: equipmentId, slot: slot.trim() },
+        { onConflict: "loadout_id,slot" }
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["loadout_equipment", loadoutId] }); toast.success("Equipment assigned"); setOpen(false); setSlot(""); setEquipmentId(""); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const remove = useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from("loadout_equipment" as never).delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["loadout_equipment", loadoutId] }),
+  });
+  return <div className="mt-4 border-t border-border pt-3">
+    <div className="flex items-center justify-between gap-2">
+      <div><p className="lcars-label">Fitting</p><p className="text-sm text-muted-foreground">{assigned.data?.length ?? 0} slots assigned</p></div>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Package className="mr-1 size-4" /> Assign gear</Button>
+    </div>
+    {!!assigned.data?.length && <div className="mt-3 space-y-2">{assigned.data.map((a: any) => <div key={a.id} className="flex items-center justify-between rounded border border-border px-3 py-2"><div><span className="text-xs text-muted-foreground">{a.slot}</span><p className="text-sm text-primary">{a.equipment_items?.name ?? "Equipment"}</p></div><Button size="icon" variant="ghost" onClick={() => remove.mutate(a.id)}><Trash2 className="size-3 text-destructive" /></Button></div>)}</div>}
+    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle className="font-display text-primary">Assign equipment</DialogTitle></DialogHeader>
+      <div className="space-y-4">
+        <div className="space-y-1"><Label>Slot</Label><Input value={slot} onChange={e => setSlot(e.target.value)} placeholder="Fore Weapon 1, Tactical Console 2, Deflector…" /></div>
+        <div className="space-y-1"><Label>Equipment</Label><Select value={equipmentId} onValueChange={setEquipmentId}><SelectTrigger><SelectValue placeholder="Select stored equipment" /></SelectTrigger><SelectContent>{(equipment.data ?? []).map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}{e.mark ? ` — ${e.mark}` : ""}</SelectItem>)}</SelectContent></Select></div>
+      </div>
+      <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button disabled={!slot.trim() || !equipmentId || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Assigning…" : "Assign equipment"}</Button></DialogFooter>
+    </DialogContent></Dialog>
+  </div>;
 }
