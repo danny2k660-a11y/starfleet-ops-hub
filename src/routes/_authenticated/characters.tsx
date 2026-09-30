@@ -118,7 +118,8 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
   const ships = useQuery({ queryKey: ["character_ops_ships", characterId], queryFn: async () => {
     const { data, error } = await supabase.from("user_ships").select("id,custom_name,ownership_status,sto_ships(name,ship_class),builds(name,status)").eq("character_id", characterId).order("created_at", { ascending: false });
     if (error) throw error; return data as any[];
-  }});
+
+      <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3"><p className="lcars-label">Captain command link</p><p className="text-xs text-muted-foreground">Ships, equipment, inventory and projects shown here remain scoped to this character.</p></div>  }});
   const equipment = useQuery({ queryKey: ["character_ops_equipment", characterId], queryFn: async () => {
     const { data, error } = await supabase.from("equipment_items" as never).select("id,name,category,rarity,quantity").eq("character_id", characterId).order("name");
     if (error) throw error; return data as any[];
