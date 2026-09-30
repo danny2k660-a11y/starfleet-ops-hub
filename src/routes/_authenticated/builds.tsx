@@ -133,6 +133,8 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const [trait, setTrait] = useState("");
   const [traitType, setTraitType] = useState("starship");
   const [station, setStation] = useState("");
+  const [specialization, setSpecialization] = useState("");
+  const [abilities, setAbilities] = useState("");
   const [officer, setOfficer] = useState("");
   const addTrait = async () => {
     if (!trait.trim()) return;
@@ -142,9 +144,9 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   };
   const saveOfficer = async () => {
     if (!station.trim()) return;
-    const { error } = await supabase.from("loadout_boffs" as never).upsert({ loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null });
+    const { error } = await supabase.from("loadout_boffs" as never).upsert({ loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null, specialization: specialization.trim() || null, abilities: abilities.split(",").map((x) => x.trim()).filter(Boolean) });
     if (error) { toast({ title: "Could not save officer", description: error.message, variant: "destructive" }); return; }
-    setStation(""); setOfficer(""); qc.invalidateQueries({ queryKey: ["loadout_boffs", loadoutId] });
+    setStation(""); setOfficer(""); setSpecialization(""); setAbilities(""); qc.invalidateQueries({ queryKey: ["loadout_boffs", loadoutId] });
   };
   const remove = async (table: string, id: string, key: string) => {
     const { error } = await supabase.from(table as never).delete().eq("id", id);
@@ -167,10 +169,10 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
       </div>
       <div className="rounded-lg border border-border/70 bg-background/30 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bridge Officers</p>
-        <div className="grid gap-2 sm:grid-cols-2"><Input value={station} onChange={(e) => setStation(e.target.value)} placeholder="Station" className="h-9" /><Input value={officer} onChange={(e) => setOfficer(e.target.value)} placeholder="Officer name" className="h-9" /></div>
+        <div className="grid gap-2 sm:grid-cols-2"><Input value={station} onChange={(e) => setStation(e.target.value)} placeholder="Station" className="h-9" /><Input value={officer} onChange={(e) => setOfficer(e.target.value)} placeholder="Officer name" className="h-9" /><Input value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder="Specialization" className="h-9" /><Input value={abilities} onChange={(e) => setAbilities(e.target.value)} placeholder="Abilities, comma separated" className="h-9 sm:col-span-2" /></div>
         <Button size="sm" className="mt-2" onClick={saveOfficer}>Save Officer</Button>
         <div className="mt-2 space-y-1">{((boffs.data as any[]) || []).map((b) => (
-          <div key={b.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span>{b.station}<span className="ml-2 text-primary">{b.officer_name || "Unassigned"}</span></span><Button variant="ghost" size="icon" onClick={() => remove("loadout_boffs", b.id, "loadout_boffs")}><Trash2 className="h-3.5 w-3.5" /></Button></div>
+          <div key={b.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span><span>{b.station}</span><span className="ml-2 text-primary">{b.officer_name || "Unassigned"}</span>{b.specialization && <span className="ml-2 text-xs text-muted-foreground">{b.specialization}</span>}{Array.isArray(b.abilities) && b.abilities.length > 0 && <span className="mt-1 block text-xs text-muted-foreground">{b.abilities.join(" • ")}</span>}</span><Button variant="ghost" size="icon" onClick={() => remove("loadout_boffs", b.id, "loadout_boffs")}><Trash2 className="h-3.5 w-3.5" /></Button></div>
         ))}</div>
       </div>
     </div>
