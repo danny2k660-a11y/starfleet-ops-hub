@@ -56,7 +56,7 @@ function CharactersPage() {
           <Button onClick={() => { setSelected(null); setOpen(true); }} className="glow-primary"><Plus className="mr-1 size-4" /> Add character</Button>
         </div>
         <div className="panel p-4"><div className="relative"><Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" /><Input className="pl-8" placeholder="Search name, faction, career or species…" value={q} onChange={e => setQ(e.target.value)} /></div></div>
-        {characters.isLoading ? <p className="text-muted-foreground">Loading personnel registry…</p> :
+        {characters.isError ? <div className="panel p-6 text-center text-destructive">Unable to load the personnel registry. Refresh and try again.</div> : characters.isLoading ? <p className="text-muted-foreground">Loading personnel registry…</p> :
           filtered.length === 0 ? <div className="panel p-8 text-center text-muted-foreground"><UserRound className="mx-auto mb-2 size-8 text-primary" />{characters.data?.length ? "No characters match your search." : "No characters yet. Add your first captain."}</div> :
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.map(c =>
             <button key={c.id} onClick={() => { setSelected(c); setOpen(true); }} className="panel p-5 text-left transition hover:border-primary">
