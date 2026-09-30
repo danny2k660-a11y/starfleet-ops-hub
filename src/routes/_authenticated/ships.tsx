@@ -186,6 +186,7 @@ function ShipsPage() {
         <ShipDetailDialog ship={selected} characters={characters.data ?? []} builds={builds.data ?? []} onClose={() => setSelectedId(null)} />
       )}
     </div>
+    </AppShell>
   );
 }
 
