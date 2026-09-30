@@ -56,7 +56,7 @@ function Page() {
     else { const { error } = await supabase.from("equipment_items" as never).insert(payload); if(error) throw error; }
   }, onSuccess:()=>{qc.invalidateQueries({queryKey:["equipment_items"]});toast.success(editing?"Equipment updated":"Equipment added");setOpen(false);reset();}, onError:(e:Error)=>toast.error(e.message)});
 
-  const remove = useMutation({ mutationFn:async(id:string)=>{const {error}=await supabase.from("equipment_items" as never).delete().eq("id",id);if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["equipment_items"]});toast.success("Equipment removed");}});
+  const remove = useMutation({ mutationFn:async(id:string)=>{const {error}=await supabase.from("equipment_items" as never).delete().eq("id",id);if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["equipment_items"]});toast.success("Equipment removed");},onError:(e:Error)=>toast.error(e.message)});
   const openNew=()=>{reset();setOpen(true);};
 
   return <AppShell title="Equipment" subtitle="Fitting locker">
