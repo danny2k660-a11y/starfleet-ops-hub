@@ -52,7 +52,7 @@ export function AppShell({
   children,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: string | undefined;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -129,7 +129,7 @@ export function PlaceholderPage({
   planned,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: string | undefined;
   description: string;
   planned: string[];
 }) {
