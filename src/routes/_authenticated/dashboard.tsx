@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, Rocket, Wrench, ListChecks, Database, Package, Palette } from "lucide-react";
+import { Users, Rocket, Wrench, ListChecks, Database, Package, Palette, Target, Activity } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import type { LinkProps } from "@tanstack/react-router";
@@ -35,7 +35,9 @@ function Dashboard() {
   const characters = useCount("characters");
   const ships = useCount("user_ships");
   const builds = useCount("builds");
-  const counts: Record<string, number | null> = { characters: characters.data ?? null, ships: ships.data ?? null, builds: builds.data ?? null };
+  const projects = useQuery({ queryKey: ["dashboard-projects"], queryFn: async () => { const { count, error } = await supabase.from("projects" as never).select("id",{count:"exact",head:true}); if(error) throw error; return count ?? 0; }});
+  const resources = useQuery({ queryKey: ["dashboard-resources"], queryFn: async () => { const { count, error } = await supabase.from("resource_balances" as never).select("id",{count:"exact",head:true}); if(error) throw error; return count ?? 0; }});
+  const counts: Record<string, number | null> = { characters: characters.data ?? null, ships: ships.data ?? null, builds: builds.data ?? null, projects: projects.data ?? null, resources: resources.data ?? null };
 
   return <AppShell title="Dashboard" subtitle="Fleet status overview">
     <div className="space-y-6">
