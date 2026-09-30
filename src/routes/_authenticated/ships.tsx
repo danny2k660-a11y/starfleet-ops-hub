@@ -359,7 +359,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
   const [themeId, setThemeId] = useState(ship.theme_id ?? "");
   const [up, setUp] = useState({ t6: ship.t6_upgraded, t6x: ship.t6x_upgraded, t6x2: ship.t6x2_upgraded });
 
-  const update = useMutation({
+  const availableBuilds = builds.filter((b) => b.ship_instance_id && b.ship_instance_id === ship.id);\n  const characterBuilds = builds.filter((b) => b.ship_instance_id && characters.some((ch) => ch.id === characterId));\n\n  const update = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("user_ships").update({
         custom_name: name.trim(), character_id: characterId, current_build_id: buildId === NONE ? null : buildId,
@@ -416,7 +416,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>None</SelectItem>
-                  {builds.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  {(availableBuilds.length ? availableBuilds : builds).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
