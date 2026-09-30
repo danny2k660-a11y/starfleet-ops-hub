@@ -402,6 +402,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
             {ship.date_acquired && <div><p className="lcars-label text-[10px]">Acquired</p>{ship.date_acquired}</div>}
             {ship.notes && <div className="col-span-full"><p className="lcars-label text-[10px]">Notes</p>{ship.notes}</div>}
           </div>
+          </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1"><Label>Custom name</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
