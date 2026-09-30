@@ -123,13 +123,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const [open, setOpen] = useState(false);
   const [slot, setSlot] = useState("Fore Weapon 1");
   const [equipmentId, setEquipmentId] = useState("");
-  const equipment = useQuery({
-    queryKey: ["equipment_items"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("equipment_items").select("*").order("name");
-      if (error) throw error; return (data ?? []) as any[];
-    },
-  });
+
   const ship = useQuery({
     queryKey: ["loadout_ship", buildId],
     queryFn: async () => {
@@ -138,22 +132,13 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       return (data as any)?.sto_ships ?? null;
     },
   });
-  const shipSlots = (() => {
-    const s: any = ship.data;
-    const slots: string[] = [];
-    const fore = Number(s?.fore_weapon_slots ?? 0), aft = Number(s?.aft_weapon_slots ?? 0);
-    const eng = Number(s?.engineering_console_slots ?? 0), sci = Number(s?.science_console_slots ?? 0), tac = Number(s?.tactical_console_slots ?? 0), uni = Number(s?.universal_console_slots ?? 0), hang = Number(s?.hangar_bays ?? 0);
-    for (let i=1;i<=fore;i++) slots.push(`Fore Weapon ${i}`);
-    for (let i=1;i<=aft;i++) slots.push(`Aft Weapon ${i}`);
-    if (s?.experimental_weapon) slots.push("Experimental Weapon");
-    for (let i=1;i<=eng;i++) slots.push(`Engineering Console ${i}`);
-    for (let i=1;i<=sci;i++) slots.push(`Science Console ${i}`);
-    for (let i=1;i<=tac;i++) slots.push(`Tactical Console ${i}`);
-    for (let i=1;i<=uni;i++) slots.push(`Universal Console ${i}`);
-    for (let i=1;i<=hang;i++) slots.push(`Hangar Bay ${i}`);
-    slots.push("Deflector","Impulse Engines","Warp Core","Shields");
-    return slots;
-  })();
+  const equipment = useQuery({
+    queryKey: ["equipment_items"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("equipment_items").select("*").order("name");
+      if (error) throw error; return (data ?? []) as any[];
+    },
+  });
   const assigned = useQuery({
     queryKey: ["loadout_equipment", loadoutId],
     queryFn: async () => {
@@ -161,6 +146,20 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       if (error) throw error; return (data ?? []) as any[];
     },
   });
+
+  const slots = (() => {
+    const s: any = ship.data; const out: string[] = [];
+    const add = (label: string, n: number) => { for (let i=1;i<=Number(n||0);i++) out.push(`${label} ${i}`); };
+    add("Fore Weapon", s?.fore_weapon_slots); add("Aft Weapon", s?.aft_weapon_slots);
+    if (s?.experimental_weapon) out.push("Experimental Weapon");
+    add("Engineering Console", s?.engineering_console_slots); add("Science Console", s?.science_console_slots);
+    add("Tactical Console", s?.tactical_console_slots); add("Universal Console", s?.universal_console_slots);
+    add("Hangar Bay", s?.hangar_bays);
+    out.push("Deflector","Impulse Engines","Warp Core","Shields");
+    return out;
+  })();
+  const bySlot = new Map((assigned.data ?? []).map((a:any) => [a.slot, a]));
+
   const save = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
@@ -171,36 +170,43 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       );
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["loadout_equipment", loadoutId] }); toast.success("Equipment assigned"); setOpen(false); setSlot(""); setEquipmentId(""); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["loadout_equipment", loadoutId] }); toast.success("Equipment assigned"); setOpen(false); setEquipmentId(""); },
     onError: (e: Error) => toast.error(e.message),
   });
   const remove = useMutation({
     mutationFn: async (id: string) => { const { error } = await supabase.from("loadout_equipment" as never).delete().eq("id", id); if (error) throw error; },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["loadout_equipment", loadoutId] }),
   });
+
+  const groups = [
+    ["Weapons", slots.filter(x => x.startsWith("Fore Weapon") || x.startsWith("Aft Weapon") || x === "Experimental Weapon")],
+    ["Consoles", slots.filter(x => x.includes("Console"))],
+    ["Ship Systems", slots.filter(x => ["Deflector","Impulse Engines","Warp Core","Shields"].includes(x))],
+    ["Hangars", slots.filter(x => x.startsWith("Hangar Bay"))],
+  ] as const;
+
   return <div className="mt-4 border-t border-border pt-3">
     <div className="flex items-center justify-between gap-2">
-      <div><p className="lcars-label">Fitting</p><p className="text-sm text-muted-foreground">{assigned.data?.length ?? 0} slots assigned</p></div>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Package className="mr-1 size-4" /> Assign gear</Button>
+      <div><p className="lcars-label">STO Fitting</p><p className="text-sm text-muted-foreground">{assigned.data?.length ?? 0} / {slots.length} slots filled{ship.data?.name ? ` • ${ship.data.name}` : ""}</p></div>
+      <Button size="sm" variant="outline" onClick={() => { setSlot(slots.find(x => !bySlot.has(x)) ?? slots[0] ?? "Fore Weapon 1"); setOpen(true); }}><Package className="mr-1 size-4" /> Fit gear</Button>
     </div>
-    {!!assigned.data?.length && <div className="mt-3 space-y-2">{assigned.data.map((a: any) => <div key={a.id} className="flex items-center justify-between rounded border border-border px-3 py-2"><div><span className="text-xs text-muted-foreground">{a.slot}</span><p className="text-sm text-primary">{a.equipment_items?.name ?? "Equipment"}</p></div><Button size="icon" variant="ghost" onClick={() => remove.mutate(a.id)}><Trash2 className="size-3 text-destructive" /></Button></div>)}</div>}
-    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle className="font-display text-primary">Assign equipment</DialogTitle></DialogHeader>
+    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      {groups.map(([group, groupSlots]) => groupSlots.length ? <div key={group} className="rounded-lg border border-border/70 bg-background/30 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group}</p>
+        <div className="space-y-1.5">
+          {groupSlots.map(x => { const a:any = bySlot.get(x); return <div key={x} className={`flex items-center justify-between gap-2 rounded border px-2.5 py-2 ${a ? "border-primary/40 bg-primary/5" : "border-dashed border-border"}`}>
+            <div className="min-w-0"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{x}</p><p className={`truncate text-sm ${a ? "text-primary" : "text-muted-foreground"}`}>{a?.equipment_items?.name ?? "EMPTY"}</p></div>
+            {a && <Button size="icon" variant="ghost" onClick={() => remove.mutate(a.id)}><Trash2 className="size-3 text-destructive"/></Button>}
+          </div>; })}
+        </div>
+      </div> : null)}
+    </div>
+    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle className="font-display text-primary">Fit equipment</DialogTitle></DialogHeader>
       <div className="space-y-4">
-        <div className="space-y-1"><Label>Ship fitting slot</Label><Select value={slot} onValueChange={setSlot}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
-      {[
-        "Fore Weapon 1","Fore Weapon 2","Fore Weapon 3","Fore Weapon 4","Fore Weapon 5","Fore Weapon 6","Fore Weapon 7",
-        "Aft Weapon 1","Aft Weapon 2","Aft Weapon 3","Aft Weapon 4","Aft Weapon 5","Aft Weapon 6","Aft Weapon 7",
-        "Experimental Weapon","Hangar Bay 1","Hangar Bay 2",
-        "Engineering Console 1","Engineering Console 2","Engineering Console 3","Engineering Console 4","Engineering Console 5",
-        "Science Console 1","Science Console 2","Science Console 3","Science Console 4","Science Console 5",
-        "Tactical Console 1","Tactical Console 2","Tactical Console 3","Tactical Console 4","Tactical Console 5",
-        "Universal Console 1","Universal Console 2","Universal Console 3","Universal Console 4",
-        "Deflector","Impulse Engines","Warp Core","Shields"
-      ].map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}
-    </Select></div>
-        <div className="space-y-1"><Label>Equipment</Label><Select value={equipmentId} onValueChange={setEquipmentId}><SelectTrigger><SelectValue placeholder="Select stored equipment" /></SelectTrigger><SelectContent>{(equipment.data ?? []).map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}{e.mark ? ` — ${e.mark}` : ""}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Ship slot</Label><Select value={slot} onValueChange={setSlot}><SelectTrigger><SelectValue placeholder="Select slot"/></SelectTrigger><SelectContent>{slots.map(x=><SelectItem key={x} value={x}>{x}{bySlot.has(x) ? " • occupied" : ""}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Equipment</Label><Select value={equipmentId} onValueChange={setEquipmentId}><SelectTrigger><SelectValue placeholder="Select stored equipment"/></SelectTrigger><SelectContent>{(equipment.data ?? []).map((e:any)=><SelectItem key={e.id} value={e.id}>{e.name}{e.mark ? ` — ${e.mark}` : ""}</SelectItem>)}</SelectContent></Select></div>
       </div>
-      <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button disabled={!slot.trim() || !equipmentId || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Assigning…" : "Assign equipment"}</Button></DialogFooter>
+      <DialogFooter><Button variant="ghost" onClick={()=>setOpen(false)}>Cancel</Button><Button disabled={!slot || !equipmentId || save.isPending} onClick={()=>save.mutate()}>{save.isPending ? "Fitting…" : "Fit equipment"}</Button></DialogFooter>
     </DialogContent></Dialog>
   </div>;
 }
