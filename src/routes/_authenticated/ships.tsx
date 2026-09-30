@@ -21,6 +21,15 @@ type Character = Tables<"characters">;
 type Build = Tables<"builds">;
 type UserShip = Tables<"user_ships"> & { sto_ships: StoShip | null; characters: Character | null; builds: Build | null };
 
+const THEME_PRESETS = [
+  { id: "10000000-0000-4000-8000-000000000001", name: "Terran Empire" },
+  { id: "10000000-0000-4000-8000-000000000002", name: "Romulan" },
+  { id: "10000000-0000-4000-8000-000000000003", name: "Hur'q" },
+  { id: "10000000-0000-4000-8000-000000000004", name: "Discovery-era Terran" },
+  { id: "10000000-0000-4000-8000-000000000005", name: "Canon / Screen Accurate" },
+];
+function themeName(id: string | null | undefined) { return THEME_PRESETS.find((x) => x.id === id)?.name ?? "No theme assigned"; }
+
 const NOT_POPULATED = "Ship data not yet populated";
 const ALL = "__all__";
 const NONE = "__none__";
@@ -345,13 +354,14 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
   const [status, setStatus] = useState(ship.ownership_status);
   const [acquired, setAcquired] = useState(ship.date_acquired ?? "");
   const [notes, setNotes] = useState(ship.notes ?? "");
+  const [themeId, setThemeId] = useState(ship.theme_id ?? "");
   const [up, setUp] = useState({ t6: ship.t6_upgraded, t6x: ship.t6x_upgraded, t6x2: ship.t6x2_upgraded });
 
   const update = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("user_ships").update({
         custom_name: name.trim(), character_id: characterId, current_build_id: buildId === NONE ? null : buildId,
-        ownership_status: status, date_acquired: acquired || null, notes: notes || null,
+        ownership_status: status, date_acquired: acquired || null, notes: notes || null, theme_id: themeId || null,
         t6_upgraded: up.t6, t6x_upgraded: up.t6x, t6x2_upgraded: up.t6x2,
       }).eq("id", ship.id);
       if (error) throw error;
@@ -380,6 +390,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
         </DialogHeader>
 
         {!editing ? (
+          <div className="mb-3 rounded-lg border border-primary/20 bg-primary/5 p-3"><p className="lcars-label">Theme identity</p><p className="font-medium text-primary">{themeName(ship.theme_id)}</p></div>
           <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             <div><p className="lcars-label text-[10px]">Character</p>{ship.characters?.name}</div>
             <div><p className="lcars-label text-[10px]">Current build</p>{ship.builds?.name ?? "None"}</div>
