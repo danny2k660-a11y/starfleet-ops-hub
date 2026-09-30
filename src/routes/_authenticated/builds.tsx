@@ -330,7 +330,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
           if (isShield) return cat.includes("shield") || itemSlot.includes("shield");
           if (slot.startsWith("Hangar")) return cat.includes("hangar") || itemSlot.includes("hangar");
           return true;
-        }).map((e:any)=><SelectItem key={e.id} value={e.id}>{e.name}{e.mark ? ` — ${e.mark}` : ""}</SelectItem>)}
+        }).map((e:any)=><SelectItem key={e.id} value={e.id}>{e.name}{e.mark ? ` — ${e.mark}` : ""}{e.character_id ? " • Character-bound" : " • Account"}</SelectItem>)}
       </SelectContent></Select></div>
       </div>
       <DialogFooter><Button variant="ghost" onClick={()=>setOpen(false)}>Cancel</Button><Button disabled={!slot || !equipmentId || save.isPending} onClick={()=>save.mutate()}>{save.isPending ? "Fitting…" : "Fit equipment"}</Button></DialogFooter>
