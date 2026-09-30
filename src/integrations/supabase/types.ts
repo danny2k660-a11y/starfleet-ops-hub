@@ -14,7 +14,238 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      builds: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          role: string | null
+          ship_instance_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          role?: string | null
+          ship_instance_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          role?: string | null
+          ship_instance_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "builds_ship_instance_id_fkey"
+            columns: ["ship_instance_id"]
+            isOneToOne: false
+            referencedRelation: "ship_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      characters: {
+        Row: {
+          career: string | null
+          created_at: string
+          faction: string | null
+          id: string
+          level: number | null
+          name: string
+          notes: string | null
+          species: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          career?: string | null
+          created_at?: string
+          faction?: string | null
+          id?: string
+          level?: number | null
+          name: string
+          notes?: string | null
+          species?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          career?: string | null
+          created_at?: string
+          faction?: string | null
+          id?: string
+          level?: number | null
+          name?: string
+          notes?: string | null
+          species?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      loadouts: {
+        Row: {
+          build_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          build_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          build_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loadouts_build_id_fkey"
+            columns: ["build_id"]
+            isOneToOne: false
+            referencedRelation: "builds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ship_classes: {
+        Row: {
+          created_at: string
+          faction: string | null
+          id: string
+          name: string
+          ship_type: string | null
+          slug: string
+          tier: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          faction?: string | null
+          id?: string
+          name: string
+          ship_type?: string | null
+          slug: string
+          tier?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          faction?: string | null
+          id?: string
+          name?: string
+          ship_type?: string | null
+          slug?: string
+          tier?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ship_instances: {
+        Row: {
+          character_id: string | null
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          registry: string | null
+          ship_class_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          character_id?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          registry?: string | null
+          ship_class_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          character_id?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          registry?: string | null
+          ship_class_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ship_instances_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ship_instances_ship_class_id_fkey"
+            columns: ["ship_class_id"]
+            isOneToOne: false
+            referencedRelation: "ship_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
