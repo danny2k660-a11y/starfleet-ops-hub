@@ -134,16 +134,11 @@ function ThemeCompliance({ loadoutId, buildId }: { loadoutId: string; buildId: s
   const ship = useQuery({ queryKey: ["theme_ship", buildId], queryFn: async () => { const {data,error}=await supabase.from("user_ships" as never).select("theme_id,sto_ships(faction)").eq("current_build_id",buildId).maybeSingle(); if(error) throw error; return data as any; }});
   const themeId=ship.data?.theme_id; const names:any[]=(equipment.data as any[]||[]).map(x=>x.equipment_items?.name).filter(Boolean);
   const themeName=LOADOUT_THEME_PRESETS.find((x)=>x.id===themeId)?.name ?? "No theme assigned";
-  const keywords:Record<string,string[]>={
-    "10000000-0000-4000-8000-000000000001":["Terran","Mirror","Agony","Emperor"],
-    "10000000-0000-4000-8000-000000000002":["Romulan","Tal Shiar","Thrai","Scimitar"],
-    "10000000-0000-4000-8000-000000000003":["Hur'q","Swarmer","Vedcrid"],
-    "10000000-0000-4000-8000-000000000004":["Terran","Discovery","Mirror"],
-    "10000000-0000-4000-8000-000000000005":[]
-  };
-  const keys=keywords[themeId]||[]; const matches=keys.length===0?names:names.filter(n=>keys.some(k=>n.toLowerCase().includes(k.toLowerCase())));
-  const review=keys.length>0&&names.length>0&&matches.length===0;
-  const message=keys.length===0?"Canon theme: no automatic keyword rules are imposed.":review?"No obvious theme-linked equipment terms found. Review manually.":String(matches.length)+" fitted item(s) contain theme-linked terms.";
+  const ruleQuery = useQuery({ queryKey: ["theme_rules", themeName], queryFn: async () => { const {data,error}=await supabase.from("theme_rules" as never).select("rule_type,value").eq("theme_name",themeName); if(error) throw error; return data ?? []; }});
+  const rules:any[]=(ruleQuery.data as any[])||[];
+  const keys=rules.filter(r=>r.rule_type==="keyword"||r.rule_type==="allowed").map(r=>String(r.value)); const matches=keys.length===0?names:names.filter(n=>keys.some(k=>n.toLowerCase().includes(k.toLowerCase())));
+  const forbidden=rules.filter(r=>r.rule_type==="forbidden").map(r=>String(r.value).toLowerCase()); const required=rules.filter(r=>r.rule_type==="required").map(r=>String(r.value).toLowerCase()); const lower=names.map(n=>n.toLowerCase()); const missingRequired=required.filter(x=>!lower.some(n=>n.includes(x))); const forbiddenFound=forbidden.filter(x=>lower.some(n=>n.includes(x))); const review=(keys.length>0&&names.length>0&&matches.length===0)||missingRequired.length>0||forbiddenFound.length>0;
+  const message=rules.length===0?"No custom rules exist yet — add them in Themes.":missingRequired.length>0?"Required theme item(s) are missing.":forbiddenFound.length>0?"A forbidden theme item appears in this loadout.":keys.length===0?"Custom rules are active.":String(matches.length)+" fitted item(s) match theme rules.";
   return <div className="mt-3 rounded-lg border border-border/70 bg-background/30 p-3"><div className="flex items-center justify-between"><div><p className="lcars-label">Theme compliance</p><p className="text-xs text-muted-foreground">{themeName}</p></div><span className={review?"text-amber-400":"text-primary"}>{review?"REVIEW":"ON TRACK"}</span></div><p className="mt-2 text-xs text-muted-foreground">{message}</p></div>;
 }
 
