@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, UserRound, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, UserRound, Trash2, Rocket, Package, Target, Database } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -65,6 +65,7 @@ function CharactersPage() {
             </button>
           )}</div>}
         <CharacterDialog open={open} onOpenChange={setOpen} character={selected} onDeleted={() => remove.mutate(selected!.id)} />
+        {selected && <CharacterOps characterId={selected.id} characterName={selected.name} />}
       </div>
     </AppShell>
   );
@@ -110,4 +111,41 @@ function CharacterDialog({ open, onOpenChange, character, onDeleted }: { open: b
       <DialogFooter className="gap-2">{character && <Button variant="ghost" className="mr-auto text-destructive" onClick={() => { if (confirm("Remove this character? Their linked ships may also be affected.")) onDeleted(); }}><Trash2 className="mr-1 size-4" /> Remove</Button>}<Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : character ? "Save changes" : "Add character"}</Button></DialogFooter>
     </DialogContent>
   </Dialog>;
+}
+
+
+function CharacterOps({ characterId, characterName }: { characterId: string; characterName: string }) {
+  const ships = useQuery({ queryKey: ["character_ops_ships", characterId], queryFn: async () => {
+    const { data, error } = await supabase.from("user_ships").select("id,custom_name,ownership_status,sto_ships(name,ship_class),builds(name,status)").eq("character_id", characterId).order("created_at", { ascending: false });
+    if (error) throw error; return data as any[];
+  }});
+  const equipment = useQuery({ queryKey: ["character_ops_equipment", characterId], queryFn: async () => {
+    const { data, error } = await supabase.from("equipment_items" as never).select("id,name,category,rarity,quantity").eq("character_id", characterId).order("name");
+    if (error) throw error; return data as any[];
+  }});
+  const inventory = useQuery({ queryKey: ["character_ops_inventory", characterId], queryFn: async () => {
+    const { data, error } = await supabase.from("inventory_items" as never).select("id,name,category,quantity,location").eq("character_id", characterId).order("name");
+    if (error) throw error; return data as any[];
+  }});
+  const projects = useQuery({ queryKey: ["character_ops_projects", characterId], queryFn: async () => {
+    const { data, error } = await supabase.from("projects" as never).select("id,name,status,progress,priority").eq("character_id", characterId).order("updated_at", { ascending: false });
+    if (error) throw error; return data as any[];
+  }});
+  return <section className="panel space-y-4 p-4">
+    <div><p className="lcars-label">Captain operations</p><h3 className="font-display text-lg text-primary">{characterName} — connected assets</h3></div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <OpsCard icon={<Rocket className="size-4" />} label="Ships" value={ships.data?.length ?? 0} detail={(ships.data ?? []).slice(0,2).map((s:any)=>s.custom_name).join(" · ") || "None registered"} />
+      <OpsCard icon={<Package className="size-4" />} label="Equipment" value={equipment.data?.length ?? 0} detail={(equipment.data ?? []).slice(0,2).map((e:any)=>e.name).join(" · ") || "None assigned"} />
+      <OpsCard icon={<Database className="size-4" />} label="Inventory" value={inventory.data?.length ?? 0} detail={(inventory.data ?? []).slice(0,2).map((i:any)=>i.name).join(" · ") || "None assigned"} />
+      <OpsCard icon={<Target className="size-4" />} label="Projects" value={projects.data?.length ?? 0} detail={(projects.data ?? []).filter((p:any)=>p.status==="active").length + " active"} />
+    </div>
+  </section>;
+}
+
+function OpsCard({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: number; detail: string }) {
+  return <div className="rounded border border-border bg-muted/20 p-3">
+    <div className="flex items-center gap-2 text-accent">{icon}<span className="text-xs uppercase tracking-wider">{label}</span></div>
+    <p className="mt-2 font-display text-2xl text-primary">{value}</p>
+    <p className="truncate text-xs text-muted-foreground">{detail}</p>
+  </div>;
 }
