@@ -32,6 +32,6 @@ function Page(){
  <select value={editing.priority||"normal"} onChange={e=>setEditing({...editing,priority:e.target.value})} className="h-9 rounded-md border bg-background px-2 text-sm"><option value="low">Low priority</option><option value="normal">Normal priority</option><option value="high">High priority</option><option value="critical">Critical priority</option></select>
  <div className="flex items-center gap-2"><CalendarDays className="size-4 text-muted-foreground"/><Input type="date" value={editing.target_date||""} onChange={e=>setEditing({...editing,target_date:e.target.value||null})}/></div>
  </div><div className="mt-3 flex justify-end gap-2"><Button variant="ghost" onClick={()=>setEditing(null)}>Cancel</Button><Button disabled={!editing.name.trim()||update.isPending} onClick={()=>update.mutate(editing)}>Save changes</Button></div></CardContent></Card>}
- {!projects.isLoading&&!(projects.data as any[])?.length&&<div className="panel p-8 text-center text-sm text-muted-foreground">No projects yet. Create your first fleet operation above.</div>}
+ {projects.isError?<div className="panel p-6 text-center text-destructive">Unable to load projects. Refresh and try again.</div>:!projects.isLoading&&!(projects.data as any[])?.length&&<div className="panel p-8 text-center text-sm text-muted-foreground">No projects yet. Create your first fleet operation above.</div>}
  </div></AppShell>
 }
