@@ -64,7 +64,7 @@ function BuildsPage() {
         </div>
       )}
     </section>
-    <BuildDialog open={open} onOpenChange={setOpen} build={selected} ships={ships.data ?? []} onDeleted={() => selected && remove.mutate(selected.id)} />
+    <BuildDialog key={selected?.id ?? "new"} open={open} onOpenChange={setOpen} build={selected} ships={ships.data ?? []} onDeleted={() => selected && remove.mutate(selected.id)} />
   </div></AppShell>;
 }
 
