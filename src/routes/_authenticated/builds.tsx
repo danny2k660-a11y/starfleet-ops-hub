@@ -227,11 +227,16 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const ship = useQuery({
     queryKey: ["loadout_ship", buildId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("user_ships" as never).select("sto_ships(*)").eq("current_build_id", buildId).maybeSingle();
+      const { data, error } = await supabase.from("user_ships" as never)
+        .select("character_id, sto_ships(*)")
+        .eq("current_build_id", buildId)
+        .maybeSingle();
       if (error) throw error;
-      return (data as any)?.sto_ships ?? null;
+      return (data as any) ?? null;
     },
   });
+  const shipData = ship.data?.sto_ships ?? null;
+  const shipCharacterId = ship.data?.character_id ?? null;
   const boff = (ship.data?.bridge_officer_stations ?? {}) as Record<string, unknown>;
   const trait = ship.data?.ship_trait as string | null | undefined;
   const special = [ship.data?.special_console, ship.data?.special_weapons, ship.data?.special_mechanics].filter(Boolean) as string[];
@@ -243,6 +248,8 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       if (error) throw error; return (data ?? []) as any[];
     },
   });
+  const ownedEquipment = useMemo(() => (equipment.data ?? []).filter((e: any) => !e.character_id || !shipCharacterId || e.character_id === shipCharacterId), [equipment.data, shipCharacterId]);
+
   const assigned = useQuery({
     queryKey: ["loadout_equipment", loadoutId],
     queryFn: async () => {
@@ -252,7 +259,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   });
 
   const slots = (() => {
-    const s: any = ship.data; const out: string[] = [];
+    const s: any = shipData; const out: string[] = [];
     const add = (label: string, n: number) => { for (let i=1;i<=Number(n||0);i++) out.push(`${label} ${i}`); };
     add("Fore Weapon", s?.fore_weapon_slots); add("Aft Weapon", s?.aft_weapon_slots);
     if (s?.experimental_weapon) out.push("Experimental Weapon");
@@ -291,7 +298,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
 
   return <div className="mt-4 border-t border-border pt-3">
     <div className="flex items-center justify-between gap-2">
-      <div><p className="lcars-label">STO Fitting</p><p className="text-sm text-muted-foreground">{assigned.data?.length ?? 0} / {slots.length} slots filled{ship.data?.name ? ` • ${ship.data.name}` : ""}</p></div>
+      <div><p className="lcars-label">STO Fitting</p><p className="text-sm text-muted-foreground">{assigned.data?.length ?? 0} / {slots.length} slots filled{shipData?.name ? ` • ${shipData.name}` : ""}</p></div>
       <Button size="sm" variant="outline" onClick={() => { setSlot(slots.find(x => !bySlot.has(x)) ?? slots[0] ?? "Fore Weapon 1"); setOpen(true); }}><Package className="mr-1 size-4" /> Fit gear</Button>
     </div>
     {(Object.keys(boff).length > 0 || trait || special.length > 0) && <div className="mb-3 grid gap-3 sm:grid-cols-2">
@@ -313,7 +320,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       <div className="space-y-4">
         <div className="space-y-1"><Label>Ship slot</Label><Select value={slot} onValueChange={setSlot}><SelectTrigger><SelectValue placeholder="Select slot"/></SelectTrigger><SelectContent>{slots.map(x=><SelectItem key={x} value={x}>{x}{bySlot.has(x) ? " • occupied" : ""}</SelectItem>)}</SelectContent></Select></div>
         <div className="space-y-1"><Label>Equipment</Label><Select value={equipmentId} onValueChange={setEquipmentId}><SelectTrigger><SelectValue placeholder="Select compatible equipment"/></SelectTrigger><SelectContent>
-        {(equipment.data ?? []).filter((e:any) => {
+        {ownedEquipment.filter((e:any) => {
           const isWeapon = slot.includes("Weapon");
           const isConsole = slot.includes("Console");
           const isCore = slot === "Warp Core";
