@@ -132,6 +132,10 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       return (data as any)?.sto_ships ?? null;
     },
   });
+  const boff = (ship.data?.bridge_officer_stations ?? {}) as Record<string, unknown>;
+  const trait = ship.data?.ship_trait as string | null | undefined;
+  const special = [ship.data?.special_console, ship.data?.special_weapons, ship.data?.special_mechanics].filter(Boolean) as string[];
+
   const equipment = useQuery({
     queryKey: ["equipment_items"],
     queryFn: async () => {
@@ -190,6 +194,10 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       <div><p className="lcars-label">STO Fitting</p><p className="text-sm text-muted-foreground">{assigned.data?.length ?? 0} / {slots.length} slots filled{ship.data?.name ? ` • ${ship.data.name}` : ""}</p></div>
       <Button size="sm" variant="outline" onClick={() => { setSlot(slots.find(x => !bySlot.has(x)) ?? slots[0] ?? "Fore Weapon 1"); setOpen(true); }}><Package className="mr-1 size-4" /> Fit gear</Button>
     </div>
+    {(Object.keys(boff).length > 0 || trait || special.length > 0) && <div className="mb-3 grid gap-3 sm:grid-cols-2">
+      {Object.keys(boff).length > 0 && <div className="rounded-lg border border-border/70 bg-background/30 p-3"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bridge Officer Stations</p><div className="space-y-1">{Object.entries(boff).map(([station, value]) => <div key={station} className="flex justify-between gap-3 rounded border border-border px-2 py-1.5 text-sm"><span>{station}</span><span className="text-primary">{typeof value === "string" ? value : JSON.stringify(value)}</span></div>)}</div></div>}
+      {(trait || special.length > 0) && <div className="rounded-lg border border-border/70 bg-background/30 p-3"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ship Identity</p>{trait && <div className="mb-2 rounded border border-primary/30 bg-primary/5 px-2 py-1.5"><span className="text-xs text-muted-foreground">Ship Trait</span><p className="text-sm text-primary">{trait}</p></div>}{special.map((x,i)=><div key={i} className="mb-1 rounded border border-border px-2 py-1.5 text-sm">{x}</div>)}</div>}
+    </div>}
     <div className="mt-3 grid gap-3 sm:grid-cols-2">
       {groups.map(([group, groupSlots]) => groupSlots.length ? <div key={group} className="rounded-lg border border-border/70 bg-background/30 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group}</p>
