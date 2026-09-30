@@ -118,6 +118,64 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
 }
 
 
+
+function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
+  const qc = useQueryClient();
+  const traits = useQuery({ queryKey: ["loadout_traits", loadoutId], queryFn: async () => {
+    const { data, error } = await supabase.from("loadout_traits" as never).select("*").eq("loadout_id", loadoutId).order("name");
+    if (error) throw error; return data ?? [];
+  }});
+  const boffs = useQuery({ queryKey: ["loadout_boffs", loadoutId], queryFn: async () => {
+    const { data, error } = await supabase.from("loadout_boffs" as never).select("*").eq("loadout_id", loadoutId).order("station");
+    if (error) throw error; return data ?? [];
+  }});
+  const [trait, setTrait] = useState("");
+  const [traitType, setTraitType] = useState("starship");
+  const [station, setStation] = useState("");
+  const [officer, setOfficer] = useState("");
+  const addTrait = async () => {
+    if (!trait.trim()) return;
+    const { error } = await supabase.from("loadout_traits" as never).insert({ loadout_id: loadoutId, name: trait.trim(), trait_type: traitType });
+    if (error) { toast({ title: "Could not add trait", description: error.message, variant: "destructive" }); return; }
+    setTrait(""); qc.invalidateQueries({ queryKey: ["loadout_traits", loadoutId] });
+  };
+  const saveOfficer = async () => {
+    if (!station.trim()) return;
+    const { error } = await supabase.from("loadout_boffs" as never).upsert({ loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null });
+    if (error) { toast({ title: "Could not save officer", description: error.message, variant: "destructive" }); return; }
+    setStation(""); setOfficer(""); qc.invalidateQueries({ queryKey: ["loadout_boffs", loadoutId] });
+  };
+  const remove = async (table: string, id: string, key: string) => {
+    const { error } = await supabase.from(table as never).delete().eq("id", id);
+    if (!error) qc.invalidateQueries({ queryKey: [key, loadoutId] });
+  };
+  return (
+    <div className="mt-3 grid gap-3 lg:grid-cols-2">
+      <div className="rounded-lg border border-border/70 bg-background/30 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Traits</p>
+        <div className="flex gap-2">
+          <Input value={trait} onChange={(e) => setTrait(e.target.value)} placeholder="Trait name" className="h-9" />
+          <select value={traitType} onChange={(e) => setTraitType(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-xs">
+            <option value="starship">Starship</option><option value="personal_space">Personal Space</option><option value="reputation">Reputation</option><option value="active_space">Active Space</option><option value="ground">Ground</option><option value="other">Other</option>
+          </select>
+          <Button size="sm" onClick={addTrait}>Add</Button>
+        </div>
+        <div className="mt-2 space-y-1">{((traits.data as any[]) || []).map((t) => (
+          <div key={t.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span>{t.name}<span className="ml-2 text-xs text-muted-foreground">{t.trait_type}</span></span><Button variant="ghost" size="icon" onClick={() => remove("loadout_traits", t.id, "loadout_traits")}><Trash2 className="h-3.5 w-3.5" /></Button></div>
+        ))}</div>
+      </div>
+      <div className="rounded-lg border border-border/70 bg-background/30 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bridge Officers</p>
+        <div className="grid gap-2 sm:grid-cols-2"><Input value={station} onChange={(e) => setStation(e.target.value)} placeholder="Station" className="h-9" /><Input value={officer} onChange={(e) => setOfficer(e.target.value)} placeholder="Officer name" className="h-9" /></div>
+        <Button size="sm" className="mt-2" onClick={saveOfficer}>Save Officer</Button>
+        <div className="mt-2 space-y-1">{((boffs.data as any[]) || []).map((b) => (
+          <div key={b.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span>{b.station}<span className="ml-2 text-primary">{b.officer_name || "Unassigned"}</span></span><Button variant="ghost" size="icon" onClick={() => remove("loadout_boffs", b.id, "loadout_boffs")}><Trash2 className="h-3.5 w-3.5" /></Button></div>
+        ))}</div>
+      </div>
+    </div>
+  );
+}
+
 function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
