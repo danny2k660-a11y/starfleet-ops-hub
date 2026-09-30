@@ -430,6 +430,19 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
               </Select>
             </div>
             <div className="space-y-1"><Label>Date acquired</Label><Input type="date" value={acquired} onChange={(e) => setAcquired(e.target.value)} /></div>
+            <div className="space-y-1"><Label>Theme identity</Label>
+              <Select value={themeId || NONE} onValueChange={(v) => setThemeId(v === NONE ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Select theme" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>No theme assigned</SelectItem>
+                  <SelectItem value="10000000-0000-4000-8000-000000000001">Terran Empire</SelectItem>
+                  <SelectItem value="10000000-0000-4000-8000-000000000002">Romulan</SelectItem>
+                  <SelectItem value="10000000-0000-4000-8000-000000000003">Hur'q</SelectItem>
+                  <SelectItem value="10000000-0000-4000-8000-000000000004">Discovery-era Terran</SelectItem>
+                  <SelectItem value="10000000-0000-4000-8000-000000000005">Canon / Screen Accurate</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1"><Label>Upgrade status</Label><UpgradeChecks {...up} set={setUp} /></div>
             <div className="space-y-1 sm:col-span-2"><Label>Notes</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
           </div>
