@@ -369,7 +369,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const charBuilds = builds; // builds are not yet tied to characters
+  const loadouts = useQuery({ queryKey: ["ship_loadouts", ship.current_build_id], enabled: !!ship.current_build_id, queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("*").eq("build_id", ship.current_build_id!).order("updated_at", { ascending: false }); if (error) throw error; return data ?? []; } });
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -402,7 +402,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>None</SelectItem>
-                  {charBuilds.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  {builds.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -425,6 +425,14 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
         <div className="mt-2">
           <p className="lcars-label mb-2">Base ship statistics (from STO ship database)</p>
           <BaseStats s={ship.sto_ships} />
+        </div>
+        <div className="mt-4 rounded border border-border bg-muted/20 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div><p className="lcars-label">Build pipeline</p><p className="text-sm text-muted-foreground">{ship.builds?.name ?? "No build assigned"} · {(loadouts.data ?? []).length} loadout{(loadouts.data ?? []).length === 1 ? "" : "s"}</p></div>
+            {loadouts.isFetching && <span className="text-xs text-muted-foreground">Scanning…</span>}
+          </div>
+          {!!loadouts.data?.length && <div className="mt-3 grid gap-2 sm:grid-cols-2">{loadouts.data.map((l: any) => <div key={l.id} className="rounded border border-border px-3 py-2"><div className="flex items-center justify-between gap-2"><span className="font-medium text-primary">{l.name}</span>{l.is_active && <Badge className="bg-accent text-accent-foreground">ACTIVE</Badge>}</div>{l.notes && <p className="mt-1 text-xs text-muted-foreground">{l.notes}</p>}</div>)}</div>}
+          {!ship.current_build_id && <p className="mt-2 text-xs text-muted-foreground">Assign a build to this ship to activate its loadout pipeline.</p>}
         </div>
 
         <DialogFooter className="gap-2">
