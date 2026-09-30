@@ -54,6 +54,7 @@ function BuildsPage() {
             return <div key={l.id} className="panel p-4">
               <div className="flex items-start justify-between gap-2"><div><p className="lcars-label">{b?.name ?? "Unknown build"}</p><h3 className="font-display text-lg text-primary">{l.name}</h3></div>{l.is_active && <Badge className="bg-accent text-accent-foreground">ACTIVE</Badge>}</div>
               {l.notes && <p className="mt-2 text-sm text-muted-foreground">{l.notes}</p>}
+              <LoadoutConfiguration loadoutId={l.id} />
               <LoadoutEquipment loadoutId={l.id} buildId={l.build_id} />
             </div>;
           })}
