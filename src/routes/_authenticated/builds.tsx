@@ -54,7 +54,7 @@ function BuildsPage() {
             return <div key={l.id} className="panel p-4">
               <div className="flex items-start justify-between gap-2"><div><p className="lcars-label">{b?.name ?? "Unknown build"}</p><h3 className="font-display text-lg text-primary">{l.name}</h3></div>{l.is_active && <Badge className="bg-accent text-accent-foreground">ACTIVE</Badge>}</div>
               {l.notes && <p className="mt-2 text-sm text-muted-foreground">{l.notes}</p>}
-              <LoadoutEquipment loadoutId={l.id} />
+              <LoadoutEquipment loadoutId={l.id} buildId={l.build_id} />
             </div>;
           })}
         </div>
@@ -118,7 +118,7 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
 }
 
 
-function LoadoutEquipment({ loadoutId }: { loadoutId: string }) {
+function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [slot, setSlot] = useState("Fore Weapon 1");
@@ -130,6 +130,30 @@ function LoadoutEquipment({ loadoutId }: { loadoutId: string }) {
       if (error) throw error; return (data ?? []) as any[];
     },
   });
+  const ship = useQuery({
+    queryKey: ["loadout_ship", buildId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_ships" as never).select("sto_ships(*)").eq("current_build_id", buildId).maybeSingle();
+      if (error) throw error;
+      return (data as any)?.sto_ships ?? null;
+    },
+  });
+  const shipSlots = (() => {
+    const s: any = ship.data;
+    const slots: string[] = [];
+    const fore = Number(s?.fore_weapon_slots ?? 0), aft = Number(s?.aft_weapon_slots ?? 0);
+    const eng = Number(s?.engineering_console_slots ?? 0), sci = Number(s?.science_console_slots ?? 0), tac = Number(s?.tactical_console_slots ?? 0), uni = Number(s?.universal_console_slots ?? 0), hang = Number(s?.hangar_bays ?? 0);
+    for (let i=1;i<=fore;i++) slots.push(`Fore Weapon ${i}`);
+    for (let i=1;i<=aft;i++) slots.push(`Aft Weapon ${i}`);
+    if (s?.experimental_weapon) slots.push("Experimental Weapon");
+    for (let i=1;i<=eng;i++) slots.push(`Engineering Console ${i}`);
+    for (let i=1;i<=sci;i++) slots.push(`Science Console ${i}`);
+    for (let i=1;i<=tac;i++) slots.push(`Tactical Console ${i}`);
+    for (let i=1;i<=uni;i++) slots.push(`Universal Console ${i}`);
+    for (let i=1;i<=hang;i++) slots.push(`Hangar Bay ${i}`);
+    slots.push("Deflector","Impulse Engines","Warp Core","Shields");
+    return slots;
+  })();
   const assigned = useQuery({
     queryKey: ["loadout_equipment", loadoutId],
     queryFn: async () => {
