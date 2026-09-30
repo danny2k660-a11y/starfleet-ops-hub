@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { User, Shield, Database } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -19,7 +19,7 @@ function Page() {
   const account = useQuery({ queryKey:["settings-account"], queryFn: async () => { const { data, error } = await supabase.auth.getUser(); if(error) throw error; return data.user; } });
   const [displayName,setDisplayName]=useState("");
   const profile = useQuery({ queryKey:["settings-profile", account.data?.id], enabled:!!account.data, queryFn: async () => { const { data,error } = await supabase.from("profiles").select("display_name").eq("id",account.data!.id).maybeSingle(); if(error) throw error; return data; } });
-  if (profile.data?.display_name && !displayName) setDisplayName(profile.data.display_name);
+  useEffect(() => {\n    if (profile.data?.display_name) setDisplayName(profile.data.display_name);\n  }, [profile.data?.display_name]);
   const [saving,setSaving]=useState(false);
   const saveProfile=async()=>{ if(!account.data) return; setSaving(true); const {error}=await supabase.from("profiles").update({display_name:displayName.trim()||null}).eq("id",account.data.id); setSaving(false); if(error) toast.error(error.message); else toast.success("Profile updated"); };
   return <AppShell title="Settings" subtitle="Account and preferences"><div className="mx-auto max-w-3xl space-y-5">
