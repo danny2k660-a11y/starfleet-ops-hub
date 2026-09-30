@@ -118,7 +118,8 @@ function ShipsPage() {
   const selected = ships.data?.find((s) => s.id === selectedId) ?? null;
 
   return (
-    <div className="space-y-6">
+    <AppShell title="Ships" subtitle="Your STO fleet registry">
+      <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="lcars-label">Fleet registry</p>
@@ -185,7 +186,7 @@ function ShipsPage() {
       {selected && (
         <ShipDetailDialog ship={selected} characters={characters.data ?? []} builds={builds.data ?? []} onClose={() => setSelectedId(null)} />
       )}
-    </div>
+      </div>
     </AppShell>
   );
 }
