@@ -204,7 +204,26 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
     <Dialog open={open} onOpenChange={setOpen}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle className="font-display text-primary">Fit equipment</DialogTitle></DialogHeader>
       <div className="space-y-4">
         <div className="space-y-1"><Label>Ship slot</Label><Select value={slot} onValueChange={setSlot}><SelectTrigger><SelectValue placeholder="Select slot"/></SelectTrigger><SelectContent>{slots.map(x=><SelectItem key={x} value={x}>{x}{bySlot.has(x) ? " • occupied" : ""}</SelectItem>)}</SelectContent></Select></div>
-        <div className="space-y-1"><Label>Equipment</Label><Select value={equipmentId} onValueChange={setEquipmentId}><SelectTrigger><SelectValue placeholder="Select stored equipment"/></SelectTrigger><SelectContent>{(equipment.data ?? []).map((e:any)=><SelectItem key={e.id} value={e.id}>{e.name}{e.mark ? ` — ${e.mark}` : ""}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Equipment</Label><Select value={equipmentId} onValueChange={setEquipmentId}><SelectTrigger><SelectValue placeholder="Select compatible equipment"/></SelectTrigger><SelectContent>
+        {(equipment.data ?? []).filter((e:any) => {
+          const isWeapon = slot.includes("Weapon");
+          const isConsole = slot.includes("Console");
+          const isCore = slot === "Warp Core";
+          const isDeflector = slot === "Deflector";
+          const isEngine = slot === "Impulse Engines";
+          const isShield = slot === "Shields";
+          const cat = String(e.category ?? "").toLowerCase();
+          const itemSlot = String(e.slot ?? "").toLowerCase();
+          if (isWeapon) return cat.includes("weapon") || itemSlot.includes("weapon");
+          if (isConsole) return cat.includes("console") || itemSlot.includes("console");
+          if (isCore) return cat.includes("warp") || itemSlot.includes("core") || itemSlot.includes("warp");
+          if (isDeflector) return cat.includes("deflector") || itemSlot.includes("deflector");
+          if (isEngine) return cat.includes("impulse") || itemSlot.includes("engine");
+          if (isShield) return cat.includes("shield") || itemSlot.includes("shield");
+          if (slot.startsWith("Hangar")) return cat.includes("hangar") || itemSlot.includes("hangar");
+          return true;
+        }).map((e:any)=><SelectItem key={e.id} value={e.id}>{e.name}{e.mark ? ` — ${e.mark}` : ""}</SelectItem>)}
+      </SelectContent></Select></div>
       </div>
       <DialogFooter><Button variant="ghost" onClick={()=>setOpen(false)}>Cancel</Button><Button disabled={!slot || !equipmentId || save.isPending} onClick={()=>save.mutate()}>{save.isPending ? "Fitting…" : "Fit equipment"}</Button></DialogFooter>
     </DialogContent></Dialog>
