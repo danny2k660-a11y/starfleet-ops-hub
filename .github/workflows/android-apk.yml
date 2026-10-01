@@ -75,6 +75,17 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Normalize Android asset paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENTRY="android/app/src/main/assets/public/index.html"
+          test -s "$ENTRY"
+          sed -i 's#\.\?/.output/public/assets/#./assets/#g; s#"/assets/#"./assets/#g' "$ENTRY"
+          grep -q 'src="./assets/index-' "$ENTRY"
+          grep -q 'href="./assets/styles-' "$ENTRY"
+          ! grep -q '\.output/public' "$ENTRY"
+
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug
