@@ -51,6 +51,26 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Configure Android OAuth deep link
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          marker = '<intent-filter>\\n                <action android:name="android.intent.action.VIEW" />'
+          block = '''<intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="com.stocommandcenter.app" android:host="auth" android:path="/callback" />
+                      </intent-filter>'''
+          if 'android:scheme="com.stocommandcenter.app"' not in s:
+              s = s.replace('</activity>', f'{block}\\n        </activity>', 1)
+          p.write_text(s)
+          PY
+
       - name: Verify and normalize Android web assets
         shell: bash
         run: |
