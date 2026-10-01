@@ -74,7 +74,7 @@ jobs:
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee /tmp/apk-badging.txt
-          grep -q "package: name='com.stocommandcenter.mobile'" /tmp/apk-badging.txt
+          grep -q "package: name='com.stocommandcenter.fleetops'" /tmp/apk-badging.txt
           grep -q "sdkVersion:" /tmp/apk-badging.txt
 
       - name: Upload APK
