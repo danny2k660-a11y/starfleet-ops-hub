@@ -124,12 +124,27 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
-    });
-    return () => data.subscription.unsubscribe();
+    let subscription: { unsubscribe: () => void } | null = null;
+    let cancelled = false;
+
+    // The Android shell can start before its runtime configuration is available.
+    // Never let auth bootstrap failure blank the entire React tree.
+    try {
+      const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (cancelled) return;
+        if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+        router.invalidate();
+        if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      });
+      subscription = data.subscription;
+    } catch (error) {
+      console.error("[STO Command Center] Auth bootstrap failed:", error);
+    }
+
+    return () => {
+      cancelled = true;
+      subscription?.unsubscribe();
+    };
   }, [router, queryClient]);
 
   return (
