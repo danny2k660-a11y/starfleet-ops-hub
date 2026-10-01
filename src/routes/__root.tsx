@@ -8,6 +8,9 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { App } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -122,6 +125,36 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const listener = App.addListener("appUrlOpen", async ({ url }) => {
+      if (!url.startsWith("com.stocommandcenter.app://auth/callback")) return;
+
+      try {
+        const callbackUrl = new URL(url);
+        const code = callbackUrl.searchParams.get("code");
+        const errorDescription = callbackUrl.searchParams.get("error_description");
+
+        if (errorDescription) throw new Error(errorDescription);
+        if (!code) throw new Error("Google sign-in returned without an authorisation code.");
+
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+
+        await router.navigate({ to: "/dashboard", replace: true });
+      } catch (error) {
+        console.error("[STO Command Center] Mobile OAuth callback failed:", error);
+      } finally {
+        await Browser.close().catch(() => undefined);
+      }
+    });
+
+    return () => {
+      listener.then((handle) => handle.remove());
+    };
+  }, [router]);
 
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;
