@@ -37,37 +37,13 @@ jobs:
           VITE_SUPABASE_URL: https://lxedpgfteeazbaezelge.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
-      - name: Create Android entry HTML
-        shell: bash
+      - name: Verify generated web entry
         run: |
           set -euo pipefail
-          test -d .output/public/assets
-          JS="$(find .output/public/assets -maxdepth 1 -type f -name 'index-*.js' -print -quit)"
-          CSS="$(find .output/public/assets -maxdepth 1 -type f -name 'styles-*.css' -print -quit)"
-          test -n "$JS"
-          JS="${JS#./.output/public/}"
-          CSS="${CSS#./.output/public/}"
-          cat > .output/public/index.html <<EOF
-          <!doctype html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-            <meta name="theme-color" content="#05070a">
-            <title>STO Command Center</title>
-            <link rel="stylesheet" href="./$CSS">
-          </head>
-          <body>
-            <div id="root"></div>
-            <script type="module" src="./$JS"></script>
-          </body>
-          </html>
-          EOF
           test -s .output/public/index.html
-          grep -q '<script type="module"' .output/public/index.html
-
-      - name: Verify Android web entry
-        run: test -s .output/public/index.html
+          test -d .output/public/assets
+          grep -q '<script' .output/public/index.html
+          grep -q '<div id="root">' .output/public/index.html
 
       - name: Create Android project
         run: npx cap add android
