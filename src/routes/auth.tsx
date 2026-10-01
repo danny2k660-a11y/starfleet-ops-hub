@@ -4,7 +4,8 @@ import { Radar } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,15 +70,30 @@ function AuthPage() {
   }
 
   async function handleGoogle() {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error("Google sign-in failed");
-      return;
+    setLoading(true);
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const redirectTo = "com.stocommandcenter.app://auth/callback";
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo, skipBrowserRedirect: true },
+        });
+        if (error) throw error;
+        if (!data.url) throw new Error("Google did not return an authorisation URL.");
+        await Browser.open({ url: data.url });
+        return;
+      }
+
+      const result = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin + "/auth" },
+      });
+      if (result.error) throw result.error;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Google sign-in failed");
+    } finally {
+      setLoading(false);
     }
-    if (result.redirected) return;
-    navigate({ to: "/dashboard", replace: true });
   }
 
   return (
@@ -128,7 +144,7 @@ function AuthPage() {
           <span className="h-px flex-1 bg-border" />
         </div>
 
-        <Button variant="outline" className="w-full" onClick={handleGoogle}>
+        <Button variant="outline" className="w-full" onClick={handleGoogle} disabled={loading}>
           Continue with Google
         </Button>
 
