@@ -37,6 +37,16 @@ jobs:
           VITE_SUPABASE_URL: https://lxedpgfteeazbaezelge.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
+      - name: Create Android entry HTML
+        run: |
+          JS=$(find .output/public/assets -maxdepth 1 -name 'index-*.js' -print -quit | sed 's#^\.output/public/##')
+          CSS=$(find .output/public/assets -maxdepth 1 -name 'styles-*.css' -print -quit | sed 's#^\.output/public/##')
+          test -n "$JS"
+          cat > .output/public/index.html <<EOF
+          <!doctype html>
+          <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>STO Command Center</title><link rel="stylesheet" href="/$CSS"></head><body><div id="root"></div><script type="module" src="/$JS"></script></body></html>
+          EOF
+
       - name: Create Android project
         run: npx cap add android
 
