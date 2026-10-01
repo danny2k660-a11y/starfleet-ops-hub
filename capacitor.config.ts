@@ -1,7 +1,8 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.stocommandcenter.app",
+  // New package id lets this test build install alongside the old APK.
+  appId: "com.stocommandcenter.mobile",
   appName: "STO Command Center",
   webDir: ".output/public",
   bundledWebRuntime: false,
