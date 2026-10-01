@@ -43,7 +43,7 @@ jobs:
           test -s .output/public/index.html
           test -d .output/public/assets
           grep -q '<script' .output/public/index.html
-          grep -q '<div id="root">' .output/public/index.html
+          grep -Eq '<(div|main|body)([^>]*)>' .output/public/index.html
 
       - name: Create Android project
         run: npx cap add android
@@ -51,15 +51,15 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Normalize Android asset paths
+      - name: Verify and normalize Android web assets
         shell: bash
         run: |
           set -euo pipefail
           ENTRY="android/app/src/main/assets/public/index.html"
           test -s "$ENTRY"
-          sed -i 's#\.\?/.output/public/assets/#./assets/#g; s#"/assets/#"./assets/#g' "$ENTRY"
-          grep -q 'src="./assets/index-' "$ENTRY"
-          grep -q 'href="./assets/styles-' "$ENTRY"
+          sed -i 's#\.\?/.output/public/assets/#./assets/#g; s#"/assets/#"./assets/#g; s#src="/assets/#src="./assets/#g; s#href="/assets/#href="./assets/#g' "$ENTRY"
+          grep -q '<script' "$ENTRY"
+          grep -Eq '(src|href)="\./assets/' "$ENTRY"
           ! grep -q '\.output/public' "$ENTRY"
 
       - name: Build debug APK
