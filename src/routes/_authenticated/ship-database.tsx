@@ -83,22 +83,23 @@ function ShipDatabasePage() {
     const verified = ship.source_key === "stowiki" && !!ship.verified_at;
     const verificationMatch = verificationFilter === "all" || (verificationFilter === "verified" && verified) || (verificationFilter === "unverified" && !verified);
     return (!query || haystack.includes(query.toLowerCase())) && (faction === "ALL" || ship.faction === faction) && ownershipMatch && verificationMatch;
-  }), [data, query, faction, ownershipFilter, ownedByShip]);
+  }), [data, query, faction, ownershipFilter, verificationFilter, ownedByShip]);
   const ownedCount = data.filter((ship) => ownedByShip.get(ship.id)?.ownership_status === "owned").length;
   const wishlistCount = data.filter((ship) => ownedByShip.get(ship.id)?.ownership_status === "wishlist").length;
   const missingCount = Math.max(0, data.length - ownedCount);
-  const toggleOwnership = async (ship: StoShip) => {
+  const setOwnership = async (ship: StoShip, status: "owned" | "wishlist") => {
     const current = ownedByShip.get(ship.id);
-    if (current?.ownership_status === "owned") {
+    if (current?.ownership_status === status) {
       const { error } = await supabase.from("sto_ship_ownership" as never).delete().eq("sto_ship_id", ship.id);
       if (error) return;
     } else {
       const { data: u } = await supabase.auth.getUser(); if (!u.user) return;
-      const { error } = await supabase.from("sto_ship_ownership" as never).upsert({ user_id: u.user.id, sto_ship_id: ship.id, ownership_status: "owned", acquired_at: new Date().toISOString() }, { onConflict: "user_id,sto_ship_id" });
+      const { error } = await supabase.from("sto_ship_ownership" as never).upsert({ user_id: u.user.id, sto_ship_id: ship.id, ownership_status: status, acquired_at: status === "owned" ? new Date().toISOString() : null }, { onConflict: "user_id,sto_ship_id" });
       if (error) return;
     }
     ownership.refetch();
   };
+  const toggleOwnership = (ship: StoShip) => setOwnership(ship, "owned");
   const verifiedCount = data.filter((ship) => ship.source_key === "stowiki" && ship.verified_at).length;\n  const unverifiedCount = Math.max(0, data.length - verifiedCount);\n  const quality = useMemo(() => {
     const fields: Array<[string, (ship: StoShip) => boolean]> = [
       ["Classification", (s) => !!s.ship_class && !!s.faction && !!s.tier],
@@ -154,7 +155,7 @@ function ShipDatabasePage() {
               : "Not populated";
             return (
               <div key={ship.id} className="panel overflow-hidden">
-                <div className="flex items-center gap-2 p-4"><button className="min-w-0 flex-1 text-left" onClick={() => setExpanded(isOpen ? null : ship.id)}><div className="min-w-0"><p className="font-display text-base text-primary">{ship.name}</p><p className="truncate text-xs text-muted-foreground">{[ship.ship_class, ship.faction, ship.tier].filter(Boolean).join(" · ") || "Classification not populated"}</p></div></button><Button size="sm" variant={ownedByShip.get(ship.id)?.ownership_status === "owned" ? "default" : "outline"} onClick={() => toggleOwnership(ship)} className="shrink-0">{ownedByShip.get(ship.id)?.ownership_status === "owned" ? <><Check className="mr-1 size-3.5" /> Owned</> : "Mark owned"}</Button><button className="shrink-0 p-1" onClick={() => setExpanded(isOpen ? null : ship.id)}>{isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</button></div>
+                <div className="flex items-center gap-2 p-4"><button className="min-w-0 flex-1 text-left" onClick={() => setExpanded(isOpen ? null : ship.id)}><div className="min-w-0"><p className="font-display text-base text-primary">{ship.name}</p><p className="truncate text-xs text-muted-foreground">{[ship.ship_class, ship.faction, ship.tier].filter(Boolean).join(" · ") || "Classification not populated"}</p></div></button><div className="flex shrink-0 gap-1"><Button size="sm" variant={ownedByShip.get(ship.id)?.ownership_status === "owned" ? "default" : "outline"} onClick={() => setOwnership(ship, "owned")}>{ownedByShip.get(ship.id)?.ownership_status === "owned" ? <><Check className="mr-1 size-3.5" /> Owned</> : "Own"}</Button><Button size="sm" variant={ownedByShip.get(ship.id)?.ownership_status === "wishlist" ? "default" : "outline"} onClick={() => setOwnership(ship, "wishlist")}>{ownedByShip.get(ship.id)?.ownership_status === "wishlist" ? "Wishlist" : "Want"}</Button></div><button className="shrink-0 p-1" onClick={() => setExpanded(isOpen ? null : ship.id)}>{isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</button></div>
                 {isOpen && <div className="border-t border-border p-4">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <Info label="Hull modifier" value={ship.hull_modifier} /><Info label="Shield modifier" value={ship.shield_modifier} /><Info label="Turn rate" value={ship.turn_rate} /><Info label="Inertia" value={ship.inertia} />
@@ -165,7 +166,7 @@ function ShipDatabasePage() {
                     {seats.length ? <div className="mt-2 grid gap-1 sm:grid-cols-2">{seats.map((seat, index) => <div key={`${seat}-${index}`} className="rounded border border-border bg-background/40 px-2 py-1.5 text-sm">{seat}</div>)}</div> : <p className="mt-1 text-xs italic text-muted-foreground">Bridge officer seating not populated yet.</p>}
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2"><Info label="Ship trait" value={ship.ship_trait} /><Info label="Special mechanics" value={ship.special_mechanics} /><Info label="Special console" value={ship.special_console} /><Info label="Special weapons" value={ship.special_weapons} /></div>
-                  <div className="mt-3 rounded border border-primary/20 bg-primary/5 p-3"><div className="flex items-center justify-between gap-2"><p className="lcars-label text-[10px]">Acquisition routes</p>{ownedByShip.get(ship.id)?.acquired_at && <span className="text-[10px] text-primary">Owned {new Date(ownedByShip.get(ship.id).acquired_at).toLocaleDateString()}</span>}</div>{(sourcesByShip.get(ship.id) ?? []).length > 0 ? <div className="mt-2 space-y-1.5">{(sourcesByShip.get(ship.id) ?? []).map((source: any) => <div key={source.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border bg-background/40 px-2 py-1.5 text-xs"><span>{source.source_name}</span><span className="text-muted-foreground">{source.price_amount != null ? `${source.price_currency ?? ""} ${source.price_amount}` : source.availability_status}</span></div>)}</div> : <p className="mt-1 text-xs text-muted-foreground">Acquisition route not verified yet — this ship stays separate from the store audit until a source is recorded.</p>}</div><p className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Database className="size-3" /> Definition source: {ship.source_reference ?? "Not recorded"} · Version: {ship.data_version ?? "Not recorded"} {ship.source_key === "stowiki" && <Badge variant="outline" className="text-[9px]">STOWiki source</Badge>}</p>
+                  <div className="mt-3 rounded border border-primary/20 bg-primary/5 p-3"><div className="flex items-center justify-between gap-2"><p className="lcars-label text-[10px]">Acquisition routes</p>{ownedByShip.get(ship.id)?.acquired_at && <span className="text-[10px] text-primary">Owned {new Date(ownedByShip.get(ship.id).acquired_at).toLocaleDateString()}</span>}</div>{(sourcesByShip.get(ship.id) ?? []).length > 0 ? <div className="mt-2 space-y-1.5">{(sourcesByShip.get(ship.id) ?? []).map((source: any) => <div key={source.id} className="rounded border border-border bg-background/40 px-2 py-1.5 text-xs"><div className="flex flex-wrap items-center justify-between gap-2"><span>{source.source_name}</span><span className="text-muted-foreground">{source.price_amount != null ? `${source.price_currency ?? ""} ${source.price_amount}` : source.availability_status}</span></div>{source.character_restriction && <p className="mt-1 text-muted-foreground">Character restriction: {source.character_restriction}</p>}{source.account_unlock && <p className="mt-1 text-primary">Account unlock</p>}</div>)}</div> : <p className="mt-1 text-xs text-muted-foreground">Acquisition route not verified yet — this ship stays separate from the store audit until a source is recorded.</p>}</div><p className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Database className="size-3" /> Definition source: {ship.source_reference ?? "Not recorded"} · Version: {ship.data_version ?? "Not recorded"} {ship.source_key === "stowiki" && <Badge variant="outline" className="text-[9px]">STOWiki source</Badge>}</p>
                 </div>}
               </div>
             );
