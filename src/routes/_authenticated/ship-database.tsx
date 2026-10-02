@@ -89,11 +89,12 @@ function ShipDatabasePage() {
   const missingCount = Math.max(0, data.length - ownedCount);
   const setOwnership = async (ship: StoShip, status: "owned" | "wishlist") => {
     const current = ownedByShip.get(ship.id);
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
     if (current?.ownership_status === status) {
       const { error } = await supabase.from("sto_ship_ownership" as never).delete().eq("user_id", u.user.id).eq("sto_ship_id", ship.id);
       if (error) return;
     } else {
-      const { data: u } = await supabase.auth.getUser(); if (!u.user) return;
       const { error } = await supabase.from("sto_ship_ownership" as never).upsert({ user_id: u.user.id, sto_ship_id: ship.id, ownership_status: status, acquired_at: status === "owned" ? new Date().toISOString() : null }, { onConflict: "user_id,sto_ship_id" });
       if (error) return;
     }
