@@ -203,6 +203,9 @@ function ShipsPage() {
   const [adding, setAdding] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const readinessDataPending = ships.isLoading || catalog.isLoading || fleetLoadouts.isLoading || fleetLoadoutConfig.isLoading;
+  const readinessDataError = ships.error || catalog.error || fleetLoadouts.error || fleetLoadoutConfig.error;
+
   const fleetReadiness = useMemo(() => {
     const owned = (ships.data ?? []).filter((s) => s.ownership_status === "owned");
     const rows = owned.map((s) => {
@@ -225,8 +228,9 @@ function ShipsPage() {
     return {
       rows,
       shipCount: rows.length,
-      fullyReady: rows.filter((row) => row.complete === 7).length,
-      averagePercent: totalChecks ? Math.round((passedChecks / totalChecks) * 100) : 0,
+      fullyReady: readinessDataPending || readinessDataError ? 0 : rows.filter((row) => row.complete === 7).length,
+      averagePercent: readinessDataPending || readinessDataError ? 0 : (totalChecks ? Math.round((passedChecks / totalChecks) * 100) : 0),
+      state: readinessDataError ? "error" : readinessDataPending ? "scanning" : "ready",
     };
   }, [ships.data, activeLoadoutByBuild, loadoutCoverageById]);
   const readinessBreakdown = useMemo(() => {
@@ -262,25 +266,27 @@ function ShipsPage() {
     const text = `${s.custom_name} ${s.sto_ships?.name ?? ""} ${s.sto_ships?.ship_class ?? ""}`.toLowerCase();
     const readinessRow = fleetReadiness.rows.find((row) => row.ship.id === s.id);
     const readinessMatch =
-      readinessFilter === "ready"
-        ? readinessRow?.complete === 7
-        : readinessFilter === "needs_setup"
-          ? !!readinessRow && readinessRow.complete < 7
-          : readinessFilter === "captain"
-            ? !!readinessRow && !readinessRow.checks[0]
-            : readinessFilter === "build"
-              ? !!readinessRow && !readinessRow.checks[1]
-              : readinessFilter === "theme"
-                ? !!readinessRow && !readinessRow.checks[2]
-                : readinessFilter === "loadout"
-                  ? !!readinessRow && !readinessRow.checks[3]
-                  : readinessFilter === "equipment"
-                    ? !!readinessRow && !readinessRow.checks[4]
-                    : readinessFilter === "traits"
-                      ? !!readinessRow && !readinessRow.checks[5]
-                      : readinessFilter === "boffs"
-                        ? !!readinessRow && !readinessRow.checks[6]
-                        : true;
+      readinessDataPending || readinessDataError
+        ? true
+        : readinessFilter === "ready"
+          ? readinessRow?.complete === 7
+          : readinessFilter === "needs_setup"
+            ? !!readinessRow && readinessRow.complete < 7
+            : readinessFilter === "captain"
+              ? !!readinessRow && !readinessRow.checks[0]
+              : readinessFilter === "build"
+                ? !!readinessRow && !readinessRow.checks[1]
+                : readinessFilter === "theme"
+                  ? !!readinessRow && !readinessRow.checks[2]
+                  : readinessFilter === "loadout"
+                    ? !!readinessRow && !readinessRow.checks[3]
+                    : readinessFilter === "equipment"
+                      ? !!readinessRow && !readinessRow.checks[4]
+                      : readinessFilter === "traits"
+                        ? !!readinessRow && !readinessRow.checks[5]
+                        : readinessFilter === "boffs"
+                          ? !!readinessRow && !readinessRow.checks[6]
+                          : true;
     if (!readinessMatch) return false;
     if (q && !q.startsWith("__") && !text.includes(q.toLowerCase())) return false;
     if (charFilter !== ALL && s.character_id !== charFilter) return false;
@@ -358,9 +364,17 @@ function ShipsPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="lcars-label">Readiness diagnostics</p>
-            <p className="text-sm text-muted-foreground">Fleetwide view of where operational configuration is complete or still needs attention.</p>
+            <p className="text-sm text-muted-foreground">
+              {fleetReadiness.state === "scanning"
+                ? "Checking live loadout configuration before calculating readiness."
+                : fleetReadiness.state === "error"
+                  ? "Live readiness data could not be loaded. Fleet entries are left unfiltered rather than marked incomplete."
+                  : "Fleetwide view of where operational configuration is complete or still needs attention."}
+            </p>
           </div>
-          <Badge variant="outline">{fleetReadiness.fullyReady} fully ready</Badge>
+          <Badge variant="outline">
+            {fleetReadiness.state === "scanning" ? "Scanning fleet…" : fleetReadiness.state === "error" ? "Readiness data unavailable" : `${fleetReadiness.fullyReady} fully ready`}
+          </Badge>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {readinessBreakdown.map((item) => {
