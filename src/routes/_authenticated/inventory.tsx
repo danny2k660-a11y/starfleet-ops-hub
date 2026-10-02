@@ -29,7 +29,8 @@ function Page() {
   const [location, setLocation] = useState("all");
   const [open, setOpen] = useState(false);
   const characters = useQuery({ queryKey: ["characters"], queryFn: async () => { const { data, error } = await supabase.from("characters").select("*").order("name"); if (error) throw error; return data ?? []; } });
-  const items = useQuery({ queryKey: ["inventory_items"], queryFn: async () => { const { data, error } = await supabase.from("inventory_items").select("*").order("name"); if (error) throw error; return (data ?? []) as any[]; } });
+  type InventoryItem = { id: string; name: string; category: string | null; location: string | null; quantity: number; character_id: string | null; notes: string | null; };
+  const items = useQuery({ queryKey: ["inventory_items"], queryFn: async () => { const { data, error } = await supabase.from("inventory_items").select("*").order("name"); if (error) throw error; return (data ?? []) as InventoryItem[]; } });
   const remove = useMutation({ mutationFn: async (id: string) => { const { error } = await supabase.from("inventory_items").delete().eq("id", id); if (error) throw error; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["inventory_items"] }); toast.success("Inventory item removed"); } });
   const filtered = useMemo(() => (items.data ?? []).filter(x => {
     const text = `${x.name} ${x.category ?? ""} ${x.location ?? ""}`.toLowerCase();
@@ -44,7 +45,7 @@ function Page() {
   </div></AppShell>;
 }
 
-function InventoryDialog({ open, onOpenChange, characters, onSaved }: { open: boolean; onOpenChange: (v: boolean) => void; characters: any[]; onSaved: () => void }) {
+function InventoryDialog({ open, onOpenChange, characters, onSaved }: { open: boolean; onOpenChange: (v: boolean) => void; characters: Array<{ id: string; name: string }>; onSaved: () => void }) {
   const qc = useQueryClient(); const [name,setName]=useState(""); const [category,setCategory]=useState("Equipment"); const [quantity,setQuantity]=useState("1"); const [location,setLocation]=useState("Character"); const [characterId,setCharacterId]=useState("account"); const [notes,setNotes]=useState("");
   const save=useMutation({ mutationFn: async()=>{ const { data:u }=await supabase.auth.getUser(); if(!u.user) throw new Error("Not signed in"); const payload={user_id:u.user.id,name:name.trim(),category,quantity:Math.max(1,Number(quantity)||1),location,character_id:characterId==="account"?null:characterId,notes:notes.trim()||null}; const { error }=await supabase.from("inventory_items").insert(payload); if(error) throw error; },onSuccess:()=>{qc.invalidateQueries({queryKey:["inventory_items"]});toast.success("Inventory item added");setName("");setNotes("");setQuantity("1");onSaved();onOpenChange(false)},onError:(e:Error)=>toast.error(e.message)});
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle className="font-display text-primary">Add inventory item</DialogTitle></DialogHeader><div className="space-y-4">
