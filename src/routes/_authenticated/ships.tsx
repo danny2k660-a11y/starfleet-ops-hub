@@ -116,6 +116,9 @@ function ShipsPage() {
   });
 
   const selected = ships.data?.find((s) => s.id === selectedId) ?? null;
+  const ownedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned").length;
+  const wishlistCount = (ships.data ?? []).filter((s) => s.ownership_status === "wishlist").length;
+  const readyCount = (ships.data ?? []).filter((s) => !!s.current_build_id && s.ownership_status === "owned").length;
 
   return (
     <AppShell title="Ships" subtitle="Your STO fleet registry">
@@ -128,6 +131,13 @@ function ShipsPage() {
         <Button onClick={() => setAdding(true)} className="glow-primary">
           <Plus className="mr-1 h-4 w-4" /> Add ship
         </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="panel p-3"><p className="lcars-label">Fleet</p><p className="font-display text-xl text-primary">{ownedCount}</p><p className="text-xs text-muted-foreground">owned</p></div>
+        <div className="panel p-3"><p className="lcars-label">Wishlist</p><p className="font-display text-xl text-primary">{wishlistCount}</p><p className="text-xs text-muted-foreground">planned</p></div>
+        <div className="panel p-3"><p className="lcars-label">Ready pipeline</p><p className="font-display text-xl text-primary">{readyCount}</p><p className="text-xs text-muted-foreground">build linked</p></div>
+        <div className="panel p-3"><p className="lcars-label">Catalog</p><p className="font-display text-xl text-primary">{catalog.data?.length ?? 0}</p><p className="text-xs text-muted-foreground">ships indexed</p></div>
       </div>
 
       <div className="panel grid gap-3 p-4 sm:grid-cols-3">
