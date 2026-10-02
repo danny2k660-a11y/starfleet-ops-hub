@@ -627,6 +627,59 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
           <p className="mb-2 text-xs text-muted-foreground">Catalogue values are shown only when populated from a recorded source; unverified scaling base values are intentionally left blank.</p>
           <BaseStats s={ship.sto_ships} />
         </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded border border-border bg-muted/20 p-3">
+            <p className="lcars-label">Identity</p>
+            <p className="mt-1 text-sm text-primary">{ship.sto_ships?.name ?? "Unknown class"}</p>
+            <p className="text-xs text-muted-foreground">{ship.sto_ships?.faction ?? "Faction unlisted"} · {ship.sto_ships?.ship_class ?? "Class unlisted"}</p>
+          </div>
+          <div className="rounded border border-border bg-muted/20 p-3">
+            <p className="lcars-label">Upgrade state</p>
+            <p className="mt-1 text-sm text-primary">{tierLabel(ship) ?? "Standard"}</p>
+            <p className="text-xs text-muted-foreground">{ship.t6x2_upgraded ? "T6-X2 systems active" : ship.t6x_upgraded ? "T6-X systems active" : ship.t6_upgraded ? "T6 upgrade applied" : "No upgrade recorded"}</p>
+          </div>
+          <div className="rounded border border-border bg-muted/20 p-3">
+            <p className="lcars-label">Registry state</p>
+            <p className="mt-1 text-sm text-primary">{ship.ownership_status}</p>
+            <p className="text-xs text-muted-foreground">{ship.date_acquired ? "Acquired " + ship.date_acquired : "Acquisition date not recorded"}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded border border-border bg-muted/20 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="lcars-label">Command checklist</p>
+              <p className="text-xs text-muted-foreground">Core assignments required before this ship is considered operational.</p>
+            </div>
+            <Badge variant="outline">{[
+              !!ship.character_id, !!ship.current_build_id, !!ship.theme_id, !!activeLoadout,
+              (manifest.data?.equipment.length ?? 0) > 0,
+              (manifest.data?.traits.length ?? 0) > 0,
+              (manifest.data?.boffs.length ?? 0) > 0,
+            ].filter(Boolean).length}/7 complete</Badge>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {[
+              ["Captain assigned", !!ship.character_id],
+              ["Build linked", !!ship.current_build_id],
+              ["Theme assigned", !!ship.theme_id],
+              ["Active loadout", !!activeLoadout],
+              ["Equipment fitted", (manifest.data?.equipment.length ?? 0) > 0],
+              ["Traits configured", (manifest.data?.traits.length ?? 0) > 0],
+              ["Bridge crew configured", (manifest.data?.boffs.length ?? 0) > 0],
+            ].map(([label, done]) => (
+              <div key={String(label)} className="flex items-center justify-between rounded border border-border px-3 py-2 text-xs">
+                <span>{label}</span><span className={done ? "text-accent" : "text-primary"}>{done ? "READY" : "PENDING"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded border border-primary/20 bg-primary/5 p-3">
+          <p className="lcars-label">Command notes</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{ship.notes || "No command notes recorded. Use Edit to capture theme rules, deployment notes or build instructions."}</p>
+        </div>
+
         <div className="mt-4 rounded border border-border bg-muted/20 p-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><p className="lcars-label">Command manifest</p><p className="text-sm text-muted-foreground">{activeLoadout ? activeLoadout.name : "No active loadout"} · equipment, traits and bridge crew status</p></div>
