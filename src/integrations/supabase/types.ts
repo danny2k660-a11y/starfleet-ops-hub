@@ -473,6 +473,24 @@ export type Database = {
       }
     }
     Views: {
+      sto_ship_catalogue_coverage: {
+        Row: {
+          catalogue_records: number
+          t6_records: number
+          stowiki_verified: number
+          official_sto_2026: number
+          community_reference: number
+          classification_complete: number
+          mobility_complete: number
+          layout_complete: number
+          seating_complete: number
+          provenance_complete: number
+          t6_records_complete: number
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       sto_ship_catalogue_audit: {
         Row: {
           id: string
