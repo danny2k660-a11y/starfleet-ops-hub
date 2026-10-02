@@ -37,6 +37,14 @@ function useCount(table: "characters" | "user_ships" | "builds") {
 
 function Dashboard() {
   const characters = useCount("characters");
+  const characterList = useQuery({
+    queryKey: ["dashboard-character-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("characters").select("id,name,faction").order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
   const ships = useCount("user_ships");
   const builds = useCount("builds");
   const projects = useQuery({ queryKey: ["dashboard-projects"], queryFn: async () => { const { count, error } = await supabase.from("projects" as never).select("id",{count:"exact",head:true}); if(error) throw error; return count ?? 0; }});
@@ -199,7 +207,7 @@ function Dashboard() {
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {(() => {
-            const characterRows = (characters.data ?? []).map((character: any) => {
+            const characterRows = (characterList.data ?? []).map((character: any) => {
               const assigned = (readinessShips.data ?? []).filter((ship: any) => ship.character_id === character.id);
               const ready = assigned.filter((ship: any) => {
                 const active = activeReadinessLoadouts.find((loadout: any) => loadout.build_id === ship.current_build_id);
