@@ -184,7 +184,7 @@ function ShipsPage() {
     }));
   }, [fleetReadiness]);
   const [q, setQ] = useState("");
-  const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup">("all");
+  const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup" | "captain" | "build" | "theme" | "loadout" | "equipment" | "traits" | "boffs">("all");
   const [charFilter, setCharFilter] = useState(ALL);
   const [factionFilter, setFactionFilter] = useState(ALL);
   const [themeFilter, setThemeFilter] = useState(ALL);
@@ -198,12 +198,27 @@ function ShipsPage() {
 
   const filtered = (ships.data ?? []).filter((s) => {
     const text = `${s.custom_name} ${s.sto_ships?.name ?? ""} ${s.sto_ships?.ship_class ?? ""}`.toLowerCase();
+    const readinessRow = fleetReadiness.rows.find((row) => row.ship.id === s.id);
     const readinessMatch =
       readinessFilter === "ready"
-        ? fleetReadiness.rows.some((row) => row.ship.id === s.id && row.complete === 7)
+        ? readinessRow?.complete === 7
         : readinessFilter === "needs_setup"
-          ? fleetReadiness.rows.some((row) => row.ship.id === s.id && row.complete < 7)
-          : true;
+          ? !!readinessRow && readinessRow.complete < 7
+          : readinessFilter === "captain"
+            ? !!readinessRow && !readinessRow.checks[0]
+            : readinessFilter === "build"
+              ? !!readinessRow && !readinessRow.checks[1]
+              : readinessFilter === "theme"
+                ? !!readinessRow && !readinessRow.checks[2]
+                : readinessFilter === "loadout"
+                  ? !!readinessRow && !readinessRow.checks[3]
+                  : readinessFilter === "equipment"
+                    ? !!readinessRow && !readinessRow.checks[4]
+                    : readinessFilter === "traits"
+                      ? !!readinessRow && !readinessRow.checks[5]
+                      : readinessFilter === "boffs"
+                        ? !!readinessRow && !readinessRow.checks[6]
+                        : true;
     if (!readinessMatch) return false;
     if (q && !q.startsWith("__") && !text.includes(q.toLowerCase())) return false;
     if (charFilter !== ALL && s.character_id !== charFilter) return false;
@@ -294,8 +309,26 @@ function ShipsPage() {
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {readinessBreakdown.map((item) => {
             const percent = item.total ? Math.round((item.passed / item.total) * 100) : 0;
+            const filterMap: Record<string, typeof readinessFilter> = {
+              Captain: "captain",
+              Build: "build",
+              Theme: "theme",
+              "Active loadout": "loadout",
+              Equipment: "equipment",
+              Traits: "traits",
+              "Bridge crew": "boffs",
+            };
+            const activeFilter = filterMap[item.label];
             return (
-              <div key={item.label} className="rounded border border-border bg-muted/20 p-3">
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  setReadinessFilter(activeFilter);
+                  setQ("");
+                }}
+                className="rounded border border-border bg-muted/20 p-3 text-left transition-colors hover:bg-muted/40"
+              >
                 <div className="flex items-center justify-between gap-2">
                   <p className="lcars-label text-[10px]">{item.label}</p>
                   <span className="text-xs text-muted-foreground">{item.passed}/{item.total}</span>
@@ -303,8 +336,8 @@ function ShipsPage() {
                 <div className="mt-2 h-1.5 overflow-hidden rounded bg-muted">
                   <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
                 </div>
-                <p className="mt-1 text-[10px] text-muted-foreground">{percent}% of owned fleet</p>
-              </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">Tap to show ships needing this</p>
+              </button>
             );
           })}
         </div>
