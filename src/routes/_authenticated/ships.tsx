@@ -96,6 +96,29 @@ function tierLabel(s: UserShip) {
 
 function ShipsPage() {
   const { ships, catalog, characters, builds } = useData();
+  const buildIds = useMemo(
+    () => (ships.data ?? []).map((s) => s.current_build_id).filter(Boolean) as string[],
+    [ships.data],
+  );
+  const fleetLoadouts = useQuery({
+    queryKey: ["fleet_command_loadouts", buildIds],
+    enabled: buildIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("loadouts")
+        .select("id,build_id,name,is_active,updated_at")
+        .in("build_id", buildIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const activeLoadoutByBuild = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const loadout of fleetLoadouts.data ?? []) {
+      if (loadout.is_active) map.set(loadout.build_id, loadout);
+    }
+    return map;
+  }, [fleetLoadouts.data]);
   const [q, setQ] = useState("");
   const [charFilter, setCharFilter] = useState(ALL);
   const [factionFilter, setFactionFilter] = useState(ALL);
@@ -221,8 +244,26 @@ function ShipsPage() {
               </div>
             ))}
             <div className="sm:col-span-4 rounded border border-primary/20 bg-primary/5 p-3">
-              <p className="lcars-label text-[10px]">Next integration</p>
-              <p className="mt-1 text-sm text-muted-foreground">Active loadout, equipment, traits and bridge crew will be read from the linked build/loadout without changing the existing database architecture.</p>
+              <p className="lcars-label text-[10px]">Active loadout coverage</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {fleetLoadouts.isLoading
+                  ? "Scanning linked builds for active loadouts…"
+                  : `${activeLoadoutByBuild.size} of ${buildIds.length} linked builds have an active loadout.`}
+              </p>
+            </div>
+            <div className="sm:col-span-4 space-y-2">
+              {(ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.current_build_id).slice(0, 12).map((s) => {
+                const active = activeLoadoutByBuild.get(s.current_build_id!);
+                return (
+                  <button key={s.id} onClick={() => setSelectedId(s.id)} className="flex w-full items-center justify-between gap-3 rounded border border-border bg-muted/20 p-2.5 text-left transition hover:border-primary">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-primary">{s.custom_name}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">{s.sto_ships?.name ?? "Unknown ship"}</p>
+                    </div>
+                    <Badge variant={active ? "default" : "outline"}>{active ? "LOADOUT READY" : "LOADOUT REQUIRED"}</Badge>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
