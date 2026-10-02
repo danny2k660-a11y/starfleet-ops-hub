@@ -1145,6 +1145,43 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
           </div>
         </div>
 
+        <div className="mt-4 rounded border border-primary/20 bg-primary/5 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="lcars-label">Readiness action panel</p>
+              <p className="text-xs text-muted-foreground">Exact operational state for this ship. Open the detail workflow from the relevant item.</p>
+            </div>
+            <Badge variant="outline">{[
+              !!ship.character_id, !!ship.current_build_id, !!ship.theme_id, !!activeLoadout,
+              (manifest.data?.equipment.length ?? 0) > 0,
+              (manifest.data?.traits.length ?? 0) > 0,
+              (manifest.data?.boffs.length ?? 0) > 0,
+            ].filter(Boolean).length}/7 complete</Badge>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {[
+              { label: "Captain", ok: !!ship.character_id, detail: ship.characters?.name ?? "No character assigned" },
+              { label: "Build", ok: !!ship.current_build_id, detail: ship.builds?.name ?? "No build linked" },
+              { label: "Theme", ok: !!ship.theme_id, detail: themeName(ship.theme_id).replace("No theme assigned", "No theme assigned") },
+              { label: "Active loadout", ok: !!activeLoadout, detail: activeLoadout?.name ?? (ship.current_build_id ? "No active loadout" : "Requires build first") },
+              { label: "Equipment", ok: !!manifest.data && (manifest.data.equipment.length > 0), detail: manifest.isLoading ? "Scanning…" : manifest.data ? `${manifest.data.equipment.length} configured entries` : "Configuration unavailable" },
+              { label: "Traits", ok: !!manifest.data && (manifest.data.traits.length > 0), detail: manifest.isLoading ? "Scanning…" : manifest.data ? `${manifest.data.traits.length} configured` : "Configuration unavailable" },
+              { label: "Bridge crew", ok: !!manifest.data && (manifest.data.boffs.length > 0), detail: manifest.isLoading ? "Scanning…" : manifest.data ? `${manifest.data.boffs.length} configured stations` : "Configuration unavailable" },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center justify-between gap-3 rounded border border-border bg-background/40 p-2.5">
+                <div className="min-w-0">
+                  <p className="lcars-label text-[10px]">{item.label}</p>
+                  <p className="truncate text-xs text-muted-foreground">{item.detail}</p>
+                </div>
+                <Badge variant={item.ok ? "default" : "outline"}>{item.ok ? "READY" : manifest.isLoading ? "SCANNING" : "ACTION"}</Badge>
+              </div>
+            ))}
+          </div>
+          {manifest.isError && (
+            <p className="mt-2 text-xs text-primary">Live loadout configuration could not be read. This ship is not being marked incomplete solely because the scan failed.</p>
+          )}
+        </div>
+
         <div className="mt-4 rounded border border-border bg-muted/20 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
