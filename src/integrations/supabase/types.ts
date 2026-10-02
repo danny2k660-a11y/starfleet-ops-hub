@@ -363,6 +363,7 @@ export type Database = {
           imported_by: string | null
           created_at: string
           applied_at: string | null
+          error_message: string | null
         }
         Insert: {
           id?: string
@@ -383,6 +384,7 @@ export type Database = {
           imported_by?: string | null
           created_at?: string
           applied_at?: string | null
+          error_message?: string | null
         }
         Relationships: []
       }
