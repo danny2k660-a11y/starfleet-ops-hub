@@ -516,6 +516,22 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
   });
 
   const loadouts = useQuery({ queryKey: ["ship_loadouts", ship.current_build_id], enabled: !!ship.current_build_id, queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("*").eq("build_id", ship.current_build_id!).order("updated_at", { ascending: false }); if (error) throw error; return data ?? []; } });
+  const activeLoadout = loadouts.data?.find((l: any) => l.is_active) ?? null;
+  const manifest = useQuery({
+    queryKey: ["ship_command_manifest", activeLoadout?.id],
+    enabled: !!activeLoadout?.id,
+    queryFn: async () => {
+      const [equipment, traits, boffs] = await Promise.all([
+        supabase.from("loadout_equipment").select("id,slot,quantity").eq("loadout_id", activeLoadout!.id),
+        supabase.from("loadout_traits").select("id,trait_type,slot").eq("loadout_id", activeLoadout!.id),
+        supabase.from("loadout_boffs").select("id,station,officer_name,specialization").eq("loadout_id", activeLoadout!.id),
+      ]);
+      if (equipment.error) throw equipment.error;
+      if (traits.error) throw traits.error;
+      if (boffs.error) throw boffs.error;
+      return { equipment: equipment.data ?? [], traits: traits.data ?? [], boffs: boffs.data ?? [] };
+    },
+  });
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -611,6 +627,28 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
           <p className="mb-2 text-xs text-muted-foreground">Catalogue values are shown only when populated from a recorded source; unverified scaling base values are intentionally left blank.</p>
           <BaseStats s={ship.sto_ships} />
         </div>
+        <div className="mt-4 rounded border border-border bg-muted/20 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><p className="lcars-label">Command manifest</p><p className="text-sm text-muted-foreground">{activeLoadout ? activeLoadout.name : "No active loadout"} · equipment, traits and bridge crew status</p></div>
+            {activeLoadout && <Badge className="bg-accent text-accent-foreground">ACTIVE LOADOUT</Badge>}
+          </div>
+          {activeLoadout && (
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="rounded border border-border p-2"><p className="lcars-label text-[10px]">Equipment</p><p className="font-display text-lg text-primary">{manifest.data?.equipment.length ?? 0}</p><p className="text-[10px] text-muted-foreground">fitted slots</p></div>
+              <div className="rounded border border-border p-2"><p className="lcars-label text-[10px]">Traits</p><p className="font-display text-lg text-primary">{manifest.data?.traits.length ?? 0}</p><p className="text-[10px] text-muted-foreground">configured</p></div>
+              <div className="rounded border border-border p-2"><p className="lcars-label text-[10px]">Bridge crew</p><p className="font-display text-lg text-primary">{manifest.data?.boffs.length ?? 0}</p><p className="text-[10px] text-muted-foreground">stations configured</p></div>
+            </div>
+          )}
+          {activeLoadout && !manifest.isLoading && (
+            <div className="mt-3 grid gap-1 text-xs text-muted-foreground">
+              {manifest.data?.equipment.length === 0 && <p className="text-primary">⚠ No equipment is fitted to the active loadout.</p>}
+              {manifest.data?.traits.length === 0 && <p className="text-primary">⚠ No traits are configured for the active loadout.</p>}
+              {manifest.data?.boffs.length === 0 && <p className="text-primary">⚠ No bridge officers are configured for the active loadout.</p>}
+            </div>
+          )}
+          {!activeLoadout && ship.current_build_id && <p className="mt-2 text-xs text-primary">⚠ Select or mark a loadout active in the Build Library to establish the ship's command configuration.</p>}
+        </div>
+
         <div className="mt-4 rounded border border-border bg-muted/20 p-3">
           <div className="flex items-center justify-between gap-3">
             <div><p className="lcars-label">Build pipeline</p><p className="text-sm text-muted-foreground">{ship.builds?.name ?? "No build assigned"} · {(loadouts.data ?? []).length} loadout{(loadouts.data ?? []).length === 1 ? "" : "s"}</p></div>
