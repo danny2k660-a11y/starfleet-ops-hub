@@ -655,8 +655,7 @@ function ShipsPage() {
                   <button onClick={() => setSelectedId(s.id)} className="mt-2 text-xs text-primary hover:underline">Open command workflow →</button>
                 </div>
               );
-            })
-          )}
+            })}
           {fleetReadiness.rows.filter((row) => row.complete < 7).length === 0 && (
             <p className="text-sm text-muted-foreground">All owned ships currently pass the seven-point operational readiness check.</p>
           )}
