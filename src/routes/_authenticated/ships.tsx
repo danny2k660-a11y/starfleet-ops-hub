@@ -146,6 +146,37 @@ function ShipsPage() {
         <div className="col-span-2 panel p-3 sm:col-span-4"><p className="lcars-label">Command attention</p><p className="text-sm text-muted-foreground">{unassignedCount ? `${unassignedCount} owned ship${unassignedCount === 1 ? "" : "s"} still need a build assignment.` : "All owned ships currently have a build linked."}</p></div>
       </div>
 
+      <div className="panel p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="lcars-label">Fleet command readiness</p>
+            <p className="text-sm text-muted-foreground">A fleetwide operational snapshot based on captain, build and theme assignment.</p>
+          </div>
+          <Badge variant="outline">{ownedCount ? Math.round(((ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id && s.current_build_id && s.theme_id).length / ownedCount) * 100) : 0}% command-ready</Badge>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-4">
+          {[
+            { label: "Command-ready", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id && s.current_build_id && s.theme_id).length, note: "captain + build + theme" },
+            { label: "Build assigned", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.current_build_id).length, note: "build linked" },
+            { label: "Theme assigned", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.theme_id).length, note: "theme identity" },
+            { label: "Needs command setup", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length, note: "one or more missing" },
+          ].map((item) => (
+            <button key={item.label} onClick={() => {
+              if (item.label === "Build assigned") setCharFilter(ALL);
+              if (item.label === "Theme assigned") setThemeFilter(ALL);
+              if (item.label === "Needs command setup") setQ("");
+            }} className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
+              <p className="lcars-label text-[10px]">{item.label}</p>
+              <p className="font-display text-2xl text-primary">{item.count}</p>
+              <p className="text-[10px] text-muted-foreground">{item.note}</p>
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 h-2 overflow-hidden rounded bg-muted">
+          <div className="h-full bg-primary transition-all" style={{ width: `${ownedCount ? ((ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id && s.current_build_id && s.theme_id).length / ownedCount) * 100 : 0}%` }} />
+        </div>
+      </div>
+
       {unassignedCount > 0 && (
         <div className="panel border-primary/30 p-4">
           <div className="flex items-start gap-3">
