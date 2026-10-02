@@ -110,7 +110,14 @@ function ShipsPage() {
 
   const filtered = (ships.data ?? []).filter((s) => {
     const text = `${s.custom_name} ${s.sto_ships?.name ?? ""} ${s.sto_ships?.ship_class ?? ""}`.toLowerCase();
-    if (q && !text.includes(q.toLowerCase())) return false;
+    const commandMatch =
+      q === "__command_ready__" ? s.ownership_status === "owned" && !!s.character_id && !!s.current_build_id && !!s.theme_id :
+      q === "__build_assigned__" ? s.ownership_status === "owned" && !!s.current_build_id :
+      q === "__theme_assigned__" ? s.ownership_status === "owned" && !!s.theme_id :
+      q === "__needs_command_setup__" ? s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id) :
+      true;
+    if (!commandMatch) return false;
+    if (q && !q.startsWith("__") && !text.includes(q.toLowerCase())) return false;
     if (charFilter !== ALL && s.character_id !== charFilter) return false;
     if (factionFilter !== ALL && s.sto_ships?.faction !== factionFilter) return false;
     if (themeFilter !== ALL && s.theme_id !== themeFilter) return false;
@@ -168,30 +175,15 @@ function ShipsPage() {
             { label: "Needs command setup", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length, note: "one or more missing" },
           ].map((item) => (
             <button key={item.label} onClick={() => {
-              if (item.label === "Command-ready") {
-                setQ("");
-                setCharFilter(ALL);
-                setThemeFilter(ALL);
-                setFactionFilter(ALL);
-              }
-              if (item.label === "Build assigned") {
-                setQ("");
-                setCharFilter(ALL);
-                setThemeFilter(ALL);
-                setFactionFilter(ALL);
-              }
-              if (item.label === "Theme assigned") {
-                setQ("");
-                setCharFilter(ALL);
-                setThemeFilter(ALL);
-                setFactionFilter(ALL);
-              }
-              if (item.label === "Needs command setup") {
-                setQ("");
-                setCharFilter(ALL);
-                setThemeFilter(ALL);
-                setFactionFilter(ALL);
-              }
+              setQ(
+                item.label === "Command-ready" ? "__command_ready__" :
+                item.label === "Build assigned" ? "__build_assigned__" :
+                item.label === "Theme assigned" ? "__theme_assigned__" :
+                "__needs_command_setup__",
+              );
+              setCharFilter(ALL);
+              setThemeFilter(ALL);
+              setFactionFilter(ALL);
             }} className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
               <p className="lcars-label text-[10px]">{item.label}</p>
               <p className="font-display text-2xl text-primary">{item.count}</p>
