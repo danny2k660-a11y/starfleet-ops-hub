@@ -48,6 +48,7 @@ function ShipDatabasePage() {
   const [faction, setFaction] = useState("ALL");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [ownershipFilter, setOwnershipFilter] = useState<"all" | "owned" | "missing" | "wishlist">("all");
+  const [verificationFilter, setVerificationFilter] = useState<"all" | "verified" | "unverified">("all");
   const ownership = useQuery({
     queryKey: ["sto_ship_ownership"],
     queryFn: async () => { const { data, error } = await supabase.from("sto_ship_ownership" as never).select("*"); if (error) throw error; return (data ?? []) as any[]; },
@@ -79,7 +80,9 @@ function ShipDatabasePage() {
     const haystack = `${ship.name} ${ship.ship_class ?? ""} ${ship.faction ?? ""} ${ship.tier ?? ""}`.toLowerCase();
     const status = ownedByShip.get(ship.id)?.ownership_status;
     const ownershipMatch = ownershipFilter === "all" || (ownershipFilter === "owned" && status === "owned") || (ownershipFilter === "wishlist" && status === "wishlist") || (ownershipFilter === "missing" && status !== "owned" && status !== "wishlist");
-    return (!query || haystack.includes(query.toLowerCase())) && (faction === "ALL" || ship.faction === faction) && ownershipMatch;
+    const verified = ship.source_key === "stowiki" && !!ship.verified_at;
+    const verificationMatch = verificationFilter === "all" || (verificationFilter === "verified" && verified) || (verificationFilter === "unverified" && !verified);
+    return (!query || haystack.includes(query.toLowerCase())) && (faction === "ALL" || ship.faction === faction) && ownershipMatch && verificationMatch;
   }), [data, query, faction, ownershipFilter, ownedByShip]);
   const ownedCount = data.filter((ship) => ownedByShip.get(ship.id)?.ownership_status === "owned").length;
   const wishlistCount = data.filter((ship) => ownedByShip.get(ship.id)?.ownership_status === "wishlist").length;
@@ -133,6 +136,7 @@ function ShipDatabasePage() {
             </div> : <p className="mt-2 text-xs text-muted-foreground">No verified bundle records have been added yet. Bundle claims will appear here as acquisition data is verified.</p>}
           </div>
           <div className="mt-4 rounded border border-border bg-muted/10 p-3"><p className="lcars-label text-[10px]">Verification status</p><p className="mt-1 text-xs text-muted-foreground">{verifiedCount} of {data.length} catalogue records currently carry explicit STOWiki provenance. Unverified records remain usable but are clearly marked so they can be audited before being treated as authoritative.</p></div><div className="mt-4 flex flex-wrap gap-2">{(["all", "owned", "missing", "wishlist"] as const).map((filter) => <Button key={filter} size="sm" variant={ownershipFilter === filter ? "default" : "outline"} onClick={() => setOwnershipFilter(filter)}>{filter === "all" ? "All ships" : filter === "owned" ? "Owned" : filter === "missing" ? "Not owned" : "Wishlist"}</Button>)}</div>
+          <div className="mt-2 flex flex-wrap gap-2">{(["all", "verified", "unverified"] as const).map((filter) => <Button key={filter} size="sm" variant={verificationFilter === filter ? "default" : "outline"} onClick={() => setVerificationFilter(filter)}>{filter === "all" ? "All verification" : filter === "verified" ? "Verified" : "Unverified"}</Button>)}</div>
           <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search name, class, faction or tier" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
             <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={faction} onChange={(e) => setFaction(e.target.value)}><option value="ALL">All factions</option>{factions.map((item) => <option key={item} value={item}>{item}</option>)}</select>
