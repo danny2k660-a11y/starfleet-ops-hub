@@ -431,7 +431,51 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      sto_ship_catalogue_audit: {
+        Row: {
+          id: string
+          name: string
+          ship_class: string | null
+          faction: string | null
+          tier: string | null
+          source_key: string | null
+          source_url: string | null
+          source_reference: string | null
+          data_version: string | null
+          verified_at: string | null
+          classification_complete: boolean
+          mobility_complete: boolean
+          layout_complete: boolean
+          seating_complete: boolean
+          provenance_complete: boolean
+          stowiki_verified: boolean
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      sto_build_readiness_audit: {
+        Row: {
+          build_id: string
+          user_id: string
+          build_name: string
+          status: string
+          user_ship_id: string | null
+          ship_name: string | null
+          sto_ship_id: string | null
+          catalogue_ship_name: string | null
+          source_key: string | null
+          verified_at: string | null
+          ship_instance_complete: boolean
+          catalogue_link_complete: boolean
+          ship_definition_verified: boolean
+          loadout_count: number
+          active_loadout_count: number
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
