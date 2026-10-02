@@ -99,6 +99,7 @@ function ShipsPage() {
   const [q, setQ] = useState("");
   const [charFilter, setCharFilter] = useState(ALL);
   const [factionFilter, setFactionFilter] = useState(ALL);
+  const [themeFilter, setThemeFilter] = useState(ALL);
   const [adding, setAdding] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -112,6 +113,7 @@ function ShipsPage() {
     if (q && !text.includes(q.toLowerCase())) return false;
     if (charFilter !== ALL && s.character_id !== charFilter) return false;
     if (factionFilter !== ALL && s.sto_ships?.faction !== factionFilter) return false;
+    if (themeFilter !== ALL && s.theme_id !== themeFilter) return false;
     return true;
   });
 
@@ -205,7 +207,7 @@ function ShipsPage() {
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
           {themeCounts.map((theme) => (
-            <button key={theme.id} onClick={() => setFactionFilter(ALL)} className="rounded border border-border bg-muted/20 p-2 text-left transition hover:border-primary">
+            <button key={theme.id} onClick={() => setThemeFilter(themeFilter === theme.id ? ALL : theme.id)} className={`rounded border p-2 text-left transition hover:border-primary ${themeFilter === theme.id ? "border-primary bg-primary/10" : "border-border bg-muted/20"}`}>
               <p className="truncate text-xs text-muted-foreground">{theme.name}</p>
               <p className="font-display text-lg text-primary">{theme.count}</p>
               <p className="text-[10px] text-muted-foreground">owned ships</p>
@@ -224,6 +226,13 @@ function ShipsPage() {
           <SelectContent>
             <SelectItem value={ALL}>All characters</SelectItem>
             {(characters.data ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={themeFilter} onValueChange={setThemeFilter}>
+          <SelectTrigger><SelectValue placeholder="Theme" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All themes</SelectItem>
+            {THEME_PRESETS.map((theme) => <SelectItem key={theme.id} value={theme.id}>{theme.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={factionFilter} onValueChange={setFactionFilter}>
