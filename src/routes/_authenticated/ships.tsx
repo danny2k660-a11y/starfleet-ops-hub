@@ -142,9 +142,13 @@ function ShipsPage() {
     const map = new Map<string, {
       equipment: number;
       expectedEquipment: number;
+      missingEquipmentSlots: string[];
       traits: number;
       boffs: number;
       expectedBoffs: number;
+      expectedBoffStations: string[];
+      missingBoffStations: string[];
+      catalogVerified: boolean;
     }>();
     for (const id of activeLoadoutIds) {
       const loadout = Array.from(activeLoadoutByBuild.values()).find((entry: any) => entry.id === id);
@@ -188,9 +192,13 @@ function ShipsPage() {
       map.set(id, {
         equipment: filledEquipment,
         expectedEquipment: slots.length,
+        missingEquipmentSlots: slots.filter((slot) => !assignedSlots.has(slot.toLowerCase())),
         traits: (fleetLoadoutConfig.data?.traits ?? []).filter((x: any) => x.loadout_id === id).length,
         boffs: filledBoffs,
         expectedBoffs: expectedStations.length,
+        expectedBoffStations: expectedStations,
+        missingBoffStations: expectedStations.filter((station) => !configuredStations.has(station.toLowerCase())),
+        catalogVerified: !!catalog,
       });
     }
     return map;
@@ -216,12 +224,19 @@ function ShipsPage() {
         !!s.current_build_id,
         !!s.theme_id,
         !!active,
-        !!coverage && (coverage.expectedEquipment === 0 || coverage.equipment === coverage.expectedEquipment),
+        !!coverage?.catalogVerified && coverage.expectedEquipment > 0 && coverage.equipment === coverage.expectedEquipment,
         !!coverage?.traits,
-        !!coverage && (coverage.expectedBoffs === 0 || coverage.boffs === coverage.expectedBoffs),
+        !!coverage?.catalogVerified && coverage.expectedBoffs > 0 && coverage.boffs === coverage.expectedBoffs,
       ];
       const complete = checks.filter(Boolean).length;
-      return { ship: s, checks, complete, percent: Math.round((complete / 7) * 100) };
+      return {
+        ship: s,
+        checks,
+        complete,
+        percent: Math.round((complete / 7) * 100),
+        activeLoadout: active,
+        coverage,
+      };
     });
     const totalChecks = rows.length * 7;
     const passedChecks = rows.reduce((sum, row) => sum + row.complete, 0);
