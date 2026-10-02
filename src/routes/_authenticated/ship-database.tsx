@@ -90,7 +90,7 @@ function ShipDatabasePage() {
   const setOwnership = async (ship: StoShip, status: "owned" | "wishlist") => {
     const current = ownedByShip.get(ship.id);
     if (current?.ownership_status === status) {
-      const { error } = await supabase.from("sto_ship_ownership" as never).delete().eq("sto_ship_id", ship.id);
+      const { error } = await supabase.from("sto_ship_ownership" as never).delete().eq("user_id", u.user.id).eq("sto_ship_id", ship.id);
       if (error) return;
     } else {
       const { data: u } = await supabase.auth.getUser(); if (!u.user) return;
@@ -100,7 +100,9 @@ function ShipDatabasePage() {
     ownership.refetch();
   };
   const toggleOwnership = (ship: StoShip) => setOwnership(ship, "owned");
-  const verifiedCount = data.filter((ship) => ship.source_key === "stowiki" && ship.verified_at).length;\n  const unverifiedCount = Math.max(0, data.length - verifiedCount);\n  const quality = useMemo(() => {
+  const verifiedCount = data.filter((ship) => ship.source_key === "stowiki" && ship.verified_at).length;
+  const unverifiedCount = Math.max(0, data.length - verifiedCount);
+  const quality = useMemo(() => {
     const fields: Array<[string, (ship: StoShip) => boolean]> = [
       ["Classification", (s) => !!s.ship_class && !!s.faction && !!s.tier],
       ["Hull / shields", (s) => s.hull_modifier !== null && s.shield_modifier !== null],
