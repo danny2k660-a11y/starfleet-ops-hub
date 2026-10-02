@@ -7,9 +7,9 @@ import {
   Shield,
   Sparkles,
   UsersRound,
+  Database,
   Palette,
   ListChecks,
-  Database,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -26,6 +26,7 @@ export const navItems: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/characters", label: "Characters", icon: Users },
   { to: "/ships", label: "Ships", icon: Rocket },
+  { to: "/ship-database", label: "Ship Database", icon: Database },
   { to: "/builds", label: "Builds", icon: Wrench },
   { to: "/inventory", label: "Inventory", icon: Boxes },
   { to: "/equipment", label: "Equipment", icon: Shield },
