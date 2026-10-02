@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type Build = Tables<"builds">;
+type Build = Tables<"builds"> & { user_ship_id?: string | null };
 type Ship = Tables<"ship_instances">;
 type Character = Tables<"characters">;
 type Loadout = Tables<"loadouts">;
@@ -33,7 +33,7 @@ function BuildsPage() {
   const [selected, setSelected] = useState<Build | null>(null);
   const readiness = useQuery({ queryKey: ["build_readiness"], queryFn: async () => { const { data, error } = await supabase.from("sto_build_readiness_audit" as never).select("*"); if (error) throw error; return (data ?? []) as any[]; } });
   const loadouts = useQuery({ queryKey: ["loadouts"], queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("*").order("updated_at", { ascending: false }); if (error) throw error; return data as Loadout[]; } });
-  const builds = useQuery({ queryKey: ["builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("*, ship_instances(*, characters(*))").order("updated_at", { ascending: false }); if (error) throw error; return data as unknown as (Build & { ship_instances: Ship & { characters: Character | null } | null })[]; } });
+  const builds = useQuery({ queryKey: ["builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("*, ship_instances(*, characters(*)), user_ships(id,custom_name,character_id,sto_ship_id,characters(name),sto_ships(name))").order("updated_at", { ascending: false }); if (error) throw error; return data as unknown as (Build & { ship_instances: Ship & { characters: Character | null } | null })[]; } });
   const ships = useQuery({ queryKey: ["ship_instances"], queryFn: async () => { const { data, error } = await supabase.from("ship_instances").select("*, characters(*)").order("name"); if (error) throw error; return data as unknown as (Ship & { characters: Character | null })[]; } });
   const fleetLinks = useQuery({ queryKey: ["build-fleet-links"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,current_build_id,custom_name,sto_ships(name),characters(name)").not("current_build_id","is",null); if (error) throw error; return data ?? []; } });
   const fleetByBuild = useMemo(() => new Map((fleetLinks.data ?? []).map((s:any) => [s.current_build_id, s])), [fleetLinks.data]);
@@ -69,7 +69,7 @@ function BuildsPage() {
 function BuildDialog({ open, onOpenChange, build, ships, fleetShips, onDeleted }: { open: boolean; onOpenChange: (v: boolean) => void; build: (Build & { ship_instances: Ship & { characters: Character | null } | null }) | null; ships: (Ship & { characters: Character | null })[]; fleetShips: FleetShip[]; onDeleted: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState(build?.name ?? "");
-  const existingFleetShip = fleetShips.find((s) => s.current_build_id === build?.id);
+  const existingFleetShip = fleetShips.find((s) => s.current_build_id === build?.id) ?? (build as any)?.user_ships ?? null;
   const [shipId, setShipId] = useState(build?.ship_instance_id ?? "__none__");
   const [fleetShipId, setFleetShipId] = useState(existingFleetShip?.id ?? "__none__");
   const [role, setRole] = useState(build?.role ?? "");
@@ -78,7 +78,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, onDeleted }
 
   const save = useMutation({ mutationFn: async () => {
     const { data: u } = await supabase.auth.getUser();
-    const payload = { name: name.trim(), ship_instance_id: shipId === "__none__" ? null : shipId, role: role || null, status, notes: notes || null };
+    const payload = { name: name.trim(), ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId === "__none__" ? null : fleetShipId, role: role || null, status, notes: notes || null };
     let buildId = build?.id ?? null;
     if (build) {
       const { error } = await supabase.from("builds").update(payload).eq("id", build.id);
