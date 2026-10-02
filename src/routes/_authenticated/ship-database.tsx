@@ -49,6 +49,10 @@ function ShipDatabasePage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [ownershipFilter, setOwnershipFilter] = useState<"all" | "owned" | "missing" | "wishlist">("all");
   const [verificationFilter, setVerificationFilter] = useState<"all" | "verified" | "unverified">("all");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importUrl, setImportUrl] = useState("https://stowiki.net/wiki/Category:Playable_starships");
+  const [importJson, setImportJson] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
   const imports = useQuery({
     queryKey: ["sto_ship_catalog_imports"],
     queryFn: async () => { const { data, error } = await supabase.from("sto_ship_catalog_imports" as never).select("*").order("created_at", { ascending: false }).limit(10); if (error) throw error; return (data ?? []) as any[]; },
@@ -144,9 +148,35 @@ function ShipDatabasePage() {
             </div> : <p className="mt-2 text-xs text-muted-foreground">No verified bundle records have been added yet. Bundle claims will appear here as acquisition data is verified.</p>}
           </div>
           <div className="mt-4 rounded border border-border bg-muted/10 p-3">
-            <div className="flex items-center justify-between gap-2"><div><p className="lcars-label text-[10px]">Catalogue import pipeline</p><p className="mt-1 text-xs text-muted-foreground">Only validated source payloads can be applied. Missing fields stay empty rather than being guessed.</p></div><Database className="size-4 text-primary" /></div>
+            <div className="flex items-center justify-between gap-2"><div><p className="lcars-label text-[10px]">Catalogue import pipeline</p><p className="mt-1 text-xs text-muted-foreground">Only validated source payloads can be applied. Missing fields stay empty rather than being guessed.</p></div><div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>Stage JSON</Button><Database className="size-4 text-primary" /></div></div>
             {imports.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading import status…</p> : imports.data?.length ? <div className="mt-2 space-y-1.5">{imports.data.map((item: any) => <ImportRow key={item.id} item={item} onChanged={() => imports.refetch()} />)}</div> : <p className="mt-2 text-xs text-muted-foreground">No catalogue imports have been staged yet.</p>}
           </div>
+          <Dialog open={importOpen} onOpenChange={setImportOpen}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Stage verified ship catalogue JSON</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div><label className="lcars-label text-[10px]">STOWiki source URL</label><Input value={importUrl} onChange={(e) => setImportUrl(e.target.value)} /></div>
+                <div><label className="lcars-label text-[10px]">JSON array</label><Textarea className="min-h-48 font-mono text-xs" placeholder='[{"name":"...","ship_class":"...","faction":"...","tier":"T6","source_reference":"https://stowiki.net/wiki/..."}]' value={importJson} onChange={(e) => setImportJson(e.target.value)} /></div>
+                <p className="text-xs text-muted-foreground">Only source data you have verified against STOWiki should be staged. The server validates every record before anything can be applied.</p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importBusy}>Cancel</Button>
+                <Button disabled={importBusy || !importJson.trim()} onClick={async () => {
+                  setImportBusy(true);
+                  try {
+                    const payload = JSON.parse(importJson);
+                    if (!Array.isArray(payload)) throw new Error("JSON must be an array.");
+                    const { data: u } = await supabase.auth.getUser();
+                    if (!u.user) throw new Error("You must be signed in.");
+                    const { error } = await supabase.from("sto_ship_catalog_imports" as never).insert({ source_key: "stowiki", source_url: importUrl.trim(), payload, status: "pending", imported_by: u.user.id } as never);
+                    if (error) throw error;
+                    setImportJson(""); setImportOpen(false); imports.refetch();
+                  } catch (e) { console.error(e); window.alert(e instanceof Error ? e.message : "Invalid import."); }
+                  finally { setImportBusy(false); }
+                }}>{importBusy ? "Staging…" : "Stage import"}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <div className="mt-4 rounded border border-border bg-muted/10 p-3"><p className="lcars-label text-[10px]">Verification status</p><p className="mt-1 text-xs text-muted-foreground">{verifiedCount} of {data.length} catalogue records currently carry explicit STOWiki provenance. Unverified records remain usable but are clearly marked so they can be audited before being treated as authoritative.</p></div><div className="mt-4 flex flex-wrap gap-2">{(["all", "owned", "missing", "wishlist"] as const).map((filter) => <Button key={filter} size="sm" variant={ownershipFilter === filter ? "default" : "outline"} onClick={() => setOwnershipFilter(filter)}>{filter === "all" ? "All ships" : filter === "owned" ? "Owned" : filter === "missing" ? "Not owned" : "Wishlist"}</Button>)}</div>
           <div className="mt-2 flex flex-wrap gap-2">{(["all", "verified", "unverified"] as const).map((filter) => <Button key={filter} size="sm" variant={verificationFilter === filter ? "default" : "outline"} onClick={() => setVerificationFilter(filter)}>{filter === "all" ? "All verification" : filter === "verified" ? "Verified" : "Unverified"}</Button>)}</div>
           <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
