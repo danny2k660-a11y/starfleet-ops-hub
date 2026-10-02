@@ -120,6 +120,8 @@ function ShipsPage() {
   const wishlistCount = (ships.data ?? []).filter((s) => s.ownership_status === "wishlist").length;
   const readyCount = (ships.data ?? []).filter((s) => !!s.current_build_id && s.ownership_status === "owned").length;
   const unassignedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !s.current_build_id).length;
+  const themeCounts = THEME_PRESETS.map((theme) => ({ ...theme, count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.theme_id === theme.id).length }));
+  const themedOwnedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !!s.theme_id).length;
 
   return (
     <AppShell title="Ships" subtitle="Your STO fleet registry">
@@ -163,6 +165,25 @@ function ShipsPage() {
           </div>
         </div>
       )}
+
+      <div className="panel p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="lcars-label">Fleet composition</p>
+            <p className="text-sm text-muted-foreground">Theme identity across your owned fleet.</p>
+          </div>
+          <Badge variant="outline">{themedOwnedCount}/{ownedCount} themed</Badge>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {themeCounts.map((theme) => (
+            <button key={theme.id} onClick={() => setFactionFilter(ALL)} className="rounded border border-border bg-muted/20 p-2 text-left transition hover:border-primary">
+              <p className="truncate text-xs text-muted-foreground">{theme.name}</p>
+              <p className="font-display text-lg text-primary">{theme.count}</p>
+              <p className="text-[10px] text-muted-foreground">owned ships</p>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="panel grid gap-3 p-4 sm:grid-cols-3">
         <div className="relative">
