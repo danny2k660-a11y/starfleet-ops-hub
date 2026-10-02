@@ -139,16 +139,62 @@ function ShipsPage() {
     },
   });
   const loadoutCoverageById = useMemo(() => {
-    const map = new Map<string, { equipment: number; traits: number; boffs: number }>();
+    const map = new Map<string, {
+      equipment: number;
+      expectedEquipment: number;
+      traits: number;
+      boffs: number;
+      expectedBoffs: number;
+    }>();
     for (const id of activeLoadoutIds) {
+      const loadout = Array.from(activeLoadoutByBuild.values()).find((entry: any) => entry.id === id);
+      const ship = (ships.data ?? []).find((entry) => entry.current_build_id === loadout?.build_id);
+      const catalog = ship?.sto_ships as any;
+      const slots: string[] = [];
+      const addSlots = (label: string, count: unknown) => {
+        for (let i = 1; i <= Number(count || 0); i += 1) slots.push(`${label} ${i}`);
+      };
+      if (catalog) {
+        addSlots("Fore Weapon", catalog.fore_weapon_slots);
+        addSlots("Aft Weapon", catalog.aft_weapon_slots);
+        if (catalog.experimental_weapon_slot || catalog.experimental_weapon) slots.push("Experimental Weapon");
+        addSlots("Engineering Console", catalog.engineering_console_slots);
+        addSlots("Science Console", catalog.science_console_slots);
+        addSlots("Tactical Console", catalog.tactical_console_slots);
+        addSlots("Universal Console", catalog.universal_console_slots);
+        addSlots("Hangar Bay", catalog.hangar_bays);
+        slots.push("Deflector", "Impulse Engines", "Warp Core", "Shields");
+      }
+      const assignedSlots = new Set(
+        (fleetLoadoutConfig.data?.equipment ?? [])
+          .filter((x: any) => x.loadout_id === id)
+          .map((x: any) => String(x.slot ?? "").trim().toLowerCase())
+          .filter(Boolean),
+      );
+      const filledEquipment = slots.filter((slot) => assignedSlots.has(slot.toLowerCase())).length;
+      const rawStations = catalog?.bridge_officer_stations as unknown;
+      const expectedStations = Array.isArray(rawStations)
+        ? rawStations.map((entry: any) => typeof entry === "string" ? entry : entry?.station ?? entry?.name).filter(Boolean).map(String)
+        : rawStations && typeof rawStations === "object"
+          ? Object.keys(rawStations)
+          : [];
+      const configuredStations = new Set(
+        (fleetLoadoutConfig.data?.boffs ?? [])
+          .filter((x: any) => x.loadout_id === id)
+          .map((x: any) => String(x.station ?? "").trim().toLowerCase())
+          .filter(Boolean),
+      );
+      const filledBoffs = expectedStations.filter((station) => configuredStations.has(station.toLowerCase())).length;
       map.set(id, {
-        equipment: (fleetLoadoutConfig.data?.equipment ?? []).filter((x: any) => x.loadout_id === id).length,
+        equipment: filledEquipment,
+        expectedEquipment: slots.length,
         traits: (fleetLoadoutConfig.data?.traits ?? []).filter((x: any) => x.loadout_id === id).length,
-        boffs: (fleetLoadoutConfig.data?.boffs ?? []).filter((x: any) => x.loadout_id === id).length,
+        boffs: filledBoffs,
+        expectedBoffs: expectedStations.length,
       });
     }
     return map;
-  }, [activeLoadoutIds, fleetLoadoutConfig.data]);
+  }, [activeLoadoutIds, activeLoadoutByBuild, fleetLoadoutConfig.data, ships.data]);
   const fleetReadiness = useMemo(() => {
     const owned = (ships.data ?? []).filter((s) => s.ownership_status === "owned");
     const rows = owned.map((s) => {
@@ -159,9 +205,9 @@ function ShipsPage() {
         !!s.current_build_id,
         !!s.theme_id,
         !!active,
-        !!coverage?.equipment,
+        !!coverage && (coverage.expectedEquipment === 0 || coverage.equipment === coverage.expectedEquipment),
         !!coverage?.traits,
-        !!coverage?.boffs,
+        !!coverage && (coverage.expectedBoffs === 0 || coverage.boffs === coverage.expectedBoffs),
       ];
       const complete = checks.filter(Boolean).length;
       return { ship: s, checks, complete, percent: Math.round((complete / 7) * 100) };
