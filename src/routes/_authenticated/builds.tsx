@@ -19,6 +19,7 @@ type Build = Tables<"builds">;
 type Ship = Tables<"ship_instances">;
 type Character = Tables<"characters">;
 type Loadout = Tables<"loadouts">;
+type FleetShip = Tables<"user_ships"> & { sto_ships: { name: string } | null; characters: Character | null };
 
 export const Route = createFileRoute("/_authenticated/builds")({
   head: () => ({ meta: [{ title: "Builds — STO Command Center" }, { name: "description", content: "Create and manage ship builds, variants and build status." }] }),
@@ -67,14 +68,16 @@ function BuildsPage() {
         </div>
       )}
     </section>
-    <BuildDialog key={selected?.id ?? "new"} open={open} onOpenChange={setOpen} build={selected} ships={ships.data ?? []} onDeleted={() => selected && remove.mutate(selected.id)} />
+    <BuildDialog key={selected?.id ?? "new"} open={open} onOpenChange={setOpen} build={selected} ships={ships.data ?? []} fleetShips={fleetLinks.data ?? []} onDeleted={() => selected && remove.mutate(selected.id)} />
   </div></AppShell>;
 }
 
-function BuildDialog({ open, onOpenChange, build, ships, onDeleted }: { open: boolean; onOpenChange: (v: boolean) => void; build: (Build & { ship_instances: Ship & { characters: Character | null } | null }) | null; ships: (Ship & { characters: Character | null })[]; onDeleted: () => void }) {
+function BuildDialog({ open, onOpenChange, build, ships, fleetShips, onDeleted }: { open: boolean; onOpenChange: (v: boolean) => void; build: (Build & { ship_instances: Ship & { characters: Character | null } | null }) | null; ships: (Ship & { characters: Character | null })[]; fleetShips: FleetShip[]; onDeleted: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState(build?.name ?? "");
+  const existingFleetShip = fleetShips.find((s) => s.current_build_id === build?.id);
   const [shipId, setShipId] = useState(build?.ship_instance_id ?? "__none__");
+  const [fleetShipId, setFleetShipId] = useState(existingFleetShip?.id ?? "__none__");
   const [role, setRole] = useState(build?.role ?? "");
   const [status, setStatus] = useState(build?.status ?? "draft");
   const [notes, setNotes] = useState(build?.notes ?? "");
@@ -82,14 +85,29 @@ function BuildDialog({ open, onOpenChange, build, ships, onDeleted }: { open: bo
   const save = useMutation({ mutationFn: async () => {
     const { data: u } = await supabase.auth.getUser();
     const payload = { name: name.trim(), ship_instance_id: shipId === "__none__" ? null : shipId, role: role || null, status, notes: notes || null };
-    if (build) { const { error } = await supabase.from("builds").update(payload).eq("id", build.id); if (error) throw error; }
-    else { const { error } = await supabase.from("builds").insert({ ...payload, user_id: u.user!.id }); if (error) throw error; }
+    let buildId = build?.id ?? null;
+    if (build) {
+      const { error } = await supabase.from("builds").update(payload).eq("id", build.id);
+      if (error) throw error;
+    } else {
+      const { data, error } = await supabase.from("builds").insert({ ...payload, user_id: u.user!.id }).select("id").single();
+      if (error) throw error;
+      buildId = data.id;
+    }
+    if (!buildId) throw new Error("Build ID was not available");
+    const { error: clearError } = await supabase.from("user_ships").update({ current_build_id: null }).eq("current_build_id", buildId);
+    if (clearError) throw clearError;
+    if (fleetShipId !== "__none__") {
+      const { error: linkError } = await supabase.from("user_ships").update({ current_build_id: buildId }).eq("id", fleetShipId);
+      if (linkError) throw linkError;
+    }
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["builds"] }); toast.success(build ? "Build updated" : "Build created"); onOpenChange(false); }, onError: (e: Error) => toast.error(e.message) });
 
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle className="font-display text-primary">{build ? "Edit build" : "New build"}</DialogTitle></DialogHeader>
     <div className="space-y-4">
       <div className="space-y-1"><Label>Build name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Elite CSV — Terran" /></div>
-      <div className="space-y-1"><Label>Ship instance</Label><Select value={shipId} onValueChange={setShipId}><SelectTrigger><SelectValue placeholder="Select ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">Unassigned</SelectItem>{ships.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select></div>
+      <div className="space-y-1"><Label>Fleet ship registry</Label><Select value={fleetShipId} onValueChange={setFleetShipId}><SelectTrigger><SelectValue placeholder="Link to owned ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">No fleet ship link</SelectItem>{fleetShips.map(s => <SelectItem key={s.id} value={s.id}>{s.custom_name || s.sto_ships?.name || "Unnamed ship"}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">This is the primary owned-ship link used by Fleet Ops readiness.</p></div>
+      <div className="space-y-1"><Label>Legacy ship instance</Label><Select value={shipId} onValueChange={setShipId}><SelectTrigger><SelectValue placeholder="Select legacy ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">Unassigned</SelectItem>{ships.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select></div>
       <div className="space-y-1"><Label>Role</Label><Input value={role} onChange={e => setRole(e.target.value)} placeholder="CSV, BO, FAW, Science, Carrier…" /></div>
       <div className="space-y-1"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="testing">Testing</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="retired">Retired</SelectItem></SelectContent></Select></div>
       <div className="space-y-1"><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Theme rules, target content, gear notes…" /></div>
