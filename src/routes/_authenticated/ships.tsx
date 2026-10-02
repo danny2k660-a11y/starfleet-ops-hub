@@ -559,19 +559,42 @@ function ShipsPage() {
             const s = row.ship;
             const complete = row.complete;
             const percent = row.percent;
+            const labels = ["Captain", "Build", "Theme", "Active loadout", "Equipment", "Traits", "Bridge crew"];
+            const missingChecks = labels.filter((_, index) => !row.checks[index]);
+            const equipmentMissing = row.coverage?.missingEquipmentSlots ?? [];
+            const boffMissing = row.coverage?.missingBoffStations ?? [];
+            const details = [
+              ...missingChecks.filter((item) => item !== "Equipment" && item !== "Bridge crew"),
+              ...(missingChecks.includes("Equipment") ? [equipmentMissing.length ? `Equipment: ${equipmentMissing.slice(0, 2).join(", ")}${equipmentMissing.length > 2 ? ` +${equipmentMissing.length - 2}` : ""}` : "Equipment configuration"] : []),
+              ...(missingChecks.includes("Bridge crew") ? [boffMissing.length ? `Bridge: ${boffMissing.slice(0, 2).join(", ")}${boffMissing.length > 2 ? ` +${boffMissing.length - 2}` : ""}` : "Bridge crew configuration"] : []),
+            ];
             return (
-              <button key={s.id} onClick={() => setSelectedId(s.id)} className="flex w-full items-center gap-3 rounded border border-border bg-muted/20 p-2.5 text-left transition hover:border-primary">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-primary">{s.custom_name}</p>
-                  <p className="truncate text-[10px] text-muted-foreground">{s.sto_ships?.name ?? "Unknown ship"}</p>
+              <div key={s.id} className="rounded border border-border bg-muted/20 p-3 transition hover:border-primary/60">
+                <div className="flex items-start gap-3">
+                  <button onClick={() => setSelectedId(s.id)} className="min-w-0 flex-1 text-left">
+                    <p className="truncate text-sm font-medium text-primary">{s.custom_name}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">{s.sto_ships?.name ?? "Unknown ship"}</p>
+                  </button>
+                  <button onClick={() => setSelectedId(s.id)} className="shrink-0 rounded border border-primary/30 px-2 py-1 text-[10px] text-primary hover:border-primary">OPEN</button>
                 </div>
-                <div className="w-28 shrink-0">
-                  <div className="h-1.5 overflow-hidden rounded bg-muted">
-                    <div className="h-full bg-primary" style={{ width: `${(complete / checks.length) * 100}%` }} />
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded bg-muted">
+                    <div className="h-full bg-primary" style={{ width: `${percent}%` }} />
                   </div>
-                  <p className="mt-1 text-right text-[10px] text-muted-foreground">{complete}/{checks.length} core</p>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{complete}/7 · {percent}%</span>
                 </div>
-              </button>
+                {details.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {details.map((detail) => (
+                      <button key={detail} onClick={() => setSelectedId(s.id)} className="rounded-full border border-primary/30 bg-primary/5 px-2 py-1 text-[10px] text-primary hover:border-primary">
+                        {detail}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[10px] text-primary">All seven operational checks passed.</p>
+                )}
+              </div>
             );
           })}
           {ownedCount > 12 && <p className="text-center text-[10px] text-muted-foreground">Showing 12 of {ownedCount} owned ships.</p>}
