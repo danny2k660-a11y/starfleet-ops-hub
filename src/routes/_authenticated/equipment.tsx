@@ -61,6 +61,7 @@ function Page() {
 
   return <AppShell title="Equipment" subtitle="Fitting locker">
     <div className="space-y-5">
+      {equipment.isLoading && <div className="panel p-4 text-sm text-muted-foreground">Loading equipment locker…</div>}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div><p className="lcars-label">Equipment locker</p><h1 className="font-display text-2xl text-primary">Ship fittings</h1><p className="text-sm text-muted-foreground">Store gear once, then assign it to any loadout.</p></div>
         <Button onClick={openNew}><Plus className="mr-1 size-4"/> Add equipment</Button>
