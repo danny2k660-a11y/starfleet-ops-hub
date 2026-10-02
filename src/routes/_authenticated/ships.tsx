@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Search, Rocket } from "lucide-react";
+import { Plus, Search, Rocket, ClipboardCheck } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -141,6 +141,28 @@ function ShipsPage() {
         <div className="panel p-3"><p className="lcars-label">Catalog</p><p className="font-display text-xl text-primary">{catalog.data?.length ?? 0}</p><p className="text-xs text-muted-foreground">ships indexed</p></div>
         <div className="col-span-2 panel p-3 sm:col-span-4"><p className="lcars-label">Command attention</p><p className="text-sm text-muted-foreground">{unassignedCount ? `${unassignedCount} owned ship${unassignedCount === 1 ? "" : "s"} still need a build assignment.` : "All owned ships currently have a build linked."}</p></div>
       </div>
+
+      {unassignedCount > 0 && (
+        <div className="panel border-primary/30 p-4">
+          <div className="flex items-start gap-3">
+            <ClipboardCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <p className="lcars-label">Fleet readiness queue</p>
+              <p className="text-sm text-muted-foreground">Ships below are owned but have no active build link. Open one to assign its build.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {(ships.data ?? []).filter((s) => s.ownership_status === "owned" && !s.current_build_id).slice(0, 6).map((s) => (
+                  <button key={s.id} onClick={() => setSelectedId(s.id)} className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
+                    <p className="font-medium text-primary">{s.custom_name}</p>
+                    <p className="text-xs text-muted-foreground">{s.sto_ships?.name ?? "Unknown ship"} · {s.characters?.name ?? "No character"}</p>
+                    <span className="mt-2 inline-block text-xs text-primary">Assign build →</span>
+                  </button>
+                ))}
+              </div>
+              {unassignedCount > 6 && <p className="mt-2 text-xs text-muted-foreground">Showing 6 of {unassignedCount} ships needing attention.</p>}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="panel grid gap-3 p-4 sm:grid-cols-3">
         <div className="relative">
