@@ -625,29 +625,45 @@ function ShipsPage() {
           </div>
           <Badge variant="outline">{fleetReadiness.rows.filter((row) => row.complete < 7).length} open</Badge>
         </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { label: "Assign captain", ships: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !s.character_id), action: "captain" },
-            { label: "Assign build", ships: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !!s.character_id && !s.current_build_id), action: "build" },
-            { label: "Assign theme", ships: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !!s.current_build_id && !s.theme_id), action: "theme" },
+            { label: "Assign captain", action: "captain" as const, count: fleetReadiness.rows.filter((row) => !row.checks[0]).length, note: "character assignment" },
+            { label: "Assign build", action: "build" as const, count: fleetReadiness.rows.filter((row) => !row.checks[1]).length, note: "current build link" },
+            { label: "Assign theme", action: "theme" as const, count: fleetReadiness.rows.filter((row) => !row.checks[2]).length, note: "theme identity" },
+            { label: "Activate loadout", action: "loadout" as const, count: fleetReadiness.rows.filter((row) => !row.checks[3]).length, note: "active deployment loadout" },
+            { label: "Fit equipment", action: "equipment" as const, count: fleetReadiness.rows.filter((row) => !row.checks[4]).length, note: "expected fitting slots" },
+            { label: "Configure traits", action: "traits" as const, count: fleetReadiness.rows.filter((row) => !row.checks[5]).length, note: "loadout traits" },
+            { label: "Assign bridge crew", action: "boffs" as const, count: fleetReadiness.rows.filter((row) => !row.checks[6]).length, note: "expected bridge stations" },
           ].map((item) => (
-            <button key={item.action} onClick={() => {
-              const target = item.ships[0];
-              if (target) setSelectedId(target.id);
-            }} className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
+            <button
+              key={item.action}
+              disabled={fleetReadiness.state !== "ready" || item.count === 0}
+              onClick={() => {
+                if (fleetReadiness.state !== "ready" || item.count === 0) return;
+                setReadinessFilter(item.action);
+                setQ("");
+                setCharFilter(ALL);
+                setThemeFilter(ALL);
+                setFactionFilter(ALL);
+              }}
+              className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary disabled:cursor-default disabled:opacity-60"
+            >
               <div className="flex items-center justify-between gap-2">
                 <p className="lcars-label text-[10px]">{item.label}</p>
-                <Badge variant={item.ships.length ? "default" : "outline"}>{item.ships.length}</Badge>
+                <Badge variant="outline">{fleetReadiness.state === "ready" ? item.count : "—"}</Badge>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {item.ships.length
-                  ? `${item.ships[0].custom_name} · ${item.ships.length === 1 ? "1 ship" : `${item.ships.length} ships`}`
-                  : "No ships waiting"}
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {fleetReadiness.state === "scanning"
+                  ? "Scanning fleet configuration…"
+                  : fleetReadiness.state === "error"
+                    ? "Readiness data unavailable"
+                    : item.count
+                      ? item.note
+                      : "No ships require this step."}
               </p>
             </button>
           ))}
-        </div>
-      </div>
+        </div>      </div>
 
       <div className="panel p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
