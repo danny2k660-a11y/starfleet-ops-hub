@@ -116,7 +116,22 @@ export function AppShell({
           </Button>
         </header>
 
-        <main className="min-w-0 flex-1 p-3 pb-8 sm:p-6 sm:pb-8">{children}</main>
+        <main className="min-w-0 flex-1 p-3 pb-24 sm:p-6 sm:pb-8">{children}</main>
+        <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-2 py-2 backdrop-blur lg:hidden">
+          <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
+            {navItems.slice(0, 5).map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                activeProps={{ className: "flex min-w-0 flex-col items-center gap-1 rounded-md bg-primary/10 px-1 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-primary" }}
+              >
+                <item.icon className="size-4" />
+                <span className="max-w-full truncate">{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        </nav>
       </div>
     </div>
   );
