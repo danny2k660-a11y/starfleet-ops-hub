@@ -615,18 +615,38 @@ function ShipsPage() {
             .slice()
             .sort((a, b) => a.complete - b.complete)
             .slice(0, 5)
-            .map(({ ship: s, checks, complete, percent }) => {
-              const missing = !checks[0] ? "Captain" : !checks[1] ? "Build" : !checks[2] ? "Theme" : !checks[3] ? "Active loadout" : !checks[4] ? "Equipment" : !checks[5] ? "Traits" : "Bridge crew";
+            .map((row) => {
+              const s = row.ship;
+              const labels = ["Captain", "Build", "Theme", "Active loadout", "Equipment", "Traits", "Bridge crew"];
+              const missing = labels.filter((_, index) => !row.checks[index]);
+              const equipmentMissing = row.coverage?.missingEquipmentSlots ?? [];
+              const boffMissing = row.coverage?.missingBoffStations ?? [];
+              const details = [
+                ...missing.filter((item) => item !== "Equipment" && item !== "Bridge crew"),
+                ...(missing.includes("Equipment") ? [equipmentMissing.length ? equipmentMissing.slice(0, 3).join(", ") : "Equipment configuration"] : []),
+                ...(missing.includes("Traits") ? ["Traits configuration"] : []),
+                ...(missing.includes("Bridge crew") ? [boffMissing.length ? boffMissing.slice(0, 3).join(", ") : "Bridge crew configuration"] : []),
+              ];
               return (
-                <button key={s.id} onClick={() => setSelectedId(s.id)} className="flex w-full items-center justify-between gap-3 rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-primary">{s.custom_name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{s.sto_ships?.name ?? "Unknown ship"} · {s.characters?.name ?? "No captain"}</p>
+                <div key={s.id} className="rounded border border-border bg-muted/20 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <button onClick={() => setSelectedId(s.id)} className="min-w-0 text-left">
+                      <p className="truncate font-medium text-primary">{s.custom_name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{s.sto_ships?.name ?? "Unknown ship"} · {s.characters?.name ?? "No captain"}</p>
+                    </button>
+                    <Badge variant="outline" className="shrink-0">{row.complete}/7</Badge>
                   </div>
-                  <Badge variant="outline" className="shrink-0">{missing} required</Badge>
-                </button>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {details.map((detail) => (
+                      <button key={detail} onClick={() => setSelectedId(s.id)} className="rounded-full border border-primary/30 bg-primary/5 px-2 py-1 text-[10px] text-primary hover:border-primary">
+                        {detail}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setSelectedId(s.id)} className="mt-2 text-xs text-primary hover:underline">Open command workflow →</button>
+                </div>
               );
-            })}
+            })
           {fleetReadiness.rows.filter((row) => row.complete < 7).length === 0 && (
             <p className="text-sm text-muted-foreground">All owned ships currently pass the seven-point operational readiness check.</p>
           )}
