@@ -316,7 +316,22 @@ function BaseStats({ s }: { s: StoShip | null }) {
   const consoles = [s.engineering_console_slots, s.science_console_slots, s.tactical_console_slots].every((v) => v !== null)
     ? `Eng ${s.engineering_console_slots} · Sci ${s.science_console_slots} · Tac ${s.tactical_console_slots}${s.universal_console_slots ? ` · Uni ${s.universal_console_slots}` : ""}`
     : null;
-  const boffs = Array.isArray(s.bridge_officer_stations) ? (s.bridge_officer_stations as Boff[]) : [];
+  const rawBoffs = s.bridge_officer_stations as unknown;
+  const boffs: Boff[] = Array.isArray(rawBoffs)
+    ? rawBoffs as Boff[]
+    : rawBoffs && typeof rawBoffs === "object"
+      ? Object.keys(rawBoffs as Record<string, unknown>).map((seat) => {
+          const match = seat.match(/^(.+?)\s+(?:\((.+)\)|\/\s*(.+))$/);
+          if (match) {
+            return { rank: match[1], career: match[2] ?? match[3] };
+          }
+          const split = seat.split(/\s*\/\s*/);
+          if (split.length > 1) return { rank: split[0], career: split.slice(1).join(" / ") };
+          const parts = seat.trim().split(/\s+/);
+          if (parts.length >= 2) return { rank: parts.slice(0, 2).join(" "), career: parts.slice(2).join(" ") || undefined };
+          return { rank: seat };
+        })
+      : [];
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
