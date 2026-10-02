@@ -195,6 +195,14 @@ function ShipsPage() {
     }
     return map;
   }, [activeLoadoutIds, activeLoadoutByBuild, fleetLoadoutConfig.data, ships.data]);
+  const [q, setQ] = useState("");
+  const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup" | "captain" | "build" | "theme" | "loadout" | "equipment" | "traits" | "boffs">("all");
+  const [charFilter, setCharFilter] = useState(ALL);
+  const [factionFilter, setFactionFilter] = useState(ALL);
+  const [themeFilter, setThemeFilter] = useState(ALL);
+  const [adding, setAdding] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
   const fleetReadiness = useMemo(() => {
     const owned = (ships.data ?? []).filter((s) => s.ownership_status === "owned");
     const rows = owned.map((s) => {
@@ -245,14 +253,6 @@ function ShipsPage() {
     };
     return labels[readinessFilter] ?? "All ships";
   }, [readinessFilter]);
-  const [q, setQ] = useState("");
-  const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup" | "captain" | "build" | "theme" | "loadout" | "equipment" | "traits" | "boffs">("all");
-  const [charFilter, setCharFilter] = useState(ALL);
-  const [factionFilter, setFactionFilter] = useState(ALL);
-  const [themeFilter, setThemeFilter] = useState(ALL);
-  const [adding, setAdding] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
   const factions = useMemo(
     () => Array.from(new Set((catalog.data ?? []).map((s) => s.faction).filter(Boolean))) as string[],
     [catalog.data],
