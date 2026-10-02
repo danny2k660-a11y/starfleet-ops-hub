@@ -681,6 +681,41 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
         </div>
 
         <div className="mt-4 rounded border border-border bg-muted/20 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="lcars-label">Deployment summary</p>
+              <p className="text-sm text-muted-foreground">At-a-glance command state for this vessel.</p>
+            </div>
+            <Badge variant="outline">{ship.ownership_status === "owned" ? "DEPLOYABLE" : "REGISTRY ONLY"}</Badge>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="rounded border border-border p-3">
+              <p className="lcars-label text-[10px]">Command chain</p>
+              <p className="mt-1 text-sm">{ship.characters?.name ?? "No captain assigned"} → {ship.builds?.name ?? "No active build"}</p>
+            </div>
+            <div className="rounded border border-border p-3">
+              <p className="lcars-label text-[10px]">Configuration</p>
+              <p className="mt-1 text-sm">{activeLoadout?.name ?? "No active loadout"}</p>
+            </div>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded bg-muted">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: ([
+                !!ship.character_id,
+                !!ship.current_build_id,
+                !!ship.theme_id,
+                !!activeLoadout,
+                (manifest.data?.equipment.length ?? 0) > 0,
+                (manifest.data?.traits.length ?? 0) > 0,
+                (manifest.data?.boffs.length ?? 0) > 0,
+              ].filter(Boolean).length / 7 * 100) + "%" }}
+            />
+          </div>
+          <p className="mt-1 text-right text-[10px] text-muted-foreground">Operational configuration completeness</p>
+        </div>
+
+        <div className="mt-4 rounded border border-border bg-muted/20 p-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><p className="lcars-label">Command manifest</p><p className="text-sm text-muted-foreground">{activeLoadout ? activeLoadout.name : "No active loadout"} · equipment, traits and bridge crew status</p></div>
             {activeLoadout && <Badge className="bg-accent text-accent-foreground">ACTIVE LOADOUT</Badge>}
