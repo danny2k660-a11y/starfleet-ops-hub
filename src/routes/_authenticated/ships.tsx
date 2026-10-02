@@ -176,6 +176,7 @@ function ShipsPage() {
     };
   }, [ships.data, activeLoadoutByBuild, loadoutCoverageById]);
   const [q, setQ] = useState("");
+  const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup">("all");
   const [charFilter, setCharFilter] = useState(ALL);
   const [factionFilter, setFactionFilter] = useState(ALL);
   const [themeFilter, setThemeFilter] = useState(ALL);
@@ -189,13 +190,13 @@ function ShipsPage() {
 
   const filtered = (ships.data ?? []).filter((s) => {
     const text = `${s.custom_name} ${s.sto_ships?.name ?? ""} ${s.sto_ships?.ship_class ?? ""}`.toLowerCase();
-    const commandMatch =
-      q === "__command_ready__" ? s.ownership_status === "owned" && !!s.character_id && !!s.current_build_id && !!s.theme_id :
-      q === "__build_assigned__" ? s.ownership_status === "owned" && !!s.current_build_id :
-      q === "__theme_assigned__" ? s.ownership_status === "owned" && !!s.theme_id :
-      q === "__needs_command_setup__" ? s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id) :
-      true;
-    if (!commandMatch) return false;
+    const readinessMatch =
+      readinessFilter === "ready"
+        ? fleetReadiness.rows.some((row) => row.ship.id === s.id && row.complete === 7)
+        : readinessFilter === "needs_setup"
+          ? fleetReadiness.rows.some((row) => row.ship.id === s.id && row.complete < 7)
+          : true;
+    if (!readinessMatch) return false;
     if (q && !q.startsWith("__") && !text.includes(q.toLowerCase())) return false;
     if (charFilter !== ALL && s.character_id !== charFilter) return false;
     if (factionFilter !== ALL && s.sto_ships?.faction !== factionFilter) return false;
@@ -255,12 +256,10 @@ function ShipsPage() {
             { label: "Needs command setup", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length, note: "one or more missing" },
           ].map((item) => (
             <button key={item.label} onClick={() => {
-              setQ(
-                item.label === "Command-ready" ? "__command_ready__" :
-                item.label === "Build assigned" ? "__build_assigned__" :
-                item.label === "Theme assigned" ? "__theme_assigned__" :
-                "__needs_command_setup__",
+              setReadinessFilter(
+                item.label === "Command-ready" ? "ready" : "needs_setup",
               );
+              setQ("");
               setCharFilter(ALL);
               setThemeFilter(ALL);
               setFactionFilter(ALL);
@@ -419,11 +418,13 @@ function ShipsPage() {
           <Badge variant="outline">{(ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length} requiring action</Badge>
         </div>
         <div className="mt-3 space-y-2">
-          {(ships.data ?? [])
-            .filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id))
+          {fleetReadiness.rows
+            .filter((row) => row.complete < 7)
+            .slice()
+            .sort((a, b) => a.complete - b.complete)
             .slice(0, 5)
-            .map((s) => {
-              const missing = !s.character_id ? "Captain" : !s.current_build_id ? "Build" : "Theme";
+            .map(({ ship: s, checks, complete, percent }) => {
+              const missing = !checks[0] ? "Captain" : !checks[1] ? "Build" : !checks[2] ? "Theme" : !checks[3] ? "Active loadout" : !checks[4] ? "Equipment" : !checks[5] ? "Traits" : "Bridge crew";
               return (
                 <button key={s.id} onClick={() => setSelectedId(s.id)} className="flex w-full items-center justify-between gap-3 rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
                   <div className="min-w-0">
@@ -434,8 +435,8 @@ function ShipsPage() {
                 </button>
               );
             })}
-          {(ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length === 0 && (
-            <p className="text-sm text-muted-foreground">No owned ships are waiting on captain, build or theme assignment.</p>
+          {fleetReadiness.rows.filter((row) => row.complete < 7).length === 0 && (
+            <p className="text-sm text-muted-foreground">All owned ships currently pass the seven-point operational readiness check.</p>
           )}
         </div>
       </div>
@@ -468,7 +469,7 @@ function ShipsPage() {
             <p className="lcars-label">Command action queue</p>
             <p className="text-sm text-muted-foreground">Open the ships that need the next command step.</p>
           </div>
-          <Badge variant="outline">{(ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length} open</Badge>
+          <Badge variant="outline">{fleetReadiness.rows.filter((row) => row.complete < 7).length} open</Badge>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           {[
@@ -548,8 +549,8 @@ function ShipsPage() {
             <p className="lcars-label">Command filters</p>
             <p className="text-xs text-muted-foreground">{filtered.length} matching ship{filtered.length === 1 ? "" : "s"} · {readyCount} build-linked fleetwide</p>
           </div>
-          {(charFilter !== ALL || themeFilter !== ALL || factionFilter !== ALL || q) && (
-            <Button variant="outline" size="sm" onClick={() => { setQ(""); setCharFilter(ALL); setThemeFilter(ALL); setFactionFilter(ALL); }}>
+          {(charFilter !== ALL || themeFilter !== ALL || factionFilter !== ALL || q || readinessFilter !== "all") && (
+            <Button variant="outline" size="sm" onClick={() => { setQ(""); setReadinessFilter("all"); setCharFilter(ALL); setThemeFilter(ALL); setFactionFilter(ALL); }}>
               Clear filters
             </Button>
           )}
