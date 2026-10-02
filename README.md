@@ -1,206 +1,52 @@
 # Starfleet Ops Hub
 
-Build the initial version of a responsive web application called STO Command Center.
+A mobile-first STO Command Center for managing personal Star Trek Online characters, ships, builds, loadouts, equipment, inventory, themes and projects.
 
+## Current state
 
+- Supabase authentication and user-scoped data
+- Character registry with character-specific asset separation
+- STO ship catalogue + personal owned-ship registry
+- Character → owned ship → build relationships
+- Build library and named loadouts
+- Loadout readiness checks for equipment, traits and bridge-officer stations
+- Theme-compliance tracking
+- Equipment locker with account-wide/character-bound ownership
+- Inventory tracking by character and storage location
+- Character operations overview
+- Dashboard fleet/captain readiness views
+- Mobile-responsive Star Trek-inspired interface
+- Android debug APK build through GitHub Actions
 
-This is a personal Star Trek Online account, ship, loadout and build management application.
+## Data model
 
+`STO Ship Database → Personal Ship Instance → Character → Build → Loadout → Equipment`
 
+The STO catalogue describes the ship itself. A personal ship record represents the user's copy of that ship, including its custom name, owner character, upgrade state, current build and theme.
 
-For this first stage, do NOT build the complete application yet.
+Character-bound equipment and inventory remain tied to the owning character rather than being treated as universally available.
 
+## STO data policy
 
+The ship catalogue is designed for **verified STO data only**. No fictional ship statistics or fictional equipment are used as production data. Catalogue records include source/reference and data-version fields so future imports can be audited and refreshed without mixing source data with personal account data.
 
-Create only the basic application foundation.
+## Android build
 
-
-
-Requirements:
-
-
-
-1. Use a modern responsive interface that works on Android phones, tablets and desktop browsers.
-
-
-
-2. Use a dark futuristic Star Trek-inspired interface.
-
-
-
-3. Create a main dashboard with navigation for:
-
-
-
-- Dashboard
-
-- Characters
-
-- Ships
-
-- Builds
-
-- Inventory
-
-- Equipment
-
-- Traits
-
-- Themes
-
-- Projects
-
-- Resources
-
-- Settings
-
-
-
-4. Create a clean sidebar on desktop and mobile-friendly navigation on smaller screens.
-
-
-
-5. Create placeholder pages for each section so we can build them individually later.
-
-
-
-6. Create a dashboard showing placeholder cards for:
-
-
-
-- Characters
-
-- Ships
-
-- Active Builds
-
-- Active Projects
-
-- Resources
-
-
-
-7. Connect the project to Supabase.
-
-
-
-8. Use Supabase for the application's database and authentication.
-
-
-
-9. Do not create the full STO database yet.
-
-
-
-10. Do not invent STO ship statistics yet.
-
-
-
-11. Do not populate the application with fictional STO equipment.
-
-
-
-12. Build the application architecture so that we can later add a proper STO ship database containing:
-
-
-
-- Hull modifier
-
-- Shield modifier
-
-- Hull strength
-
-- Shield strength
-
-- Turn rate
-
-- Inertia
-
-- Impulse modifier
-
-- Weapon layout
-
-- Console layout
-
-- Bridge officer stations
-
-- Hangar bays
-
-- Experimental weapon slot
-
-- Special ship abilities
-
-- Ship traits
-
-- Other base ship statistics
-
-
-
-13. The most important future relationship is:
-
-
-
-STO Ship Database
-
-→ Ship Instance
-
-→ Character
-
-→ Build
-
-→ Loadout
-
-→ Equipment
-
-
-
-14. Keep the STO ship database separate from the user's personal ship instances.
-
-
-
-For example, the database definition of a Rex should be separate from the user's personal ship named "I.S.S. Predator".
-
-
-
-15. The application must eventually support multiple characters and must never assume that all equipment is available to every character.
-
-
-
-16. Do not add payment systems.
-
-
-
-17. Do not add advertising.
-
-
-
-18. Keep the project compatible with free-tier services.
-
-
-
-For now, concentrate on creating a clean working application shell and Supabase connection.
-
-
-
-Do not implement advanced AI features yet.
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/3b9e89ab-355b-4779-9274-808bef042dde).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+GitHub Actions produces a debug APK from the same application source. The workflow builds the web application, creates/synchronizes the Capacitor Android project, builds the APK and verifies the resulting package before publishing it as an artifact.
 
 ## Development
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+npm install
 npm run dev
 ```
+
+The app expects the Supabase project URL and publishable/anonymous key through the project's existing environment configuration.
+
+## Free-tier goal
+
+The application is designed to remain compatible with free-tier hosting/database services. It contains no advertising or payment system.
+
+## Lovable
+
+This project remains connected to Lovable for visual/application development and GitHub synchronization.
