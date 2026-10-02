@@ -119,6 +119,36 @@ function ShipsPage() {
     }
     return map;
   }, [fleetLoadouts.data]);
+  const activeLoadoutIds = useMemo(
+    () => Array.from(activeLoadoutByBuild.values()).map((l: any) => l.id),
+    [activeLoadoutByBuild],
+  );
+  const fleetLoadoutConfig = useQuery({
+    queryKey: ["fleet_loadout_config", activeLoadoutIds],
+    enabled: activeLoadoutIds.length > 0,
+    queryFn: async () => {
+      const [equipment, traits, boffs] = await Promise.all([
+        supabase.from("loadout_equipment").select("loadout_id,id,slot,quantity").in("loadout_id", activeLoadoutIds),
+        supabase.from("loadout_traits").select("loadout_id,id,trait_type,slot").in("loadout_id", activeLoadoutIds),
+        supabase.from("loadout_boffs").select("loadout_id,id,station,officer_name,specialization").in("loadout_id", activeLoadoutIds),
+      ]);
+      if (equipment.error) throw equipment.error;
+      if (traits.error) throw traits.error;
+      if (boffs.error) throw boffs.error;
+      return { equipment: equipment.data ?? [], traits: traits.data ?? [], boffs: boffs.data ?? [] };
+    },
+  });
+  const loadoutCoverageById = useMemo(() => {
+    const map = new Map<string, { equipment: number; traits: number; boffs: number }>();
+    for (const id of activeLoadoutIds) {
+      map.set(id, {
+        equipment: (fleetLoadoutConfig.data?.equipment ?? []).filter((x: any) => x.loadout_id === id).length,
+        traits: (fleetLoadoutConfig.data?.traits ?? []).filter((x: any) => x.loadout_id === id).length,
+        boffs: (fleetLoadoutConfig.data?.boffs ?? []).filter((x: any) => x.loadout_id === id).length,
+      });
+    }
+    return map;
+  }, [activeLoadoutIds, fleetLoadoutConfig.data]);
   const [q, setQ] = useState("");
   const [charFilter, setCharFilter] = useState(ALL);
   const [factionFilter, setFactionFilter] = useState(ALL);
@@ -246,21 +276,26 @@ function ShipsPage() {
             <div className="sm:col-span-4 rounded border border-primary/20 bg-primary/5 p-3">
               <p className="lcars-label text-[10px]">Active loadout coverage</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {fleetLoadouts.isLoading
-                  ? "Scanning linked builds for active loadouts…"
-                  : `${activeLoadoutByBuild.size} of ${buildIds.length} linked builds have an active loadout.`}
+                {fleetLoadouts.isLoading || fleetLoadoutConfig.isLoading
+                  ? "Scanning linked builds and active loadout configuration…"
+                  : `${activeLoadoutByBuild.size} of ${buildIds.length} linked builds have an active loadout; equipment, traits and BOFF configuration are now included.`}
               </p>
             </div>
             <div className="sm:col-span-4 space-y-2">
               {(ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.current_build_id).slice(0, 12).map((s) => {
                 const active = activeLoadoutByBuild.get(s.current_build_id!);
+                const coverage = active ? loadoutCoverageById.get(active.id) : undefined;
+                const configured = coverage ? Number(coverage.equipment > 0) + Number(coverage.traits > 0) + Number(coverage.boffs > 0) : 0;
+                const ready = !!active && configured === 3;
                 return (
                   <button key={s.id} onClick={() => setSelectedId(s.id)} className="flex w-full items-center justify-between gap-3 rounded border border-border bg-muted/20 p-2.5 text-left transition hover:border-primary">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-primary">{s.custom_name}</p>
-                      <p className="truncate text-[10px] text-muted-foreground">{s.sto_ships?.name ?? "Unknown ship"}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">
+                        {s.sto_ships?.name ?? "Unknown ship"} · {coverage ? `${coverage.equipment} equipment / ${coverage.traits} traits / ${coverage.boffs} BOFFs` : "No active loadout"}
+                      </p>
                     </div>
-                    <Badge variant={active ? "default" : "outline"}>{active ? "LOADOUT READY" : "LOADOUT REQUIRED"}</Badge>
+                    <Badge variant={ready ? "default" : "outline"}>{ready ? "CONFIGURED" : active ? `${configured}/3 CONFIGURED` : "LOADOUT REQUIRED"}</Badge>
                   </button>
                 );
               })}
