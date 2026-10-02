@@ -585,7 +585,28 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
           </div>
         )}
 
-        <div className="mt-2">
+        <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="lcars-label">Operational status</p>
+              <p className="text-sm text-muted-foreground">Command readiness for this ship instance.</p>
+            </div>
+            <Badge className={ship.current_build_id && ship.theme_id ? "bg-accent text-accent-foreground" : "border-primary text-primary"} variant={ship.current_build_id && ship.theme_id ? "default" : "outline"}>
+              {ship.current_build_id && ship.theme_id ? "COMMAND READY" : ship.current_build_id ? "THEME REQUIRED" : "BUILD REQUIRED"}
+            </Badge>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded border border-border bg-background/40 p-2"><p className="lcars-label text-[10px]">Captain</p><p className="text-sm">{ship.characters?.name ?? "Unassigned"}</p></div>
+            <div className="rounded border border-border bg-background/40 p-2"><p className="lcars-label text-[10px]">Build</p><p className="text-sm">{ship.builds?.name ?? "Unassigned"}</p></div>
+            <div className="rounded border border-border bg-background/40 p-2"><p className="lcars-label text-[10px]">Theme</p><p className="text-sm">{themeName(ship.theme_id).replace("No theme assigned", "Unassigned")}</p></div>
+            <div className="rounded border border-border bg-background/40 p-2"><p className="lcars-label text-[10px]">Loadouts</p><p className="text-sm">{loadouts.data?.length ?? 0} configured</p></div>
+          </div>
+          {ship.current_build_id && !loadouts.isLoading && !loadouts.data?.some((l: any) => l.is_active) && (
+            <p className="mt-2 text-xs text-primary">Build linked, but no active loadout is marked for this ship.</p>
+          )}
+        </div>
+
+        <div className="mt-4">
           <p className="lcars-label mb-2">Verified ship specifications</p>
           <p className="mb-2 text-xs text-muted-foreground">Catalogue values are shown only when populated from a recorded source; unverified scaling base values are intentionally left blank.</p>
           <BaseStats s={ship.sto_ships} />
