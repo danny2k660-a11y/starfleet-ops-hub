@@ -1100,6 +1100,40 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
     },
   });
 
+  const detailCoverage = useMemo(() => {
+    const catalog = ship.sto_ships as any;
+    const slots: string[] = [];
+    const addSlots = (label: string, count: unknown) => {
+      for (let i = 1; i <= Number(count || 0); i += 1) slots.push(`${label} ${i}`);
+    };
+    if (catalog) {
+      addSlots("Fore Weapon", catalog.fore_weapon_slots);
+      addSlots("Aft Weapon", catalog.aft_weapon_slots);
+      if (catalog.experimental_weapon_slot || catalog.experimental_weapon) slots.push("Experimental Weapon");
+      addSlots("Engineering Console", catalog.engineering_console_slots);
+      addSlots("Science Console", catalog.science_console_slots);
+      addSlots("Tactical Console", catalog.tactical_console_slots);
+      addSlots("Universal Console", catalog.universal_console_slots);
+      addSlots("Hangar Bay", catalog.hangar_bays);
+      slots.push("Deflector", "Impulse Engines", "Warp Core", "Shields");
+    }
+    const assigned = new Set((manifest.data?.equipment ?? []).map((x: any) => String(x.slot ?? "").trim().toLowerCase()).filter(Boolean));
+    const rawStations = catalog?.bridge_officer_stations as unknown;
+    const expectedStations = Array.isArray(rawStations)
+      ? rawStations.map((entry: any) => typeof entry === "string" ? entry : entry?.station ?? entry?.name).filter(Boolean).map(String)
+      : rawStations && typeof rawStations === "object" ? Object.keys(rawStations) : [];
+    const configuredStations = new Set((manifest.data?.boffs ?? []).map((x: any) => String(x.station ?? "").trim().toLowerCase()).filter(Boolean));
+    return {
+      equipmentExpected: slots.length,
+      equipmentFilled: slots.filter((slot) => assigned.has(slot.toLowerCase())).length,
+      missingEquipment: slots.filter((slot) => !assigned.has(slot.toLowerCase())),
+      boffsExpected: expectedStations.length,
+      boffsFilled: expectedStations.filter((station) => configuredStations.has(station.toLowerCase())).length,
+      missingBoffs: expectedStations.filter((station) => !configuredStations.has(station.toLowerCase())),
+      catalogVerified: !!catalog,
+    };
+  }, [manifest.data, ship.sto_ships]);
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -1220,9 +1254,9 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
             </div>
             <Badge variant="outline">{[
               !!ship.character_id, !!ship.current_build_id, !!ship.theme_id, !!activeLoadout,
-              (manifest.data?.equipment.length ?? 0) > 0,
+              detailCoverage.catalogVerified && detailCoverage.equipmentExpected > 0 && detailCoverage.equipmentFilled === detailCoverage.equipmentExpected,
               (manifest.data?.traits.length ?? 0) > 0,
-              (manifest.data?.boffs.length ?? 0) > 0,
+              detailCoverage.catalogVerified && detailCoverage.boffsExpected > 0 && detailCoverage.boffsFilled === detailCoverage.boffsExpected,
             ].filter(Boolean).length}/7 complete</Badge>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -1231,9 +1265,9 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
               { label: "Build", ok: !!ship.current_build_id, detail: ship.builds?.name ?? "No build linked" },
               { label: "Theme", ok: !!ship.theme_id, detail: themeName(ship.theme_id).replace("No theme assigned", "No theme assigned") },
               { label: "Active loadout", ok: !!activeLoadout, detail: activeLoadout?.name ?? (ship.current_build_id ? "No active loadout" : "Requires build first") },
-              { label: "Equipment", ok: !!manifest.data && (manifest.data.equipment.length > 0), detail: manifest.isLoading ? "Scanning…" : manifest.data ? `${manifest.data.equipment.length} configured entries` : "Configuration unavailable" },
+              { label: "Equipment", ok: detailCoverage.catalogVerified && detailCoverage.equipmentExpected > 0 && detailCoverage.equipmentFilled === detailCoverage.equipmentExpected, detail: manifest.isLoading ? "Scanning…" : detailCoverage.equipmentExpected ? `${detailCoverage.equipmentFilled}/${detailCoverage.equipmentExpected} slots filled${detailCoverage.missingEquipment.length ? ` · Missing: ${detailCoverage.missingEquipment.slice(0, 2).join(", ")}${detailCoverage.missingEquipment.length > 2 ? "…" : ""}` : ""}` : "Catalogue slot data unavailable" },
               { label: "Traits", ok: !!manifest.data && (manifest.data.traits.length > 0), detail: manifest.isLoading ? "Scanning…" : manifest.data ? `${manifest.data.traits.length} configured` : "Configuration unavailable" },
-              { label: "Bridge crew", ok: !!manifest.data && (manifest.data.boffs.length > 0), detail: manifest.isLoading ? "Scanning…" : manifest.data ? `${manifest.data.boffs.length} configured stations` : "Configuration unavailable" },
+              { label: "Bridge crew", ok: detailCoverage.catalogVerified && detailCoverage.boffsExpected > 0 && detailCoverage.boffsFilled === detailCoverage.boffsExpected, detail: manifest.isLoading ? "Scanning…" : detailCoverage.boffsExpected ? `${detailCoverage.boffsFilled}/${detailCoverage.boffsExpected} stations filled${detailCoverage.missingBoffs.length ? ` · Missing: ${detailCoverage.missingBoffs.slice(0, 2).join(", ")}${detailCoverage.missingBoffs.length > 2 ? "…" : ""}` : ""}` : "Catalogue seating unavailable" },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between gap-3 rounded border border-border bg-background/40 p-2.5">
                 <div className="min-w-0">
