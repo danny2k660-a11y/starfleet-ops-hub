@@ -5,16 +5,32 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
 
-    if (!data.user) {
+      if (sessionData.session?.user) {
+        return { user: sessionData.session.user };
+      }
+
       const { data: anonymous, error: anonymousError } = await supabase.auth.signInAnonymously();
-      if (anonymousError || !anonymous.user) throw redirect({ to: "/auth" });
-      return { user: anonymous.user };
-    }
 
-    if (error) throw redirect({ to: "/auth" });
-    return { user: data.user };
+      if (anonymousError || !anonymous.user) {
+        console.error("[STO Command Center] Native guest session unavailable:", anonymousError);
+        throw redirect({
+          to: "/auth",
+          search: { reason: "guest_session_unavailable" },
+        });
+      }
+
+      return { user: anonymous.user };
+    } catch (error) {
+      if (error && typeof error === "object" && "isRedirect" in error) throw error;
+      console.error("[STO Command Center] Authentication bootstrap failed:", error);
+      throw redirect({
+        to: "/auth",
+        search: { reason: "auth_bootstrap_failed" },
+      });
+    }
   },
   component: () => <Outlet />,
 });
