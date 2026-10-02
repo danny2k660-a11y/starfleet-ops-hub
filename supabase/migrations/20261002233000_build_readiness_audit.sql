@@ -15,33 +15,26 @@ SELECT
   s.name AS catalogue_ship_name,
   s.source_key,
   s.verified_at,
-  (
-    us.id IS NOT NULL
-    AND us.character_id IS NOT NULL
-  ) AS ship_instance_complete,
-  (
-    s.id IS NOT NULL
-  ) AS catalogue_link_complete,
-  (
-    s.source_key = 'stowiki'
-    AND s.verified_at IS NOT NULL
-  ) AS ship_definition_verified,
+  (us.id IS NOT NULL AND us.character_id IS NOT NULL) AS ship_instance_complete,
+  (s.id IS NOT NULL) AS catalogue_link_complete,
+  (s.source_key = 'stowiki' AND s.verified_at IS NOT NULL) AS ship_definition_verified,
   (
     SELECT count(*) FROM public.loadouts l
-    WHERE l.build_id = b.id
-      AND l.user_id = b.user_id
+    WHERE l.build_id = b.id AND l.user_id = b.user_id
   ) AS loadout_count,
   (
     SELECT count(*) FROM public.loadouts l
-    WHERE l.build_id = b.id
-      AND l.user_id = b.user_id
-      AND l.is_active
+    WHERE l.build_id = b.id AND l.user_id = b.user_id AND l.is_active
   ) AS active_loadout_count
 FROM public.builds b
-LEFT JOIN public.user_ships us
-  ON us.current_build_id = b.id
- AND us.user_id = b.user_id
-LEFT JOIN public.sto_ships s
-  ON s.id = us.sto_ship_id;
+LEFT JOIN LATERAL (
+  SELECT us1.*
+  FROM public.user_ships us1
+  WHERE us1.user_id = b.user_id
+    AND (us1.id = b.user_ship_id OR us1.current_build_id = b.id)
+  ORDER BY (us1.id = b.user_ship_id) DESC, us1.updated_at DESC, us1.id
+  LIMIT 1
+) us ON true
+LEFT JOIN public.sto_ships s ON s.id = us.sto_ship_id;
 
 GRANT SELECT ON public.sto_build_readiness_audit TO authenticated;
