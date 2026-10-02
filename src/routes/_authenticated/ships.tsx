@@ -162,9 +162,30 @@ function ShipsPage() {
             { label: "Needs command setup", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length, note: "one or more missing" },
           ].map((item) => (
             <button key={item.label} onClick={() => {
-              if (item.label === "Build assigned") setCharFilter(ALL);
-              if (item.label === "Theme assigned") setThemeFilter(ALL);
-              if (item.label === "Needs command setup") setQ("");
+              if (item.label === "Command-ready") {
+                setQ("");
+                setCharFilter(ALL);
+                setThemeFilter(ALL);
+                setFactionFilter(ALL);
+              }
+              if (item.label === "Build assigned") {
+                setQ("");
+                setCharFilter(ALL);
+                setThemeFilter(ALL);
+                setFactionFilter(ALL);
+              }
+              if (item.label === "Theme assigned") {
+                setQ("");
+                setCharFilter(ALL);
+                setThemeFilter(ALL);
+                setFactionFilter(ALL);
+              }
+              if (item.label === "Needs command setup") {
+                setQ("");
+                setCharFilter(ALL);
+                setThemeFilter(ALL);
+                setFactionFilter(ALL);
+              }
             }} className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
               <p className="lcars-label text-[10px]">{item.label}</p>
               <p className="font-display text-2xl text-primary">{item.count}</p>
@@ -198,6 +219,38 @@ function ShipsPage() {
           </div>
         </div>
       )}
+
+      <div className="panel p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="lcars-label">Command action queue</p>
+            <p className="text-sm text-muted-foreground">Open the ships that need the next command step.</p>
+          </div>
+          <Badge variant="outline">{(ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length} open</Badge>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {[
+            { label: "Assign captain", ships: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !s.character_id), action: "captain" },
+            { label: "Assign build", ships: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !!s.character_id && !s.current_build_id), action: "build" },
+            { label: "Assign theme", ships: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !!s.current_build_id && !s.theme_id), action: "theme" },
+          ].map((item) => (
+            <button key={item.action} onClick={() => {
+              const target = item.ships[0];
+              if (target) setSelectedId(target.id);
+            }} className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
+              <div className="flex items-center justify-between gap-2">
+                <p className="lcars-label text-[10px]">{item.label}</p>
+                <Badge variant={item.ships.length ? "default" : "outline"}>{item.ships.length}</Badge>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {item.ships.length
+                  ? `${item.ships[0].custom_name} · ${item.ships.length === 1 ? "1 ship" : `${item.ships.length} ships`}`
+                  : "No ships waiting"}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="panel p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
