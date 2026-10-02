@@ -656,6 +656,7 @@ function ShipsPage() {
                 </div>
               );
             })
+          )}
           {fleetReadiness.rows.filter((row) => row.complete < 7).length === 0 && (
             <p className="text-sm text-muted-foreground">All owned ships currently pass the seven-point operational readiness check.</p>
           )}
