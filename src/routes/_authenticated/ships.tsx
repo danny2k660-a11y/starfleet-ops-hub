@@ -149,6 +149,32 @@ function ShipsPage() {
     }
     return map;
   }, [activeLoadoutIds, fleetLoadoutConfig.data]);
+  const fleetReadiness = useMemo(() => {
+    const owned = (ships.data ?? []).filter((s) => s.ownership_status === "owned");
+    const rows = owned.map((s) => {
+      const active = s.current_build_id ? activeLoadoutByBuild.get(s.current_build_id) : undefined;
+      const coverage = active ? loadoutCoverageById.get(active.id) : undefined;
+      const checks = [
+        !!s.character_id,
+        !!s.current_build_id,
+        !!s.theme_id,
+        !!active,
+        !!coverage?.equipment,
+        !!coverage?.traits,
+        !!coverage?.boffs,
+      ];
+      const complete = checks.filter(Boolean).length;
+      return { ship: s, checks, complete, percent: Math.round((complete / 7) * 100) };
+    });
+    const totalChecks = rows.length * 7;
+    const passedChecks = rows.reduce((sum, row) => sum + row.complete, 0);
+    return {
+      rows,
+      shipCount: rows.length,
+      fullyReady: rows.filter((row) => row.complete === 7).length,
+      averagePercent: totalChecks ? Math.round((passedChecks / totalChecks) * 100) : 0,
+    };
+  }, [ships.data, activeLoadoutByBuild, loadoutCoverageById]);
   const [q, setQ] = useState("");
   const [charFilter, setCharFilter] = useState(ALL);
   const [factionFilter, setFactionFilter] = useState(ALL);
@@ -301,6 +327,42 @@ function ShipsPage() {
               })}
             </div>
           </div>
+        )}
+      </div>
+
+      <div className="panel p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="lcars-label">7-point operational readiness</p>
+            <p className="text-sm text-muted-foreground">Character, build, theme, active loadout, equipment, traits and bridge crew.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="lcars-label text-[10px]">Fleet average</p>
+              <p className="text-xl font-semibold text-primary">{fleetReadiness.averagePercent}%</p>
+            </div>
+            <Badge>{fleetReadiness.fullyReady}/{fleetReadiness.shipCount} fully ready</Badge>
+          </div>
+        </div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-full bg-primary transition-all" style={{ width: `${fleetReadiness.averagePercent}%` }} />
+        </div>
+        <div className="mt-4 space-y-2">
+          {fleetReadiness.rows.slice(0, 12).map(({ ship, complete, percent }) => (
+            <button key={ship.id} onClick={() => setSelectedId(ship.id)} className="flex w-full items-center justify-between gap-3 rounded border border-border bg-muted/20 p-2.5 text-left transition hover:border-primary">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-primary">{ship.custom_name}</p>
+                <p className="truncate text-[10px] text-muted-foreground">{ship.sto_ships?.name ?? "Unknown ship"}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{complete}/7</span>
+                <Badge variant={complete === 7 ? "default" : "outline"}>{percent}%</Badge>
+              </div>
+            </button>
+          ))}
+        </div>
+        {fleetReadiness.shipCount > 12 && (
+          <p className="mt-3 text-xs text-muted-foreground">Showing 12 of {fleetReadiness.shipCount} owned ships.</p>
         )}
       </div>
 
