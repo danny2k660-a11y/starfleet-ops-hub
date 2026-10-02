@@ -46,6 +46,7 @@ export type Database = {
           notes?: string | null
           role?: string | null
           ship_instance_id?: string | null
+          user_ship_id?: string | null
           status?: string
           updated_at?: string
           user_id?: string
