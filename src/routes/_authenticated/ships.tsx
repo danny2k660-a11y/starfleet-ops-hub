@@ -247,12 +247,6 @@ function ShipsPage() {
   const ownedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned").length;
   const wishlistCount = (ships.data ?? []).filter((s) => s.ownership_status === "wishlist").length;
   const readyCount = (ships.data ?? []).filter((s) => !!s.current_build_id && s.ownership_status === "owned").length;
-  const commandReadyCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id && s.current_build_id && s.theme_id).length;
-  const fullChecklistBase = (s: UserShip) => [
-    !!s.character_id,
-    !!s.current_build_id,
-    !!s.theme_id,
-  ];
   const [fleetConfigOpen, setFleetConfigOpen] = useState(false);
   const unassignedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !s.current_build_id).length;
   const themeCounts = THEME_PRESETS.map((theme) => ({ ...theme, count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.theme_id === theme.id).length }));
@@ -457,7 +451,7 @@ function ShipsPage() {
             <p className="lcars-label">Fleet readiness matrix</p>
             <p className="text-sm text-muted-foreground">Every owned ship is measured against the same seven-point operational checklist.</p>
           </div>
-          <Badge variant="outline">{commandReadyCount}/{ownedCount} command-ready</Badge>
+          <Badge variant="outline">{fleetReadiness.fullyReady}/{ownedCount} fully ready</Badge>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           {[
@@ -473,9 +467,10 @@ function ShipsPage() {
           ))}
         </div>
         <div className="mt-4 space-y-2">
-          {(ships.data ?? []).filter((s) => s.ownership_status === "owned").slice(0, 12).map((s) => {
-            const checks = fullChecklistBase(s);
-            const complete = checks.filter(Boolean).length;
+          {fleetReadiness.rows.slice(0, 12).map((row) => {
+            const s = row.ship;
+            const complete = row.complete;
+            const percent = row.percent;
             return (
               <button key={s.id} onClick={() => setSelectedId(s.id)} className="flex w-full items-center gap-3 rounded border border-border bg-muted/20 p-2.5 text-left transition hover:border-primary">
                 <div className="min-w-0 flex-1">
