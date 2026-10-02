@@ -310,6 +310,9 @@ export type Database = {
           ship_class?: string | null
           ship_trait?: string | null
           source_reference?: string | null
+          source_key?: string | null
+          source_url?: string | null
+          verified_at?: string | null
           special_console?: string | null
           special_mechanics?: string | null
           special_weapons?: string | null
@@ -343,6 +346,9 @@ export type Database = {
           ship_class?: string | null
           ship_trait?: string | null
           source_reference?: string | null
+          source_key?: string | null
+          source_url?: string | null
+          verified_at?: string | null
           special_console?: string | null
           special_mechanics?: string | null
           special_weapons?: string | null
