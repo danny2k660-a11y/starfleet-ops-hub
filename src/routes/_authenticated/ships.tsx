@@ -246,14 +246,14 @@ function ShipsPage() {
             <p className="lcars-label">Fleet command readiness</p>
             <p className="text-sm text-muted-foreground">A fleetwide operational snapshot based on captain, build and theme assignment.</p>
           </div>
-          <Badge variant="outline">{ownedCount ? Math.round(((ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id && s.current_build_id && s.theme_id).length / ownedCount) * 100) : 0}% command-ready</Badge>
+          <Badge variant="outline">{fleetReadiness.averagePercent}% operational readiness</Badge>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-4">
           {[
-            { label: "Command-ready", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id && s.current_build_id && s.theme_id).length, note: "captain + build + theme" },
+            { label: "Fully ready", count: fleetReadiness.fullyReady, note: "7/7 operational checks" },
             { label: "Build assigned", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.current_build_id).length, note: "build linked" },
-            { label: "Theme assigned", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.theme_id).length, note: "theme identity" },
-            { label: "Needs command setup", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length, note: "one or more missing" },
+            { label: "Active loadout", count: fleetReadiness.rows.filter((row) => row.checks[3]).length, note: "deployment loadout" },
+            { label: "Needs action", count: fleetReadiness.rows.filter((row) => row.complete < 7).length, note: "one or more checks missing" },
           ].map((item) => (
             <button key={item.label} onClick={() => {
               setReadinessFilter(
@@ -271,7 +271,7 @@ function ShipsPage() {
           ))}
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded bg-muted">
-          <div className="h-full bg-primary transition-all" style={{ width: `${ownedCount ? ((ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id && s.current_build_id && s.theme_id).length / ownedCount) * 100 : 0}%` }} />
+          <div className="h-full bg-primary transition-all" style={{ width: `${fleetReadiness.averagePercent}%` }} />
         </div>
       </div>
 
@@ -369,14 +369,14 @@ function ShipsPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="lcars-label">Fleet readiness matrix</p>
-            <p className="text-sm text-muted-foreground">Command state is calculated from the same core checklist used by each ship detail screen.</p>
+            <p className="text-sm text-muted-foreground">Every owned ship is measured against the same seven-point operational checklist.</p>
           </div>
           <Badge variant="outline">{commandReadyCount}/{ownedCount} command-ready</Badge>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           {[
-            { label: "Command ready", count: commandReadyCount, note: "captain · build · theme" },
-            { label: "Configuration pending", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && fullChecklistBase(s).some((x) => !x)).length, note: "core assignment missing" },
+            { label: "7/7 ready", count: fleetReadiness.fullyReady, note: "all operational checks passed" },
+            { label: "Action required", count: fleetReadiness.rows.filter((row) => row.complete < 7).length, note: "one or more checks missing" },
             { label: "Registry only", count: (ships.data ?? []).filter((s) => s.ownership_status !== "owned").length, note: "wishlist / planned" },
           ].map((item) => (
             <div key={item.label} className="rounded border border-border bg-muted/20 p-3">
