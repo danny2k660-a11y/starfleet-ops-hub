@@ -235,12 +235,17 @@ function ShipsPage() {
   }, [ships.data, activeLoadoutByBuild, loadoutCoverageById]);
   const readinessBreakdown = useMemo(() => {
     const labels = ["Captain", "Build", "Theme", "Active loadout", "Equipment", "Traits", "Bridge crew"];
-    return labels.map((label, index) => ({
-      label,
-      passed: fleetReadiness.rows.filter((row) => row.checks[index]).length,
-      total: fleetReadiness.shipCount,
-      missing: fleetReadiness.rows.filter((row) => !row.checks[index]).length,
-    }));
+    return labels.map((label, index) => {
+      const passed = fleetReadiness.rows.filter((row) => row.checks[index]).length;
+      const total = fleetReadiness.shipCount;
+      return {
+        label,
+        passed,
+        total,
+        missing: total - passed,
+        state: fleetReadiness.state,
+      };
+    });
   }, [fleetReadiness]);
 
   const readinessFilterLabel = useMemo(() => {
@@ -393,21 +398,29 @@ function ShipsPage() {
               <button
                 key={item.label}
                 type="button"
+                disabled={item.state !== "ready"}
                 onClick={() => {
+                  if (item.state !== "ready") return;
                   setReadinessFilter(activeFilter);
                   setQ("");
                 }}
-                className="rounded border border-border bg-muted/20 p-3 text-left transition-colors hover:bg-muted/40"
+                className="rounded border border-border bg-muted/20 p-3 text-left transition-colors hover:bg-muted/40 disabled:cursor-wait disabled:opacity-60"
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="lcars-label text-[10px]">{item.label}</p>
-                  <span className="text-xs text-muted-foreground">{item.passed}/{item.total}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.state === "scanning" ? "Scanning…" : item.state === "error" ? "Unavailable" : `${item.passed}/${item.total}`}
+                  </span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded bg-muted">
-                  <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+                  {item.state === "ready" && <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />}
                 </div>
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  {item.missing} ship{item.missing === 1 ? "" : "s"} need{item.missing === 1 ? "s" : ""} this
+                  {item.state === "scanning"
+                    ? "Waiting for configuration scan"
+                    : item.state === "error"
+                      ? "Cannot determine readiness"
+                      : `${item.missing} ship${item.missing === 1 ? "" : "s"} need${item.missing === 1 ? "s" : ""} this`}
                 </p>
               </button>
             );
