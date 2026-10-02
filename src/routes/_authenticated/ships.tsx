@@ -169,6 +169,35 @@ function ShipsPage() {
       <div className="panel p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
+            <p className="lcars-label">Character command view</p>
+            <p className="text-sm text-muted-foreground">Ships grouped by captain with build-link readiness.</p>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {(characters.data ?? []).map((character) => {
+            const fleet = (ships.data ?? []).filter((s) => s.character_id === character.id && s.ownership_status === "owned");
+            const ready = fleet.filter((s) => !!s.current_build_id).length;
+            const unassigned = fleet.length - ready;
+            return (
+              <button key={character.id} onClick={() => setCharFilter(character.id)} className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-display text-base text-primary">{character.name}</p>
+                  <Badge variant="outline">{fleet.length} ship{fleet.length === 1 ? "" : "s"}</Badge>
+                </div>
+                <div className="mt-2 flex gap-2 text-xs">
+                  <span className="text-muted-foreground">{ready} build-linked</span>
+                  {unassigned > 0 ? <span className="text-primary">{unassigned} attention</span> : <span className="text-muted-foreground">ready pipeline clear</span>}
+                </div>
+              </button>
+            );
+          })}
+          {(characters.data ?? []).length === 0 && <p className="text-sm text-muted-foreground">No characters registered yet.</p>}
+        </div>
+      </div>
+
+      <div className="panel p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
             <p className="lcars-label">Fleet composition</p>
             <p className="text-sm text-muted-foreground">Theme identity across your owned fleet.</p>
           </div>
