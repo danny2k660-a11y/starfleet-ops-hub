@@ -362,7 +362,13 @@ function ShipsPage() {
           ].map((item) => (
             <button key={item.label} onClick={() => {
               setReadinessFilter(
-                item.label === "Command-ready" ? "ready" : "needs_setup",
+                item.label === "Fully ready"
+                  ? "ready"
+                  : item.label === "Build assigned"
+                    ? "build"
+                    : item.label === "Active loadout"
+                      ? "loadout"
+                      : "needs_setup",
               );
               setQ("");
               setCharFilter(ALL);
@@ -454,44 +460,47 @@ function ShipsPage() {
           </Button>
         </div>
         {fleetConfigOpen && (
-          <div className="mt-4 grid gap-2 sm:grid-cols-4">
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { label: "Captain", note: "Character assigned" },
-              { label: "Build", note: "Current build linked" },
-              { label: "Theme", note: "Theme identity assigned" },
-              { label: "Loadout", note: "Active loadout configured" },
+              { label: "Captain", index: 0, note: "Character assigned" },
+              { label: "Build", index: 1, note: "Current build linked" },
+              { label: "Theme", index: 2, note: "Theme identity assigned" },
+              { label: "Active loadout", index: 3, note: "Deployment loadout active" },
+              { label: "Equipment", index: 4, note: "Verified fitting slots complete" },
+              { label: "Traits", index: 5, note: "At least one trait configured" },
+              { label: "Bridge crew", index: 6, note: "Verified stations complete" },
             ].map((item) => (
-              <div key={item.label} className="rounded border border-border bg-muted/20 p-3">
-                <p className="lcars-label text-[10px]">{item.label}</p>
+              <button
+                key={item.label}
+                onClick={() => {
+                  const filters = ["captain", "build", "theme", "loadout", "equipment", "traits", "boffs"] as const;
+                  setReadinessFilter(filters[item.index]);
+                  setQ("");
+                  setCharFilter(ALL);
+                  setThemeFilter(ALL);
+                  setFactionFilter(ALL);
+                }}
+                disabled={fleetReadiness.state !== "ready"}
+                className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary disabled:cursor-wait disabled:opacity-60"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="lcars-label text-[10px]">{item.label}</p>
+                  <span className="text-xs text-muted-foreground">
+                    {fleetReadiness.state === "ready"
+                      ? `${fleetReadiness.rows.filter((row) => row.checks[item.index]).length}/${fleetReadiness.shipCount}`
+                      : fleetReadiness.state === "scanning" ? "Scanning…" : "Unavailable"}
+                  </span>
+                </div>
                 <p className="mt-1 text-xs text-muted-foreground">{item.note}</p>
-              </div>
+              </button>
             ))}
-            <div className="sm:col-span-4 rounded border border-primary/20 bg-primary/5 p-3">
+            <div className="sm:col-span-2 lg:col-span-4 rounded border border-primary/20 bg-primary/5 p-3">
               <p className="lcars-label text-[10px]">Active loadout coverage</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {fleetLoadouts.isLoading || fleetLoadoutConfig.isLoading
                   ? "Scanning linked builds and active loadout configuration…"
-                  : `${activeLoadoutByBuild.size} of ${buildIds.length} linked builds have an active loadout; equipment, traits and BOFF configuration are now included.`}
+                  : `${activeLoadoutByBuild.size} of ${buildIds.length} linked builds have an active loadout; exact equipment and bridge coverage is available in the readiness matrix.`}
               </p>
-            </div>
-            <div className="sm:col-span-4 space-y-2">
-              {(ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.current_build_id).slice(0, 12).map((s) => {
-                const active = activeLoadoutByBuild.get(s.current_build_id!);
-                const coverage = active ? loadoutCoverageById.get(active.id) : undefined;
-                const configured = coverage ? Number(coverage.equipment > 0) + Number(coverage.traits > 0) + Number(coverage.boffs > 0) : 0;
-                const ready = !!active && configured === 3;
-                return (
-                  <button key={s.id} onClick={() => setSelectedId(s.id)} className="flex w-full items-center justify-between gap-3 rounded border border-border bg-muted/20 p-2.5 text-left transition hover:border-primary">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-primary">{s.custom_name}</p>
-                      <p className="truncate text-[10px] text-muted-foreground">
-                        {s.sto_ships?.name ?? "Unknown ship"} · {coverage ? `${coverage.equipment} equipment / ${coverage.traits} traits / ${coverage.boffs} BOFFs` : "No active loadout"}
-                      </p>
-                    </div>
-                    <Badge variant={ready ? "default" : "outline"}>{ready ? "CONFIGURED" : active ? `${configured}/3 CONFIGURED` : "LOADOUT REQUIRED"}</Badge>
-                  </button>
-                );
-              })}
             </div>
           </div>
         )}
