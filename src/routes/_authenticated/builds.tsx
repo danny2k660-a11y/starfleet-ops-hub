@@ -56,14 +56,7 @@ function BuildsPage() {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {(loadouts.data ?? []).map(l => {
             const b = builds.data?.find(x => x.id === l.build_id);
-            return <div key={l.id} className="panel p-4">
-              <div className="flex items-start justify-between gap-2"><div><p className="lcars-label">{b?.name ?? "Unknown build"}</p><h3 className="font-display text-lg text-primary">{l.name}</h3></div>{l.is_active && <Badge className="bg-accent text-accent-foreground">ACTIVE</Badge>}</div>
-              {l.notes && <p className="mt-2 text-sm text-muted-foreground">{l.notes}</p>}
-              <LoadoutConfiguration loadoutId={l.id} />
-              <LoadoutReadiness loadoutId={l.id} buildId={l.build_id} />
-              <ThemeCompliance loadoutId={l.id} buildId={l.build_id} />
-              <LoadoutEquipment loadoutId={l.id} buildId={l.build_id} />
-            </div>;
+            return <LoadoutCard key={l.id} loadout={l} buildName={b?.name ?? "Unknown build"} />;
           })}
         </div>
       )}
@@ -117,6 +110,43 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, onDeleted }
 }
 
 
+function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: string }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const activate = async () => {
+    setBusy(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in");
+      const { error: clearError } = await supabase
+        .from("loadouts")
+        .update({ is_active: false })
+        .eq("build_id", loadout.build_id)
+        .eq("user_id", u.user.id);
+      if (clearError) throw clearError;
+      const { error } = await supabase.from("loadouts").update({ is_active: true }).eq("id", loadout.id);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["loadouts"] });
+      toast.success("Loadout activated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not activate loadout");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <div className="panel p-4">
+    <div className="flex items-start justify-between gap-2">
+      <div className="min-w-0"><p className="lcars-label">{buildName}</p><h3 className="truncate font-display text-lg text-primary">{loadout.name}</h3></div>
+      {loadout.is_active ? <Badge className="shrink-0 bg-accent text-accent-foreground">ACTIVE</Badge> : <Button size="sm" variant="outline" className="shrink-0" disabled={busy} onClick={activate}>{busy ? "Activating…" : "Activate"}</Button>}
+    </div>
+    {loadout.notes && <p className="mt-2 text-sm text-muted-foreground">{loadout.notes}</p>}
+    <LoadoutConfiguration loadoutId={loadout.id} />
+    <LoadoutReadiness loadoutId={loadout.id} buildId={loadout.build_id} />
+    <ThemeCompliance loadoutId={loadout.id} buildId={loadout.build_id} />
+    <LoadoutEquipment loadoutId={loadout.id} buildId={loadout.build_id} />
+  </div>;
+}
+
 function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [buildId, setBuildId] = useState("");
@@ -126,7 +156,20 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
   const save = useMutation({ mutationFn: async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) throw new Error("Not signed in");
-    const { error } = await supabase.from("loadouts").insert({ user_id: u.user.id, build_id: buildId, name: name.trim(), notes: notes.trim() || null });
+    const { data: activeLoadout } = await supabase
+      .from("loadouts")
+      .select("id")
+      .eq("build_id", buildId)
+      .eq("user_id", u.user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+    const { error } = await supabase.from("loadouts").insert({
+      user_id: u.user.id,
+      build_id: buildId,
+      name: name.trim(),
+      is_active: !activeLoadout,
+      notes: notes.trim() || null,
+    });
     if (error) throw error;
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["loadouts"] }); toast.success("Loadout created"); onSaved(); setOpen(false); setBuildId(""); setName(""); setNotes(""); }, onError: (e: Error) => toast.error(e.message) });
   return <>
@@ -158,9 +201,9 @@ function ThemeCompliance({ loadoutId, buildId }: { loadoutId: string; buildId: s
   const themeName=LOADOUT_THEME_PRESETS.find((x)=>x.id===themeId)?.name ?? "No theme assigned";
   const ruleQuery = useQuery({ queryKey: ["theme_rules", themeName], queryFn: async () => { const {data,error}=await supabase.from("theme_rules" as never).select("rule_type,value").eq("theme_name",themeName); if(error) throw error; return data ?? []; }});
   const rules:any[]=(ruleQuery.data as any[])||[];
-  const keys=rules.filter(r=>r.rule_type==="keyword"||r.rule_type==="allowed").map(r=>String(r.value)); const matches=keys.length===0?names:names.filter(n=>keys.some(k=>n.toLowerCase().includes(k.toLowerCase())));
-  const forbidden=rules.filter(r=>r.rule_type==="forbidden").map(r=>String(r.value).toLowerCase()); const required=rules.filter(r=>r.rule_type==="required").map(r=>String(r.value).toLowerCase()); const lower=names.map(n=>n.toLowerCase()); const missingRequired=required.filter(x=>!lower.some(n=>n.includes(x))); const forbiddenFound=forbidden.filter(x=>lower.some(n=>n.includes(x))); const review=(keys.length>0&&names.length>0&&matches.length===0)||missingRequired.length>0||forbiddenFound.length>0;
-  const message=rules.length===0?"No custom rules exist yet — add them in Themes.":missingRequired.length>0?"Required theme item(s) are missing.":forbiddenFound.length>0?"A forbidden theme item appears in this loadout.":keys.length===0?"Custom rules are active.":String(matches.length)+" fitted item(s) match theme rules.";
+  const keywords=rules.filter(r=>r.rule_type==="keyword").map(r=>String(r.value)); const allowed=rules.filter(r=>r.rule_type==="allowed").map(r=>String(r.value)); const matches=keywords.length===0?names:names.filter(n=>keywords.some(k=>n.toLowerCase().includes(k.toLowerCase())));
+  const forbidden=rules.filter(r=>r.rule_type==="forbidden").map(r=>String(r.value).toLowerCase()); const required=rules.filter(r=>r.rule_type==="required").map(r=>String(r.value).toLowerCase()); const lower=names.map(n=>n.toLowerCase()); const missingRequired=required.filter(x=>!lower.some(n=>n.includes(x))); const forbiddenFound=forbidden.filter(x=>lower.some(n=>n.includes(x))); const disallowed=allowed.length>0?lower.filter(n=>!allowed.some(x=>n.includes(x.toLowerCase()))):[]; const review=(keywords.length>0&&names.length>0&&matches.length===0)||missingRequired.length>0||forbiddenFound.length>0||disallowed.length>0;
+  const message=rules.length===0?"No custom rules exist yet — add them in Themes.":missingRequired.length>0?"Required theme item(s) are missing.":forbiddenFound.length>0?"A forbidden theme item appears in this loadout.":disallowed.length>0?"One or more fitted items fall outside the allowed theme list.":keywords.length===0?"Custom rules are active.":String(matches.length)+" fitted item(s) match theme keywords.";
   return <div className="mt-3 rounded-lg border border-border/70 bg-background/30 p-3"><div className="flex items-center justify-between"><div><p className="lcars-label">Theme compliance</p><p className="text-xs text-muted-foreground">{themeName}</p></div><span className={review?"text-amber-400":"text-primary"}>{review?"REVIEW":"ON TRACK"}</span></div><p className="mt-2 text-xs text-muted-foreground">{message}</p></div>;
 }
 
