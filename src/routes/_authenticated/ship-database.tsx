@@ -96,7 +96,7 @@ function ShipDatabasePage() {
     }
     ownership.refetch();
   };
-  const quality = useMemo(() => {
+  const verifiedCount = data.filter((ship) => ship.source_key === "stowiki" && ship.verified_at).length;\n  const unverifiedCount = Math.max(0, data.length - verifiedCount);\n  const quality = useMemo(() => {
     const fields: Array<[string, (ship: StoShip) => boolean]> = [
       ["Classification", (s) => !!s.ship_class && !!s.faction && !!s.tier],
       ["Hull / shields", (s) => s.hull_modifier !== null && s.shield_modifier !== null],
@@ -117,7 +117,7 @@ function ShipDatabasePage() {
               <h2 className="font-display text-xl text-primary">Ship definitions</h2>
               <p className="mt-1 text-xs text-muted-foreground">Shared definitions feed personal ship instances. Character ownership stays on the fleet record.</p>
             </div>
-            <div className="flex flex-wrap gap-2"><Badge variant="outline">{data.length} catalogue records</Badge><Badge variant="outline" className="border-primary/30 text-primary">{ownedCount} owned</Badge><Badge variant="outline">{missingCount} to check</Badge>{wishlistCount > 0 && <Badge variant="outline">{wishlistCount} wishlist</Badge>}</div>
+            <div className="flex flex-wrap gap-2"><Badge variant="outline">{data.length} catalogue records</Badge><Badge variant="outline" className="border-primary/30 text-primary">{ownedCount} owned</Badge><Badge variant="outline">{missingCount} to check</Badge><Badge variant="outline" className="border-primary/30 text-primary">{verifiedCount} verified</Badge>{unverifiedCount > 0 && <Badge variant="outline">{unverifiedCount} unverified</Badge>}{wishlistCount > 0 && <Badge variant="outline">{wishlistCount} wishlist</Badge>}</div>
           </div>
           {data.length > 0 && <div className="mt-4 rounded border border-border bg-muted/10 p-3">
             <div className="mb-2 flex items-center justify-between"><p className="lcars-label text-[10px]">Catalogue data quality</p><span className="text-[10px] text-muted-foreground">No field is treated as populated until it is actually present</span></div>
@@ -132,7 +132,7 @@ function ShipDatabasePage() {
               {bundles.data.map((bundle: any) => <BundleClaim key={bundle.id} bundle={bundle} onClaimed={() => ownership.refetch()} />)}
             </div> : <p className="mt-2 text-xs text-muted-foreground">No verified bundle records have been added yet. Bundle claims will appear here as acquisition data is verified.</p>}
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">{(["all", "owned", "missing", "wishlist"] as const).map((filter) => <Button key={filter} size="sm" variant={ownershipFilter === filter ? "default" : "outline"} onClick={() => setOwnershipFilter(filter)}>{filter === "all" ? "All ships" : filter === "owned" ? "Owned" : filter === "missing" ? "Not owned" : "Wishlist"}</Button>)}</div>
+          <div className="mt-4 rounded border border-border bg-muted/10 p-3"><p className="lcars-label text-[10px]">Verification status</p><p className="mt-1 text-xs text-muted-foreground">{verifiedCount} of {data.length} catalogue records currently carry explicit STOWiki provenance. Unverified records remain usable but are clearly marked so they can be audited before being treated as authoritative.</p></div><div className="mt-4 flex flex-wrap gap-2">{(["all", "owned", "missing", "wishlist"] as const).map((filter) => <Button key={filter} size="sm" variant={ownershipFilter === filter ? "default" : "outline"} onClick={() => setOwnershipFilter(filter)}>{filter === "all" ? "All ships" : filter === "owned" ? "Owned" : filter === "missing" ? "Not owned" : "Wishlist"}</Button>)}</div>
           <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search name, class, faction or tier" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
             <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={faction} onChange={(e) => setFaction(e.target.value)}><option value="ALL">All factions</option>{factions.map((item) => <option key={item} value={item}>{item}</option>)}</select>
