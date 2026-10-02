@@ -353,6 +353,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sto_ship_catalog_imports: {
+        Row: {
+          id: string
+          source_key: string
+          source_url: string | null
+          payload: Json
+          status: string
+          imported_by: string | null
+          created_at: string
+          applied_at: string | null
+        }
+        Insert: {
+          id?: string
+          source_key: string
+          source_url?: string | null
+          payload: Json
+          status?: string
+          imported_by?: string | null
+          created_at?: string
+          applied_at?: string | null
+        }
+        Update: {
+          id?: string
+          source_key?: string
+          source_url?: string | null
+          payload?: Json
+          status?: string
+          imported_by?: string | null
+          created_at?: string
+          applied_at?: string | null
+        }
+        Relationships: []
+      }
       user_ships: {
         Row: {
           character_id: string
@@ -478,6 +511,15 @@ export type Database = {
       }
     }
     Functions: {
+      apply_sto_ship_catalog_import: {
+        Args: { p_import_id: string }
+        Returns: number
+      }
+      validate_sto_ship_catalog_import: {
+        Args: { p_import_id: string }
+        Returns: string
+      }
+
       [_ in never]: never
     }
     Enums: {
