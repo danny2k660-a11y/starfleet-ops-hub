@@ -175,6 +175,14 @@ function ShipsPage() {
       averagePercent: totalChecks ? Math.round((passedChecks / totalChecks) * 100) : 0,
     };
   }, [ships.data, activeLoadoutByBuild, loadoutCoverageById]);
+  const readinessBreakdown = useMemo(() => {
+    const labels = ["Captain", "Build", "Theme", "Active loadout", "Equipment", "Traits", "Bridge crew"];
+    return labels.map((label, index) => ({
+      label,
+      passed: fleetReadiness.rows.filter((row) => row.checks[index]).length,
+      total: fleetReadiness.shipCount,
+    }));
+  }, [fleetReadiness]);
   const [q, setQ] = useState("");
   const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup">("all");
   const [charFilter, setCharFilter] = useState(ALL);
@@ -272,6 +280,33 @@ function ShipsPage() {
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded bg-muted">
           <div className="h-full bg-primary transition-all" style={{ width: `${fleetReadiness.averagePercent}%` }} />
+        </div>
+      </div>
+
+      <div className="panel p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="lcars-label">Readiness diagnostics</p>
+            <p className="text-sm text-muted-foreground">Fleetwide view of where operational configuration is complete or still needs attention.</p>
+          </div>
+          <Badge variant="outline">{fleetReadiness.fullyReady} fully ready</Badge>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {readinessBreakdown.map((item) => {
+            const percent = item.total ? Math.round((item.passed / item.total) * 100) : 0;
+            return (
+              <div key={item.label} className="rounded border border-border bg-muted/20 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="lcars-label text-[10px]">{item.label}</p>
+                  <span className="text-xs text-muted-foreground">{item.passed}/{item.total}</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded bg-muted">
+                  <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">{percent}% of owned fleet</p>
+              </div>
+            );
+          })}
         </div>
       </div>
 
