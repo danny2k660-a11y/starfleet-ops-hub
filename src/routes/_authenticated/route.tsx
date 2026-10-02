@@ -12,24 +12,12 @@ export const Route = createFileRoute("/_authenticated")({
         return { user: sessionData.session.user };
       }
 
-      const { data: anonymous, error: anonymousError } = await supabase.auth.signInAnonymously();
-
-      if (anonymousError || !anonymous.user) {
-        console.error("[STO Command Center] Native guest session unavailable:", anonymousError);
-        throw redirect({
-          to: "/auth",
-          search: { reason: "guest_session_unavailable" },
-        });
-      }
-
-      return { user: anonymous.user };
+      console.warn("[STO Command Center] No active session; returning to the native sign-in bootstrap.");
+      throw redirect({ to: "/auth" });
     } catch (error) {
       if (error && typeof error === "object" && "isRedirect" in error) throw error;
       console.error("[STO Command Center] Authentication bootstrap failed:", error);
-      throw redirect({
-        to: "/auth",
-        search: { reason: "auth_bootstrap_failed" },
-      });
+      throw redirect({ to: "/auth" });
     }
   },
   component: () => <Outlet />,
