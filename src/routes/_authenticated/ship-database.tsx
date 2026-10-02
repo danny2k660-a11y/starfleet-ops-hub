@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Database, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Database, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -59,6 +59,16 @@ function ShipDatabasePage() {
     const haystack = `${ship.name} ${ship.ship_class ?? ""} ${ship.faction ?? ""} ${ship.tier ?? ""}`.toLowerCase();
     return (!query || haystack.includes(query.toLowerCase())) && (faction === "ALL" || ship.faction === faction);
   }), [data, query, faction]);
+  const quality = useMemo(() => {
+    const fields: Array<[string, (ship: StoShip) => boolean]> = [
+      ["Classification", (s) => !!s.ship_class && !!s.faction && !!s.tier],
+      ["Hull / shields", (s) => s.hull_modifier !== null && s.shield_modifier !== null],
+      ["Weapons / consoles", (s) => s.fore_weapon_slots !== null && s.aft_weapon_slots !== null && s.engineering_console_slots !== null && s.science_console_slots !== null && s.tactical_console_slots !== null],
+      ["Bridge seating", (s) => seating(s).length > 0],
+      ["Special mechanics", (s) => !!s.ship_trait || !!s.special_mechanics || !!s.special_console || !!s.special_weapons],
+    ];
+    return fields.map(([label, test]) => ({ label, complete: data.filter(test).length, total: data.length }));
+  }, [data]);
 
   return (
     <AppShell title="Ship Database" subtitle="Shared STO ship definitions — separate from your personal fleet">
@@ -72,6 +82,10 @@ function ShipDatabasePage() {
             </div>
             <Badge variant="outline">{data.length} records</Badge>
           </div>
+          {data.length > 0 && <div className="mt-4 rounded border border-border bg-muted/10 p-3">
+            <div className="mb-2 flex items-center justify-between"><p className="lcars-label text-[10px]">Catalogue data quality</p><span className="text-[10px] text-muted-foreground">No field is treated as populated until it is actually present</span></div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{quality.map((item) => { const complete = item.complete === item.total; return <div key={item.label} className="rounded border border-border p-2"><div className="flex items-center gap-1.5 text-xs">{complete ? <CheckCircle2 className="size-3 text-primary"/> : <AlertTriangle className="size-3 text-muted-foreground"/>}<span>{item.label}</span></div><p className="mt-1 font-display text-sm text-primary">{item.complete}/{item.total}</p></div>; })}</div>
+          </div>}
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search name, class, faction or tier" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
             <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={faction} onChange={(e) => setFaction(e.target.value)}><option value="ALL">All factions</option>{factions.map((item) => <option key={item} value={item}>{item}</option>)}</select>
