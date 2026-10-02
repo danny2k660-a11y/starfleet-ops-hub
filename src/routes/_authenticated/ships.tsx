@@ -198,6 +198,36 @@ function ShipsPage() {
         </div>
       </div>
 
+      <div className="panel p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="lcars-label">Priority deployment queue</p>
+            <p className="text-sm text-muted-foreground">Ships are ordered by the next missing command requirement.</p>
+          </div>
+          <Badge variant="outline">{(ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length} requiring action</Badge>
+        </div>
+        <div className="mt-3 space-y-2">
+          {(ships.data ?? [])
+            .filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id))
+            .slice(0, 5)
+            .map((s) => {
+              const missing = !s.character_id ? "Captain" : !s.current_build_id ? "Build" : "Theme";
+              return (
+                <button key={s.id} onClick={() => setSelectedId(s.id)} className="flex w-full items-center justify-between gap-3 rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-primary">{s.custom_name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{s.sto_ships?.name ?? "Unknown ship"} · {s.characters?.name ?? "No captain"}</p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0">{missing} required</Badge>
+                </button>
+              );
+            })}
+          {(ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length === 0 && (
+            <p className="text-sm text-muted-foreground">No owned ships are waiting on captain, build or theme assignment.</p>
+          )}
+        </div>
+      </div>
+
       {unassignedCount > 0 && (
         <div className="panel border-primary/30 p-4">
           <div className="flex items-start gap-3">
