@@ -121,6 +121,12 @@ function ShipsPage() {
   const ownedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned").length;
   const wishlistCount = (ships.data ?? []).filter((s) => s.ownership_status === "wishlist").length;
   const readyCount = (ships.data ?? []).filter((s) => !!s.current_build_id && s.ownership_status === "owned").length;
+  const commandReadyCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id && s.current_build_id && s.theme_id).length;
+  const fullChecklistBase = (s: UserShip) => [
+    !!s.character_id,
+    !!s.current_build_id,
+    !!s.theme_id,
+  ];
   const unassignedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !s.current_build_id).length;
   const themeCounts = THEME_PRESETS.map((theme) => ({ ...theme, count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.theme_id === theme.id).length }));
   const themedOwnedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !!s.theme_id).length;
@@ -195,6 +201,50 @@ function ShipsPage() {
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded bg-muted">
           <div className="h-full bg-primary transition-all" style={{ width: `${ownedCount ? ((ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id && s.current_build_id && s.theme_id).length / ownedCount) * 100 : 0}%` }} />
+        </div>
+      </div>
+
+      <div className="panel p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="lcars-label">Fleet readiness matrix</p>
+            <p className="text-sm text-muted-foreground">Command state is calculated from the same core checklist used by each ship detail screen.</p>
+          </div>
+          <Badge variant="outline">{commandReadyCount}/{ownedCount} command-ready</Badge>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {[
+            { label: "Command ready", count: commandReadyCount, note: "captain · build · theme" },
+            { label: "Configuration pending", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && fullChecklistBase(s).some((x) => !x)).length, note: "core assignment missing" },
+            { label: "Registry only", count: (ships.data ?? []).filter((s) => s.ownership_status !== "owned").length, note: "wishlist / planned" },
+          ].map((item) => (
+            <div key={item.label} className="rounded border border-border bg-muted/20 p-3">
+              <p className="lcars-label text-[10px]">{item.label}</p>
+              <p className="font-display text-2xl text-primary">{item.count}</p>
+              <p className="text-[10px] text-muted-foreground">{item.note}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 space-y-2">
+          {(ships.data ?? []).filter((s) => s.ownership_status === "owned").slice(0, 12).map((s) => {
+            const checks = fullChecklistBase(s);
+            const complete = checks.filter(Boolean).length;
+            return (
+              <button key={s.id} onClick={() => setSelectedId(s.id)} className="flex w-full items-center gap-3 rounded border border-border bg-muted/20 p-2.5 text-left transition hover:border-primary">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-primary">{s.custom_name}</p>
+                  <p className="truncate text-[10px] text-muted-foreground">{s.sto_ships?.name ?? "Unknown ship"}</p>
+                </div>
+                <div className="w-28 shrink-0">
+                  <div className="h-1.5 overflow-hidden rounded bg-muted">
+                    <div className="h-full bg-primary" style={{ width: `${(complete / checks.length) * 100}%` }} />
+                  </div>
+                  <p className="mt-1 text-right text-[10px] text-muted-foreground">{complete}/{checks.length} core</p>
+                </div>
+              </button>
+            );
+          })}
+          {ownedCount > 12 && <p className="text-center text-[10px] text-muted-foreground">Showing 12 of {ownedCount} owned ships.</p>}
         </div>
       </div>
 
