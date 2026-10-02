@@ -217,6 +217,17 @@ function ShipsPage() {
       </div>
 
       <div className="panel grid gap-3 p-4 sm:grid-cols-3">
+        <div className="col-span-full flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+          <div>
+            <p className="lcars-label">Command filters</p>
+            <p className="text-xs text-muted-foreground">{filtered.length} matching ship{filtered.length === 1 ? "" : "s"} · {readyCount} build-linked fleetwide</p>
+          </div>
+          {(charFilter !== ALL || themeFilter !== ALL || factionFilter !== ALL || q) && (
+            <Button variant="outline" size="sm" onClick={() => { setQ(""); setCharFilter(ALL); setThemeFilter(ALL); setFactionFilter(ALL); }}>
+              Clear filters
+            </Button>
+          )}
+        </div>
         <div className="relative">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input className="pl-8" placeholder="Search your ships…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -265,7 +276,20 @@ function ShipsPage() {
                 {tierLabel(s) && <Badge className="bg-accent text-accent-foreground">{tierLabel(s)}</Badge>}
                 <Badge variant="secondary">{s.ownership_status}</Badge>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">Build: {s.builds?.name ?? "None assigned"}</p>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+                <div className="rounded border border-border bg-muted/20 p-2">
+                  <span className="text-muted-foreground">Build</span>
+                  <p className={s.builds ? "text-primary" : "text-muted-foreground"}>{s.builds?.name ?? "Unassigned"}</p>
+                </div>
+                <div className="rounded border border-border bg-muted/20 p-2">
+                  <span className="text-muted-foreground">Theme</span>
+                  <p className={s.theme_id ? "text-primary" : "text-muted-foreground"}>{themeName(s.theme_id).replace("No theme assigned", "None")}</p>
+                </div>
+                <div className="rounded border border-border bg-muted/20 p-2">
+                  <span className="text-muted-foreground">Readiness</span>
+                  <p className={s.current_build_id ? "text-primary" : "text-muted-foreground"}>{s.current_build_id ? "Build linked" : "Needs build"}</p>
+                </div>
+              </div>
             </button>
           ))}
         </div>
