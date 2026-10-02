@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Database, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Check } from "lucide-react";
+import { Search, Database, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Check, Package } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -51,6 +51,14 @@ function ShipDatabasePage() {
   const ownership = useQuery({
     queryKey: ["sto_ship_ownership"],
     queryFn: async () => { const { data, error } = await supabase.from("sto_ship_ownership" as never).select("*"); if (error) throw error; return (data ?? []) as any[]; },
+  });
+  const bundles = useQuery({
+    queryKey: ["sto_ship_bundles"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("sto_ship_bundles" as never).select("*, sto_ship_bundle_items(sto_ships(name))").order("name");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
   });
   const sources = useQuery({
     queryKey: ["sto_ship_sources"],
@@ -115,6 +123,15 @@ function ShipDatabasePage() {
             <div className="mb-2 flex items-center justify-between"><p className="lcars-label text-[10px]">Catalogue data quality</p><span className="text-[10px] text-muted-foreground">No field is treated as populated until it is actually present</span></div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{quality.map((item) => { const complete = item.complete === item.total; return <div key={item.label} className="rounded border border-border p-2"><div className="flex items-center gap-1.5 text-xs">{complete ? <CheckCircle2 className="size-3 text-primary"/> : <AlertTriangle className="size-3 text-muted-foreground"/>}<span>{item.label}</span></div><p className="mt-1 font-display text-sm text-primary">{item.complete}/{item.total}</p></div>; })}</div>
           </div>}
+          <div className="mt-4 rounded border border-primary/20 bg-primary/5 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div><p className="lcars-label text-[10px]">Bundle ownership</p><p className="text-xs text-muted-foreground">Claim a verified bundle once and every ship in that bundle is marked owned on your account.</p></div>
+              <Package className="size-4 shrink-0 text-primary" />
+            </div>
+            {bundles.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading verified bundles…</p> : bundles.data?.length ? <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {bundles.data.map((bundle: any) => <BundleClaim key={bundle.id} bundle={bundle} onClaimed={() => ownership.refetch()} />)}
+            </div> : <p className="mt-2 text-xs text-muted-foreground">No verified bundle records have been added yet. Bundle claims will appear here as acquisition data is verified.</p>}
+          </div>
           <div className="mt-4 flex flex-wrap gap-2">{(["all", "owned", "missing", "wishlist"] as const).map((filter) => <Button key={filter} size="sm" variant={ownershipFilter === filter ? "default" : "outline"} onClick={() => setOwnershipFilter(filter)}>{filter === "all" ? "All ships" : filter === "owned" ? "Owned" : filter === "missing" ? "Not owned" : "Wishlist"}</Button>)}</div>
           <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search name, class, faction or tier" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
@@ -153,6 +170,26 @@ function ShipDatabasePage() {
       </div>
     </AppShell>
   );
+}
+
+function BundleClaim({ bundle, onClaimed }: { bundle: any; onClaimed: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const shipNames = (bundle.sto_ship_bundle_items ?? []).map((x: any) => x.sto_ships?.name).filter(Boolean);
+  const claim = async () => {
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("claim_sto_ship_bundle" as never, { p_bundle_id: bundle.id, p_acquired_at: new Date().toISOString() } as never);
+      if (error) throw error;
+      onClaimed();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <div className="rounded border border-border bg-background/40 p-2">
+    <div className="flex items-center justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-medium">{bundle.name}</p><p className="text-[10px] text-muted-foreground">{shipNames.length} ship{shipNames.length === 1 ? "" : "s"} · {bundle.availability_status}</p></div><Button size="sm" variant="outline" disabled={busy || !shipNames.length} onClick={claim}>{busy ? "Claiming…" : "Claim bundle"}</Button></div>
+  </div>;
 }
 
 function Info({ label, value }: { label: string; value: unknown }) {
