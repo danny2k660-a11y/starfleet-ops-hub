@@ -49,6 +49,10 @@ function ShipDatabasePage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [ownershipFilter, setOwnershipFilter] = useState<"all" | "owned" | "missing" | "wishlist">("all");
   const [verificationFilter, setVerificationFilter] = useState<"all" | "verified" | "unverified">("all");
+  const imports = useQuery({
+    queryKey: ["sto_ship_catalog_imports"],
+    queryFn: async () => { const { data, error } = await supabase.from("sto_ship_catalog_imports" as never).select("*").order("created_at", { ascending: false }).limit(10); if (error) throw error; return (data ?? []) as any[]; },
+  });
   const ownership = useQuery({
     queryKey: ["sto_ship_ownership"],
     queryFn: async () => { const { data, error } = await supabase.from("sto_ship_ownership" as never).select("*"); if (error) throw error; return (data ?? []) as any[]; },
@@ -139,6 +143,10 @@ function ShipDatabasePage() {
               {bundles.data.map((bundle: any) => <BundleClaim key={bundle.id} bundle={bundle} onClaimed={() => ownership.refetch()} />)}
             </div> : <p className="mt-2 text-xs text-muted-foreground">No verified bundle records have been added yet. Bundle claims will appear here as acquisition data is verified.</p>}
           </div>
+          <div className="mt-4 rounded border border-border bg-muted/10 p-3">
+            <div className="flex items-center justify-between gap-2"><div><p className="lcars-label text-[10px]">Catalogue import pipeline</p><p className="mt-1 text-xs text-muted-foreground">Only validated source payloads can be applied. Missing fields stay empty rather than being guessed.</p></div><Database className="size-4 text-primary" /></div>
+            {imports.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading import status…</p> : imports.data?.length ? <div className="mt-2 space-y-1.5">{imports.data.map((item: any) => <ImportRow key={item.id} item={item} onChanged={() => imports.refetch()} />)}</div> : <p className="mt-2 text-xs text-muted-foreground">No catalogue imports have been staged yet.</p>}
+          </div>
           <div className="mt-4 rounded border border-border bg-muted/10 p-3"><p className="lcars-label text-[10px]">Verification status</p><p className="mt-1 text-xs text-muted-foreground">{verifiedCount} of {data.length} catalogue records currently carry explicit STOWiki provenance. Unverified records remain usable but are clearly marked so they can be audited before being treated as authoritative.</p></div><div className="mt-4 flex flex-wrap gap-2">{(["all", "owned", "missing", "wishlist"] as const).map((filter) => <Button key={filter} size="sm" variant={ownershipFilter === filter ? "default" : "outline"} onClick={() => setOwnershipFilter(filter)}>{filter === "all" ? "All ships" : filter === "owned" ? "Owned" : filter === "missing" ? "Not owned" : "Wishlist"}</Button>)}</div>
           <div className="mt-2 flex flex-wrap gap-2">{(["all", "verified", "unverified"] as const).map((filter) => <Button key={filter} size="sm" variant={verificationFilter === filter ? "default" : "outline"} onClick={() => setVerificationFilter(filter)}>{filter === "all" ? "All verification" : filter === "verified" ? "Verified" : "Unverified"}</Button>)}</div>
           <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -203,4 +211,19 @@ function BundleClaim({ bundle, onClaimed }: { bundle: any; onClaimed: () => void
 function Info({ label, value }: { label: string; value: unknown }) {
   const empty = value === null || value === undefined || value === "";
   return <div className="rounded border border-border bg-muted/20 p-2"><p className="lcars-label text-[10px]">{label}</p><p className={empty ? "text-xs italic text-muted-foreground" : "text-sm text-foreground"}>{empty ? "Not populated" : String(value)}</p></div>;
+}
+
+function ImportRow({ item, onChanged }: { item: any; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const run = async (action: "validate" | "apply") => {
+    setBusy(true);
+    try {
+      const fn = action === "validate" ? "validate_sto_ship_catalog_import" : "apply_sto_ship_catalog_import";
+      const { error } = await supabase.rpc(fn as never, { p_import_id: item.id } as never);
+      if (error) throw error;
+      onChanged();
+    } catch (e) { console.error(e); } finally { setBusy(false); }
+  };
+  const count = Array.isArray(item.payload) ? item.payload.length : 0;
+  return <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-border bg-background/40 px-2 py-2 text-xs"><div className="min-w-0"><p className="font-medium">{item.source_key} · {count} records</p><p className="text-[10px] text-muted-foreground">{item.status} · {new Date(item.created_at).toLocaleString()}</p></div><div className="flex gap-1">{item.status === "pending" && <Button size="sm" variant="outline" disabled={busy} onClick={() => run("validate")}>{busy ? "Checking…" : "Validate"}</Button>}{item.status === "validated" && <Button size="sm" variant="outline" disabled={busy} onClick={() => run("apply")}>{busy ? "Applying…" : "Apply"}</Button>}</div></div>;
 }
