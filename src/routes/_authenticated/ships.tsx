@@ -181,8 +181,24 @@ function ShipsPage() {
       label,
       passed: fleetReadiness.rows.filter((row) => row.checks[index]).length,
       total: fleetReadiness.shipCount,
+      missing: fleetReadiness.rows.filter((row) => !row.checks[index]).length,
     }));
   }, [fleetReadiness]);
+
+  const readinessFilterLabel = useMemo(() => {
+    const labels: Record<string, string> = {
+      ready: "Fully ready",
+      needs_setup: "Needs action",
+      captain: "Missing captain",
+      build: "Missing build",
+      theme: "Missing theme",
+      loadout: "Missing active loadout",
+      equipment: "Missing equipment",
+      traits: "Missing traits",
+      boffs: "Missing bridge crew",
+    };
+    return labels[readinessFilter] ?? "All ships";
+  }, [readinessFilter]);
   const [q, setQ] = useState("");
   const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup" | "captain" | "build" | "theme" | "loadout" | "equipment" | "traits" | "boffs">("all");
   const [charFilter, setCharFilter] = useState(ALL);
@@ -336,7 +352,9 @@ function ShipsPage() {
                 <div className="mt-2 h-1.5 overflow-hidden rounded bg-muted">
                   <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
                 </div>
-                <p className="mt-1 text-[10px] text-muted-foreground">Tap to show ships needing this</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  {item.missing} ship{item.missing === 1 ? "" : "s"} need{item.missing === 1 ? "s" : ""} this
+                </p>
               </button>
             );
           })}
@@ -615,7 +633,10 @@ function ShipsPage() {
         <div className="col-span-full flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
           <div>
             <p className="lcars-label">Command filters</p>
-            <p className="text-xs text-muted-foreground">{filtered.length} matching ship{filtered.length === 1 ? "" : "s"} · {readyCount} build-linked fleetwide</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs text-muted-foreground">{filtered.length} matching ship{filtered.length === 1 ? "" : "s"} · {readyCount} build-linked fleetwide</p>
+              {readinessFilter !== "all" && <Badge variant="outline">Readiness: {readinessFilterLabel}</Badge>}
+            </div>
           </div>
           {(charFilter !== ALL || themeFilter !== ALL || factionFilter !== ALL || q || readinessFilter !== "all") && (
             <Button variant="outline" size="sm" onClick={() => { setQ(""); setReadinessFilter("all"); setCharFilter(ALL); setThemeFilter(ALL); setFactionFilter(ALL); }}>
