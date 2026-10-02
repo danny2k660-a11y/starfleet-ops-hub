@@ -134,6 +134,7 @@ function ShipsPage() {
     !!s.current_build_id,
     !!s.theme_id,
   ];
+  const [fleetConfigOpen, setFleetConfigOpen] = useState(false);
   const unassignedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !s.current_build_id).length;
   const themeCounts = THEME_PRESETS.map((theme) => ({ ...theme, count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.theme_id === theme.id).length }));
   const themedOwnedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !!s.theme_id).length;
@@ -194,6 +195,37 @@ function ShipsPage() {
         <div className="mt-4 h-2 overflow-hidden rounded bg-muted">
           <div className="h-full bg-primary transition-all" style={{ width: `${ownedCount ? ((ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id && s.current_build_id && s.theme_id).length / ownedCount) * 100 : 0}%` }} />
         </div>
+      </div>
+
+      <div className="panel p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="lcars-label">Full operational readiness</p>
+            <p className="text-sm text-muted-foreground">Extends the fleet view from assignment state into active loadout configuration.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setFleetConfigOpen((v) => !v)}>
+            {fleetConfigOpen ? "Hide detail" : "Show detail"}
+          </Button>
+        </div>
+        {fleetConfigOpen && (
+          <div className="mt-4 grid gap-2 sm:grid-cols-4">
+            {[
+              { label: "Captain", note: "Character assigned" },
+              { label: "Build", note: "Current build linked" },
+              { label: "Theme", note: "Theme identity assigned" },
+              { label: "Loadout", note: "Active loadout configured" },
+            ].map((item) => (
+              <div key={item.label} className="rounded border border-border bg-muted/20 p-3">
+                <p className="lcars-label text-[10px]">{item.label}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{item.note}</p>
+              </div>
+            ))}
+            <div className="sm:col-span-4 rounded border border-primary/20 bg-primary/5 p-3">
+              <p className="lcars-label text-[10px]">Next integration</p>
+              <p className="mt-1 text-sm text-muted-foreground">Active loadout, equipment, traits and bridge crew will be read from the linked build/loadout without changing the existing database architecture.</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="panel p-4">
