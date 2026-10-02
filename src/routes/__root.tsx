@@ -133,7 +133,7 @@ function RootComponent() {
     if (!Capacitor.isNativePlatform()) return;
 
     const listener = App.addListener("appUrlOpen", async ({ url }) => {
-      if (!url.startsWith("com.stocommandcenter.app://auth/callback")) return;
+      if (!url.startsWith("com.stocommandcenter.fleetops://auth/callback")) return;
 
       try {
         const callbackUrl = new URL(url);
