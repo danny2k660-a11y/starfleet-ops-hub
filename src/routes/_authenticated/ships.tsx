@@ -340,8 +340,8 @@ function BaseStats({ s }: { s: StoShip | null }) {
         <Stat label="Turn rate" value={n(s.turn_rate)} />
         <Stat label="Inertia" value={n(s.inertia)} />
         <Stat label="Impulse modifier" value={n(s.impulse_modifier)} />
-        <Stat label="Base hull" value={n(s.base_hull)} />
-        <Stat label="Base shields" value={n(s.base_shields)} />
+        <Stat label="Base hull (scaling)" value={n(s.base_hull)} />
+        <Stat label="Base shields (scaling)" value={n(s.base_shields)} />
         <Stat label="Weapon layout" value={weapons} />
         <Stat label="Experimental weapon" value={s.experimental_weapon_slot === null ? null : s.experimental_weapon_slot ? "Yes" : "No"} />
         <Stat label="Hangar bays" value={n(s.hangar_bays)} />
@@ -469,7 +469,8 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
         )}
 
         <div className="mt-2">
-          <p className="lcars-label mb-2">Base ship statistics (from STO ship database)</p>
+          <p className="lcars-label mb-2">Verified ship specifications</p>
+          <p className="mb-2 text-xs text-muted-foreground">Catalogue values are shown only when populated from a recorded source; unverified scaling base values are intentionally left blank.</p>
           <BaseStats s={ship.sto_ships} />
         </div>
         <div className="mt-4 rounded border border-border bg-muted/20 p-3">
