@@ -116,7 +116,7 @@ export function AppShell({
           </Button>
         </header>
 
-        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-3 pb-8 sm:p-6 sm:pb-8">{children}</main>
       </div>
     </div>
   );
