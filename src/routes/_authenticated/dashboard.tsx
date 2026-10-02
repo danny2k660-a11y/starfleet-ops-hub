@@ -188,6 +188,86 @@ function Dashboard() {
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded bg-muted"><div className="h-full bg-primary transition-all" style={{ width: `${operational.scanning || operational.error ? 0 : operational.percent}%` }} /></div>
       </div>
+      <div className="panel p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="lcars-label">Personnel command</p>
+            <h3 className="font-display text-lg text-primary">Captain readiness</h3>
+            <p className="text-xs text-muted-foreground">Every captain stays isolated while their assigned fleet remains visible at a glance.</p>
+          </div>
+          <Link to="/characters" className="text-xs text-accent">Open personnel registry <ChevronRight className="inline size-3" /></Link>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {(() => {
+            const characterRows = (characters.data ?? []).map((character: any) => {
+              const assigned = (readinessShips.data ?? []).filter((ship: any) => ship.character_id === character.id);
+              const ready = assigned.filter((ship: any) => {
+                const active = activeReadinessLoadouts.find((loadout: any) => loadout.build_id === ship.current_build_id);
+                const catalog = ship.sto_ships;
+                const slots: string[] = [];
+                const add = (label: string, count: unknown) => {
+                  for (let i = 1; i <= Number(count || 0); i += 1) slots.push(`${label} ${i}`);
+                };
+                if (catalog) {
+                  add("Fore Weapon", catalog.fore_weapon_slots);
+                  add("Aft Weapon", catalog.aft_weapon_slots);
+                  if (catalog.experimental_weapon_slot || catalog.experimental_weapon) slots.push("Experimental Weapon");
+                  add("Engineering Console", catalog.engineering_console_slots);
+                  add("Science Console", catalog.science_console_slots);
+                  add("Tactical Console", catalog.tactical_console_slots);
+                  add("Universal Console", catalog.universal_console_slots);
+                  add("Hangar Bay", catalog.hangar_bays);
+                  slots.push("Deflector", "Impulse Engines", "Warp Core", "Shields");
+                }
+                const expectedStations = catalog?.bridge_officer_stations && typeof catalog.bridge_officer_stations === "object"
+                  ? Array.isArray(catalog.bridge_officer_stations)
+                    ? catalog.bridge_officer_stations.map((entry: any) => typeof entry === "string" ? entry : entry?.station ?? entry?.name).filter(Boolean).map(String)
+                    : Object.keys(catalog.bridge_officer_stations)
+                  : [];
+                const equipment = (readinessConfig.data?.equipment ?? []).filter((x: any) => x.loadout_id === active?.id);
+                const traits = (readinessConfig.data?.traits ?? []).filter((x: any) => x.loadout_id === active?.id);
+                const boffs = (readinessConfig.data?.boffs ?? []).filter((x: any) => x.loadout_id === active?.id);
+                const equipmentSlots = new Set(equipment.map((x: any) => String(x.slot ?? "").trim().toLowerCase()).filter(Boolean));
+                const boffStations = new Set(boffs.map((x: any) => String(x.station ?? "").trim().toLowerCase()).filter(Boolean));
+                const checks = [
+                  !!ship.character_id,
+                  !!ship.current_build_id,
+                  !!ship.theme_id,
+                  !!active,
+                  !!catalog && slots.length > 0 && slots.every((slot) => equipmentSlots.has(slot.toLowerCase())),
+                  traits.length > 0,
+                  !!catalog && expectedStations.length > 0 && expectedStations.every((station) => boffStations.has(station.toLowerCase())),
+                ];
+                return checks.every(Boolean);
+              }).length;
+              return { character, assigned: assigned.length, ready };
+            });
+            return characterRows.length
+              ? characterRows.map(({ character, assigned, ready }) => (
+                  <Link key={character.id} to="/characters" className="rounded border border-border bg-muted/10 p-4 transition hover:border-primary">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="lcars-label">{character.faction ?? "Faction not set"}</p>
+                        <p className="font-display text-base text-primary">{character.name}</p>
+                      </div>
+                      <Users className="size-4 text-accent" />
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+                      <div className="rounded border border-border p-2">
+                        <p className="font-display text-xl text-primary">{assigned}</p>
+                        <p className="text-[10px] text-muted-foreground">assigned ships</p>
+                      </div>
+                      <div className="rounded border border-border p-2">
+                        <p className="font-display text-xl text-primary">{ready}</p>
+                        <p className="text-[10px] text-muted-foreground">7/7 ready</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              : <p className="text-sm text-muted-foreground">No captains registered yet.</p>;
+          })()}
+        </div>
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="panel p-5"><div className="flex items-center justify-between"><div><p className="lcars-label">Fleet registry</p><h3 className="font-display text-lg text-primary">Recent ships</h3></div><Link to="/ships" className="text-xs text-accent">View all <ChevronRight className="inline size-3"/></Link></div><div className="mt-3 space-y-2">{(recentShips.data??[]).length ? (recentShips.data??[]).map((s:any)=><Link key={s.id} to="/ships" className="flex items-center justify-between rounded border border-border p-3 hover:border-primary"><div><p className="font-medium">{s.custom_name}</p><p className="text-xs text-muted-foreground">{s.sto_ships?.name??"Unknown"} · {s.characters?.name??"Unassigned"}</p></div><span className="text-xs text-accent">{s.builds?.name??"No build"}</span></Link>) : <p className="text-sm text-muted-foreground">No ships registered yet.</p>}</div></div>
         <div className="panel p-5"><div className="flex items-center justify-between"><div><p className="lcars-label">Mission control</p><h3 className="font-display text-lg text-primary">Active projects</h3></div><Link to="/projects" className="text-xs text-accent">View all <ChevronRight className="inline size-3"/></Link></div><div className="mt-3 space-y-2">{(activeProjects.data??[]).length ? (activeProjects.data??[]).map((p:any)=><Link key={p.id} to="/projects" className="block rounded border border-border p-3 hover:border-primary"><div className="flex justify-between gap-2"><span className="font-medium">{p.name}</span><span className="text-xs text-accent">{p.progress??0}%</span></div><p className="mt-1 text-xs text-muted-foreground">{p.characters?.name??"Account operation"} · {p.priority??"normal"} priority</p></Link>) : <p className="text-sm text-muted-foreground">No active projects.</p>}</div></div>
