@@ -53,7 +53,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          Something went wrong while opening the command console.
+        </p>
+        <p className="mt-3 break-words text-xs text-muted-foreground">
+          {error instanceof Error ? error.message : String(error)}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
