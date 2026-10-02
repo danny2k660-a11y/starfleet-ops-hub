@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type StoShip = Tables<"sto_ships">;
+type StoShipReference = Tables<"sto_ship_reference_data">;
 
 export const Route = createFileRoute("/_authenticated/ship-database")({
   head: () => ({
@@ -83,6 +84,16 @@ function ShipDatabasePage() {
     queryKey: ["sto_ship_sources"],
     queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources" as never).select("*, sto_ship_bundles(*)"); if (error) throw error; return (data ?? []) as any[]; },
   });
+  const referenceData = useQuery({
+    queryKey: ["sto_ship_reference_data"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("sto_ship_reference_data").select("*");
+      if (error) throw error;
+      return (data ?? []) as StoShipReference[];
+    },
+  });
+  const referenceByShip = useMemo(() => new Map((referenceData.data ?? []).map((row) => [row.sto_ship_id, row])), [referenceData.data]);
+
   const { data = [], isLoading, error } = useQuery({
     queryKey: ["ship_database_catalog"],
     queryFn: async () => {
@@ -215,6 +226,7 @@ function ShipDatabasePage() {
           {filtered.map((ship) => {
             const isOpen = expanded === ship.id;
             const seats = seating(ship);
+            const ref = referenceByShip.get(ship.id);
             const consoleLayout = [ship.engineering_console_slots, ship.science_console_slots, ship.tactical_console_slots].every((v) => v !== null)
               ? `Eng ${ship.engineering_console_slots} · Sci ${ship.science_console_slots} · Tac ${ship.tactical_console_slots}${ship.universal_console_slots ? ` · Uni ${ship.universal_console_slots}` : ""}`
               : "Not populated";
@@ -231,6 +243,36 @@ function ShipDatabasePage() {
                     {seats.length ? <div className="mt-2 grid gap-1 sm:grid-cols-2">{seats.map((seat, index) => <div key={`${seat}-${index}`} className="rounded border border-border bg-background/40 px-2 py-1.5 text-sm">{seat}</div>)}</div> : <p className="mt-1 text-xs italic text-muted-foreground">Bridge officer seating not populated yet.</p>}
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2"><Info label="Ship trait" value={ship.ship_trait} /><Info label="Special mechanics" value={ship.special_mechanics} /><Info label="Special console" value={ship.special_console} /><Info label="Special weapons" value={ship.special_weapons} /></div>
+                  {ref && <div className="mt-3 rounded border border-border bg-muted/10 p-3">
+                    <p className="lcars-label text-[10px]">Reference detail</p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <Info label="Release" value={ref.release_date ? `${ref.release_date}${ref.bundle && ref.bundle !== "(None)" ? ` · ${ref.bundle}` : ""}` : ref.release_year} />
+                      <Info label="Mastery package" value={ref.mastery_package} />
+                      <Info label="Dual cannons" value={ref.equip_dual_cannons ? "Yes" : "No"} />
+                      <Info label="Devices" value={ref.devices} />
+                      <Info label="Power bonus" value={[
+                        ref.bonus_weapon_power ? `W ${ref.bonus_weapon_power}` : null,
+                        ref.bonus_shield_power ? `S ${ref.bonus_shield_power}` : null,
+                        ref.bonus_engine_power ? `E ${ref.bonus_engine_power}` : null,
+                        ref.bonus_aux_power ? `A ${ref.bonus_aux_power}` : null,
+                      ].filter(Boolean).join(" · ")} />
+                      <Info label="Seat maxima" value={[
+                        ref.max_tactical_seat ? `Tac ${ref.max_tactical_seat}` : null,
+                        ref.max_engineering_seat ? `Eng ${ref.max_engineering_seat}` : null,
+                        ref.max_science_seat ? `Sci ${ref.max_science_seat}` : null,
+                        ref.max_universal_seat ? `Uni ${ref.max_universal_seat}` : null,
+                        ref.max_intelligence_seat ? `Int ${ref.max_intelligence_seat}` : null,
+                        ref.max_command_seat ? `Cmd ${ref.max_command_seat}` : null,
+                        ref.max_pilot_seat ? `Pil ${ref.max_pilot_seat}` : null,
+                        ref.max_temporal_seat ? `Tmp ${ref.max_temporal_seat}` : null,
+                        ref.max_miracle_worker_seat ? `MW ${ref.max_miracle_worker_seat}` : null,
+                      ].filter(Boolean).join(" · ")} />
+                    </div>
+                    {ref.seats_text && <div className="mt-2"><Info label="Full seating" value={ref.seats_text} /></div>}
+                    {ref.trait_description && <div className="mt-2"><Info label="Trait effect" value={ref.trait_description} /></div>}
+                    {ref.console_description && <div className="mt-2"><Info label="Console effect" value={ref.console_description} /></div>}
+                    <p className="mt-2 text-[10px] text-muted-foreground">Reference data: STO Ship DB / Fleffle-derived community dataset · last upstream update 2025-11-11. This is reference data, not STOWiki verification.</p>
+                  </div>}
                   <div className="mt-3 rounded border border-primary/20 bg-primary/5 p-3"><div className="flex items-center justify-between gap-2"><p className="lcars-label text-[10px]">Acquisition routes</p>{ownedByShip.get(ship.id)?.acquired_at && <span className="text-[10px] text-primary">Owned {new Date(ownedByShip.get(ship.id).acquired_at).toLocaleDateString()}</span>}</div>{(sourcesByShip.get(ship.id) ?? []).length > 0 ? <div className="mt-2 space-y-1.5">{(sourcesByShip.get(ship.id) ?? []).map((source: any) => <div key={source.id} className="rounded border border-border bg-background/40 px-2 py-1.5 text-xs"><div className="flex flex-wrap items-center justify-between gap-2"><span>{source.source_name}</span><span className="text-muted-foreground">{source.price_amount != null ? `${source.price_currency ?? ""} ${source.price_amount}` : source.availability_status}</span></div>{source.character_restriction && <p className="mt-1 text-muted-foreground">Character restriction: {source.character_restriction}</p>}{source.account_unlock && <p className="mt-1 text-primary">Account unlock</p>}</div>)}</div> : <p className="mt-1 text-xs text-muted-foreground">Acquisition route not verified yet — this ship stays separate from the store audit until a source is recorded.</p>}</div><p className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Database className="size-3" /> Definition source: {ship.source_reference ?? "Not recorded"} · Version: {ship.data_version ?? "Not recorded"} {ship.source_key === "stowiki" && <Badge variant="outline" className="text-[9px]">STOWiki source</Badge>}</p>
                 </div>}
               </div>
