@@ -53,6 +53,14 @@ function ShipDatabasePage() {
   const [importUrl, setImportUrl] = useState("https://stowiki.net/wiki/Category:Playable_starships");
   const [importJson, setImportJson] = useState("");
   const [importBusy, setImportBusy] = useState(false);
+  const coverage = useQuery({
+    queryKey: ["sto_ship_catalogue_coverage"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("sto_ship_catalogue_coverage" as never).select("*").maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
   const imports = useQuery({
     queryKey: ["sto_ship_catalog_imports"],
     queryFn: async () => { const { data, error } = await supabase.from("sto_ship_catalog_imports" as never).select("*").order("created_at", { ascending: false }).limit(10); if (error) throw error; return (data ?? []) as any[]; },
@@ -134,6 +142,20 @@ function ShipDatabasePage() {
             </div>
             <div className="flex flex-wrap gap-2"><Badge variant="outline">{data.length} catalogue records</Badge><Badge variant="outline" className="border-primary/30 text-primary">{ownedCount} owned</Badge><Badge variant="outline">{missingCount} to check</Badge><Badge variant="outline" className="border-primary/30 text-primary">{verifiedCount} verified</Badge>{unverifiedCount > 0 && <Badge variant="outline">{unverifiedCount} unverified</Badge>}{wishlistCount > 0 && <Badge variant="outline">{wishlistCount} wishlist</Badge>}</div>
           </div>
+          {coverage.data && <div className="mt-4 rounded border border-primary/20 bg-primary/5 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div><p className="lcars-label text-[10px]">Catalogue coverage</p><p className="mt-1 text-xs text-muted-foreground">Provenance and verification are tracked separately so community reference data is never presented as authoritative.</p></div>
+              <Database className="size-4 shrink-0 text-primary" />
+            </div>
+            <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+              <CoverageStat label="T6 records" value={coverage.data.t6_records} />
+              <CoverageStat label="T6 complete" value={coverage.data.t6_records_complete} />
+              <CoverageStat label="STOWiki verified" value={coverage.data.stowiki_verified} />
+              <CoverageStat label="Official 2026" value={coverage.data.official_sto_2026} />
+              <CoverageStat label="Community ref." value={coverage.data.community_reference} />
+              <CoverageStat label="Provenance complete" value={coverage.data.provenance_complete} />
+            </div>
+          </div>}
           {data.length > 0 && <div className="mt-4 rounded border border-border bg-muted/10 p-3">
             <div className="mb-2 flex items-center justify-between"><p className="lcars-label text-[10px]">Catalogue data quality</p><span className="text-[10px] text-muted-foreground">No field is treated as populated until it is actually present</span></div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{quality.map((item) => { const complete = item.complete === item.total; return <div key={item.label} className="rounded border border-border p-2"><div className="flex items-center gap-1.5 text-xs">{complete ? <CheckCircle2 className="size-3 text-primary"/> : <AlertTriangle className="size-3 text-muted-foreground"/>}<span>{item.label}</span></div><p className="mt-1 font-display text-sm text-primary">{item.complete}/{item.total}</p></div>; })}</div>
@@ -216,6 +238,10 @@ function ShipDatabasePage() {
       </div>
     </AppShell>
   );
+}
+
+function CoverageStat({ label, value }: { label: string; value: number }) {
+  return <div className="rounded border border-border p-2"><p className="text-[10px] text-muted-foreground">{label}</p><p className="mt-1 font-display text-sm text-primary">{value}</p></div>;
 }
 
 function BundleClaim({ bundle, onClaimed }: { bundle: any; onClaimed: () => void }) {
