@@ -405,9 +405,6 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   });
   const shipData = ship.data?.sto_ships ?? null;
   const shipCharacterId = ship.data?.character_id ?? null;
-  const boff = (ship.data?.bridge_officer_stations ?? {}) as Record<string, unknown>;
-  const trait = ship.data?.ship_trait as string | null | undefined;
-  const special = [ship.data?.special_console, ship.data?.special_weapons, ship.data?.special_mechanics].filter(Boolean) as string[];
 
   const equipment = useQuery({
     queryKey: ["equipment_items"],
