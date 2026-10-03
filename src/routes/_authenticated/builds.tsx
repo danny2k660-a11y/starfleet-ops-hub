@@ -89,7 +89,9 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
   const [notes, setNotes] = useState(build?.notes ?? "");
 
   const save = useMutation({ mutationFn: async () => {
+    const trimmedName = name.trim();
     const { data: u } = await supabase.auth.getUser();
+    if (!trimmedName) throw new Error("Enter a build name.");
     if (characterId === "__none__") throw new Error("Choose a character.");
     if (fleetShipId === "__none__") throw new Error("Choose a ship owned by that character.");
     const chosenShip = fleetShips.find((s:any) => s.id === fleetShipId);
