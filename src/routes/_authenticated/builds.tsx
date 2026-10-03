@@ -161,7 +161,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
     {loadout.notes && <p className="mt-2 text-sm text-muted-foreground">{loadout.notes}</p>}
     <LoadoutConfiguration loadoutId={loadout.id} />
     <LoadoutReadiness loadoutId={loadout.id} buildId={loadout.build_id} />
-    <ThemeCompliance loadoutId={loadout.id} buildId={loadout.build_id} />
+    <ThemeCompliance loadoutId={loadout.id} />
     <LoadoutEquipment loadoutId={loadout.id} buildId={loadout.build_id} />
   </div>;
 }
@@ -233,7 +233,7 @@ function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const configuredStations = new Set(((boffs.data as any[])||[]).map(x=>String(x.station||"").trim().toLowerCase()).filter(Boolean));
   const missingStations = stationNames.filter(x=>!configuredStations.has(x.toLowerCase()));
   const slots:string[]=[]; const add=(label:string,n:number)=>{for(let i=1;i<=Number(n||0);i++)slots.push(label+" "+i);};
-  add("Fore Weapon",s.fore_weapon_slots); add("Aft Weapon",s.aft_weapon_slots); if(s.experimental_weapon) slots.push("Experimental Weapon");
+  add("Fore Weapon",s.fore_weapon_slots); add("Aft Weapon",s.aft_weapon_slots); if(s.experimental_weapon_slot) slots.push("Experimental Weapon");
   add("Engineering Console",s.engineering_console_slots); add("Science Console",s.science_console_slots); add("Tactical Console",s.tactical_console_slots); add("Universal Console",s.universal_console_slots); add("Hangar Bay",s.hangar_bays);
   slots.push("Deflector","Impulse Engines","Warp Core","Shields");
   const assignedSlots=Array.from(new Set(((equipment.data as any[])||[]).map(x=>String(x.slot||"")).filter(Boolean)));
