@@ -786,6 +786,9 @@ export type Database = {
           theme_id: string | null
           updated_at: string
           upgrades: Json
+          usage_mode: string
+          acquisition_source_id: string | null
+          acquisition_group: string | null
           user_id: string
         }
         Insert: {
@@ -804,6 +807,9 @@ export type Database = {
           theme_id?: string | null
           updated_at?: string
           upgrades?: Json
+          usage_mode?: string
+          acquisition_source_id?: string | null
+          acquisition_group?: string | null
           user_id: string
         }
         Update: {
@@ -822,6 +828,9 @@ export type Database = {
           theme_id?: string | null
           updated_at?: string
           upgrades?: Json
+          usage_mode?: string
+          acquisition_source_id?: string | null
+          acquisition_group?: string | null
           user_id?: string
         }
         Relationships: [
