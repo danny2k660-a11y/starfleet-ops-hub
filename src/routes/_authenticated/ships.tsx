@@ -208,7 +208,7 @@ function ShipsPage() {
       });
     }
     return map;
-  }, [activeLoadoutIds, activeLoadoutByBuild, fleetLoadoutConfig.data, ships.data]);
+  }, [activeLoadoutIds, activeLoadoutByBuild, fleetLoadoutConfig.data, ships.data, referenceData.data]);
   const [q, setQ] = useState("");
   const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup" | "captain" | "build" | "loadout" | "equipment" | "traits" | "boffs">("all");
   const [charFilter, setCharFilter] = useState(ALL);
@@ -865,8 +865,8 @@ function UpgradeChecks({ t6, t6x, t6x2, set }: { t6: boolean; t6x: boolean; t6x2
   );
 }
 
-function AddShipDialog({ open, onOpenChange, catalog, characters, sources, onSaved }: {
-  open: boolean; onOpenChange: (o: boolean) => void; catalog: StoShip[]; characters: Character[]; sources: any[]; onSaved: (id: string) => void;
+function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], onSaved }: {
+  open: boolean; onOpenChange: (o: boolean) => void; catalog: StoShip[]; characters: Character[]; sources?: any[]; onSaved: (id: string) => void;
 }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -879,7 +879,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources, onSav
   const [sourceId, setSourceId] = useState("__none__");
   const [sourceFilter, setSourceFilter] = useState("all");
 
-  const results = catalog.filter((s) => `${s.name} ${s.ship_class ?? ""} ${s.faction ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+  const results = (catalog ?? []).filter((s) => `${s.name} ${s.ship_class ?? ""} ${s.faction ?? ""}`.toLowerCase().includes(search.toLowerCase()));
 
   const createChar = useMutation({
     mutationFn: async () => {
@@ -954,7 +954,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources, onSav
           </div>
           <div className="space-y-2">
             <Label>4. Acquisition source</Label>
-            <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setSourceId("__none__"); }}><SelectTrigger><SelectValue placeholder="Filter acquisition type" /></SelectTrigger><SelectContent><SelectItem value="all">All acquisition routes</SelectItem><SelectItem value="zen_store">Zen Store</SelectItem><SelectItem value="bundle">Bundle</SelectItem><SelectItem value="event">Event</SelectItem><SelectItem value="lockbox">Lockbox / Promo</SelectItem><SelectItem value="lobi">Lobi</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent></Select><Select value={sourceId} onValueChange={setSourceId}><SelectTrigger><SelectValue placeholder="Select acquisition route" /></SelectTrigger><SelectContent><SelectItem value="__none__">Not specified</SelectItem>{sources.filter((x) => (!shipId || x.sto_ship_id === shipId) && (sourceFilter === "all" || x.source_type === sourceFilter)).map((x) => <SelectItem key={x.id} value={x.id}>{x.source_name}{x.source_type ? " · " + x.source_type : ""}</SelectItem>)}</SelectContent></Select>
+            <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setSourceId("__none__"); }}><SelectTrigger><SelectValue placeholder="Filter acquisition type" /></SelectTrigger><SelectContent><SelectItem value="all">All acquisition routes</SelectItem><SelectItem value="zen_store">Zen Store</SelectItem><SelectItem value="bundle">Bundle</SelectItem><SelectItem value="event">Event</SelectItem><SelectItem value="lockbox">Lockbox / Promo</SelectItem><SelectItem value="lobi">Lobi</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent></Select><Select value={sourceId} onValueChange={setSourceId}><SelectTrigger><SelectValue placeholder="Select acquisition route" /></SelectTrigger><SelectContent><SelectItem value="__none__">Not specified</SelectItem>{(sources ?? []).filter((x) => (!shipId || x.sto_ship_id === shipId) && (sourceFilter === "all" || x.source_type === sourceFilter)).map((x) => <SelectItem key={x.id} value={x.id}>{x.source_name}{x.source_type ? " · " + x.source_type : ""}</SelectItem>)}</SelectContent></Select>
             <p className="text-xs text-muted-foreground">Track Zen Store, bundle and other acquisition routes for this ship.</p>
           </div>
           <div className="space-y-2">
