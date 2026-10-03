@@ -37,8 +37,8 @@ const personalBuckets = [
   { key: "ground-innate", title: "Innate / Required Ground Traits", types: ["personal"], domain: "ground", availability: "innate" },
   { key: "space-reputation", title: "Passive Space Reputation", types: ["reputation"], domain: "space", active: false },
   { key: "ground-reputation", title: "Passive Ground Reputation", types: ["reputation"], domain: "ground", active: false },
-  { key: "space-active", title: "Active Space Reputation", types: ["reputation"], domain: "space", active: true },
-  { key: "ground-active", title: "Active Ground Reputation", types: ["reputation"], domain: "ground", active: true },
+  { key: "space-active", title: "Active Space Reputation", types: ["activereputation"], domain: "space", active: true },
+  { key: "ground-active", title: "Active Ground Reputation", types: ["activereputation"], domain: "ground", active: true },
 ] as const;
 
 export const Route = createFileRoute("/_authenticated/traits")({
