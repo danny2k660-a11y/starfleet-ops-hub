@@ -17,7 +17,7 @@ const categoryLabels: Record<string,string> = {
   personal: "Personal",
   starship: "Starship",
   reputation: "Reputation",
-  active: "Active Reputation",
+  activereputation: "Active Reputation",
   activereputation: "Active Reputation",
   species: "Species",
   other: "Other",
@@ -25,7 +25,7 @@ const categoryLabels: Record<string,string> = {
 const domainLabels: Record<string,string> = { space: "Space", ground: "Ground" };
 const personalCategoryLabel = (type: string, domain: string) => {
   if (type === "reputation") return `${domainLabels[domain] ?? domain} Reputation`;
-  if (type === "active") return `Active ${domainLabels[domain] ?? domain} Reputation`;
+  if (type === "activereputation") return `Active ${domainLabels[domain] ?? domain} Reputation`;
   return `Personal ${domainLabels[domain] ?? domain}`;
 };
 const personalBuckets = [
@@ -33,9 +33,9 @@ const personalBuckets = [
   { key: "ground", title: "Personal Ground Traits", types: ["personal"], domain: "ground", availability: "personal" },
   { key: "space-reputation", title: "Space Reputation Traits", types: ["reputation"], domain: "space" },
   { key: "ground-reputation", title: "Ground Reputation Traits", types: ["reputation"], domain: "ground" },
-  { key: "space-active", title: "Active Space Reputation", types: ["active"], domain: "space" },
-  { key: "ground-active", title: "Active Ground Reputation", types: ["active"], domain: "ground" },
-  { key: "space-species", title: "Species / Innate Space Traits", types: ["personal"], domain: "space", availability: "species" },
+  { key: "space-active", title: "Active Space Reputation", types: ["activereputation"], domain: "space" },
+  { key: "ground-active", title: "Active Ground Reputation", types: ["activereputation"], domain: "ground" },
+  { key: "space-species", title: "Species / Innate Space Traits", types: ["personal"], domain: "space", availability: "innate" },
   { key: "ground-species", title: "Species / Innate Ground Traits", types: ["personal"], domain: "ground", availability: "species" },
 ] as const;
 
