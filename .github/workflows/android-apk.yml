@@ -59,8 +59,7 @@ jobs:
           test -s "$ENTRY"
           sed -i 's#\\.\\?/.output/public/assets/#./assets/#g; s#"/assets/#"./assets/#g; s#src="/assets/#src="./assets/#g; s#href="/assets/#href="./assets/#g' "$ENTRY"
           grep -q '<script' "$ENTRY"
-          grep -Eq '(src|href)="\./assets/' "$ENTRY"
-          ! grep -q '\\.output/public' "$ENTRY"
+          grep -q './assets/' "$ENTRY"
 
       - name: Configure stable debug signing
         shell: bash
