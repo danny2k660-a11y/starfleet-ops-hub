@@ -135,7 +135,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
     queryFn: async () => {
       const { data, error } = await supabase
         .from("equipment_items" as never)
-        .select("id,name,category,slot,mark")
+        .select("id,name,category,slot,mark,rarity,mark_level,upgrade_level,catalog_item_id")
         .eq("character_id", characterId)
         .order("name");
       if (error) throw error;
@@ -143,7 +143,36 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
     },
   });
 
+  const personalTraits = useQuery({
+    queryKey: ["character_ops_traits", characterId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("character_traits" as never)
+        .select("id,trait_id,domain,trait_category,slot_index,active,trait_catalog(name,trait_type,domain)")
+        .eq("character_id", characterId)
+        .order("domain")
+        .order("slot_index");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const bridgeOfficers = useQuery({
+    queryKey: ["character_ops_boffs", characterId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("character_boffs" as never)
+        .select("id,boff_id,active,notes,boff_catalog(name,career,specialization,rank)")
+        .eq("character_id", characterId)
+        .order("created_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const shipCount = ships.data?.filter((ship: any) => ship.ownership_status === "owned").length ?? 0;
+  const activeTraits = personalTraits.data?.filter((t: any) => t.active !== false).length ?? 0;
+  const activeBoffs = bridgeOfficers.data?.filter((b: any) => b.active !== false).length ?? 0;
 
   return (
     <section className="panel space-y-4 p-4">
@@ -157,7 +186,9 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <OpsCard icon={<Rocket className="size-4" />} label="Ships" value={shipCount} detail={(ships.data ?? []).filter((s: any) => s.ownership_status === "owned").slice(0, 3).map((s: any) => s.custom_name || s.sto_ships?.name).join(" · ") || "None registered"} />
-        <OpsCard icon={<Package className="size-4" />} label="Equipment" value={equipment.data?.length ?? 0} detail={(equipment.data ?? []).slice(0, 3).map((e: any) => e.name).join(" · ") || "None assigned"} />
+        <OpsCard icon={<Package className="size-4" />} label="Equipment" value={equipment.data?.length ?? 0} detail={(equipment.data ?? []).slice(0, 3).map((e: any) => [e.name, e.mark_level ? `Mk${e.mark_level}` : e.mark, e.rarity].filter(Boolean).join(" ")).join(" · ") || "None assigned"} />
+        <OpsCard icon={<UserRound className="size-4" />} label="Personal traits" value={activeTraits} detail={(personalTraits.data ?? []).slice(0, 4).map((t: any) => t.trait_catalog?.name).filter(Boolean).join(" · ") || "No personal traits assigned"} />
+        <OpsCard icon={<UserRound className="size-4" />} label="Bridge officers" value={activeBoffs} detail={(bridgeOfficers.data ?? []).slice(0, 4).map((b: any) => b.boff_catalog?.name).filter(Boolean).join(" · ") || "No bridge officers assigned"} />
       </div>
     </section>
   );
