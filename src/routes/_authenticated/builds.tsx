@@ -34,6 +34,7 @@ function BuildsPage() {
   const readiness = useQuery({ queryKey: ["build_readiness"], queryFn: async () => { const { data, error } = await supabase.from("sto_build_readiness_audit" as never).select("*"); if (error) throw error; return (data ?? []) as any[]; } });
   const loadouts = useQuery({ queryKey: ["loadouts"], queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("*").order("updated_at", { ascending: false }); if (error) throw error; return data as Loadout[]; } });
   const builds = useQuery({ queryKey: ["builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("*, ship_instances(*, characters(*)), user_ships(id,custom_name,character_id,sto_ship_id,characters(name),sto_ships(name))").order("updated_at", { ascending: false }); if (error) throw error; return data as unknown as (Build & { ship_instances: Ship & { characters: Character | null } | null })[]; } });
+  const characters = useQuery({ queryKey: ["characters"], queryFn: async () => { const { data, error } = await supabase.from("characters").select("*").order("name"); if (error) throw error; return (data ?? []) as Character[]; } });
   const ownedShips = useQuery({ queryKey: ["build_owned_ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,character_id,current_build_id,characters(name),sto_ships(name)").order("custom_name"); if (error) throw error; return (data ?? []) as any[]; } });
   const ships = useQuery({ queryKey: ["ship_instances"], queryFn: async () => { const { data, error } = await supabase.from("ship_instances").select("*, characters(*)").order("name"); if (error) throw error; return data as unknown as (Ship & { characters: Character | null })[]; } });
   const fleetLinks = useQuery({ queryKey: ["build-fleet-links"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,current_build_id,custom_name,sto_ships(name),characters(name)").not("current_build_id","is",null); if (error) throw error; return data ?? []; } });
@@ -76,7 +77,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
   const [name, setName] = useState(build?.name ?? "");
   const existingFleetShip = fleetShips.find((s) => s.current_build_id === build?.id) ?? (build as any)?.user_ships ?? null;
   const [characterId, setCharacterId] = useState(existingFleetShip?.character_id ?? "__none__");
-  const [shipId, setShipId = useState(build?.ship_instance_id ?? "__none__");
+  const [shipId, setShipId] = useState(build?.ship_instance_id ?? "__none__");
   const [fleetShipId, setFleetShipId] = useState(existingFleetShip?.id ?? "__none__");
   const [role, setRole] = useState(build?.role ?? "");
   const [status, setStatus] = useState(build?.status ?? "draft");
