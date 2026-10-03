@@ -180,8 +180,6 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
       if (traitsError) throw traitsError;
       const { error: boffsError } = await supabase.from("loadout_boffs" as never).delete().eq("loadout_id", loadout.id);
       if (boffsError) throw boffsError;
-      const { error: doffsError } = await supabase.from("build_doffs" as never).delete().eq("build_id", loadout.build_id);
-      if (doffsError) throw doffsError;
       const { error } = await supabase.from("loadouts" as never).delete().eq("id", loadout.id).eq("user_id", u.user.id);
       if (error) throw error;
       if (loadout.is_active) {
