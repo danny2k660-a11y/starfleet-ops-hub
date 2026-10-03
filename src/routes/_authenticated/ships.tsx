@@ -569,7 +569,7 @@ function ShipsPage() {
                   <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded bg-muted">
                     <div className="h-full bg-primary" style={{ width: `${percent}%` }} />
                   </div>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">{complete}/7 · {percent}%</span>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{complete}/6 · {percent}%</span>
                 </div>
                 {details.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -622,7 +622,7 @@ function ShipsPage() {
                       <p className="truncate font-medium text-primary">{s.custom_name}</p>
                       <p className="truncate text-xs text-muted-foreground">{s.sto_ships?.name ?? "Unknown ship"} · {s.characters?.name ?? "No captain"}</p>
                     </button>
-                    <Badge variant="outline" className="shrink-0">{row.complete}/7</Badge>
+                    <Badge variant="outline" className="shrink-0">{row.complete}/6</Badge>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {details.map((detail) => (
@@ -811,10 +811,6 @@ function ShipsPage() {
                 <div className="rounded border border-border bg-muted/20 p-2">
                   <span className="text-muted-foreground">Build</span>
                   <p className={s.builds ? "text-primary" : "text-muted-foreground"}>{s.builds?.name ?? "Unassigned"}</p>
-                </div>
-                <div className="rounded border border-border bg-muted/20 p-2">
-                  <span className="text-muted-foreground">Theme</span>
-                  <p className={s.theme_id ? "text-primary" : "text-muted-foreground"}>{themeName(s.theme_id).replace("No theme assigned", "None")}</p>
                 </div>
                 <div className="rounded border border-border bg-muted/20 p-2">
                   <span className="text-muted-foreground">Readiness</span>
