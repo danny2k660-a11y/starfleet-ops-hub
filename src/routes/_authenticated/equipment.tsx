@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Search, Trash2, Package, RefreshCw, Database, Library } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,6 +84,7 @@ function Page() {
   const [quantity, setQuantity] = useState("1");
   const [characterId, setCharacterId] = useState("account");
   const [notes, setNotes] = useState("");
+  const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
 
   const catalog = useQuery({
     queryKey: ["equipment_catalog"],
@@ -130,6 +131,13 @@ function Page() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  useEffect(() => {
+    if (!catalog.isLoading && !catalog.isError && (catalog.data?.length ?? 0) === 0 && !autoSyncAttempted) {
+      setAutoSyncAttempted(true);
+      syncCatalog.mutate();
+    }
+  }, [catalog.isLoading, catalog.isError, catalog.data?.length, autoSyncAttempted]);
 
   const reset = () => {
     setEditing(null); setName(""); setCat("Weapon"); setSlot(""); setRarity(""); setMark(""); setMods("");
@@ -251,7 +259,7 @@ function Page() {
                     </div>
                     {(e.weapon_type || e.energy_type) && <p className="mt-2 text-xs text-muted-foreground">{[e.weapon_type, e.energy_type].filter(Boolean).join(" • ")}</p>}
                     {(e.source_type || e.source_name || e.reputation_name || e.currency_type) && <p className="mt-2 text-xs text-muted-foreground">{[e.source_type, e.source_name, e.reputation_name, e.currency_type].filter(Boolean).join(" • ")}</p>}
-                    {e.set_name && <p className="mt-1 text-xs text-muted-foreground">Set: {e.set_name}{e.set_piece ? ` — ${e.set_piece}` : ""}</p>}
+                    {e.set_name && <p className="mt-1 text-xs text-muted-foreground">Set: {e.set_name}{e.set_piece ? ` — ${e.set_piece}` : ""}</p>}\n                    {e.data_quality_status && <p className="mt-1 text-[11px] text-muted-foreground">Data: {e.data_quality_status}</p>}
                     <Button variant="ghost" size="sm" className="mt-2 px-0" onClick={() => addCatalogItem.mutate(e)} disabled={addCatalogItem.isPending}><Plus className="mr-1 size-4" /> Add to my locker</Button>
                   </div>
                 ))}
