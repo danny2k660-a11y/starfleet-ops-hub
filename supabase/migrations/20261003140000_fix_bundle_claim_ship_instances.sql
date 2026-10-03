@@ -2,6 +2,8 @@
 -- Bundle claims now create user_ships records as well as account ownership.
 -- character_id is optional because account-wide unlocks do not belong to one captain.
 
+drop function if exists public.claim_sto_ship_bundle(uuid,timestamptz);
+
 create or replace function public.claim_sto_ship_bundle(p_bundle_id uuid, p_acquired_at timestamptz default now(), p_character_id uuid default null)
 returns integer
 language plpgsql
@@ -41,7 +43,6 @@ begin
 end;
 $$;
 
-revoke execute on function public.claim_sto_ship_bundle(uuid,timestamptz) from public;
 revoke execute on function public.claim_sto_ship_bundle(uuid,timestamptz,uuid) from public;
 grant execute on function public.claim_sto_ship_bundle(uuid,timestamptz,uuid) to authenticated;
 
