@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type Character = Tables<"characters">;
+type Character = Tables<"characters"> & { elite_captain?: boolean };
 
 export const Route = createFileRoute("/_authenticated/characters")({
   head: () => ({ meta: [{ title: "Characters — STO Command Center" }, { name: "description", content: "Manage your STO captains and keep every character's ships and equipment separated." }] }),
