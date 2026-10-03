@@ -38,9 +38,10 @@ function Page() {
   const [officerName, setOfficerName] = useState("");
   const [species, setSpecies] = useState("");
   const [specialization, setSpecialization] = useState("");
-  const [abilities, setAbilities] = useState("");
+  const [abilities, setAbilities] = useState(""); const [catalogId, setCatalogId] = useState("");
   const [notes, setNotes] = useState("");
 
+  const catalog = useQuery({ queryKey: ["boff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_catalog" as never).select("*").order("name"); if(error) throw error; return (data ?? []) as any[]; }});
   const loadouts = useQuery({ queryKey: ["boff_loadouts"], queryFn: async () => {
     const { data, error } = await supabase.from("loadouts").select("id,name,build_id").order("updated_at", { ascending: false });
     if (error) throw error; return (data ?? []) as Loadout[];
@@ -61,12 +62,12 @@ function Page() {
   const expectedStations = stationNames(selectedShip?.sto_ships?.bridge_officer_stations);
   const configured = useMemo(() => new Set((boffs.data ?? []).filter((b) => b.loadout_id === loadoutId).map((b) => b.station.toLowerCase())), [boffs.data, loadoutId]);
 
-  const reset = () => { setLoadoutId(""); setStation(""); setOfficerName(""); setSpecies(""); setSpecialization(""); setAbilities(""); setNotes(""); };
+  const reset = () => { setLoadoutId(""); setCatalogId(""); setStation(""); setOfficerName(""); setSpecies(""); setSpecialization(""); setAbilities(""); setNotes(""); };
   const save = useMutation({ mutationFn: async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user || !loadoutId || !station) throw new Error("Loadout and bridge station are required");
     const abilityList = abilities.split("\n").map((x) => x.trim()).filter(Boolean);
-    const { error } = await supabase.from("loadout_boffs").upsert({ user_id: u.user.id, loadout_id: loadoutId, station, officer_name: officerName.trim() || null, officer_species: species.trim() || null, specialization: specialization.trim() || null, abilities: abilityList, notes: notes.trim() || null }, { onConflict: "loadout_id,station" });
+    const { error } = await supabase.from("loadout_boffs").upsert({ user_id: u.user.id, loadout_id: loadoutId, station, officer_name: officerName.trim() || null, officer_species: species.trim() || null, boff_id: catalogId || null, specialization: specialization.trim() || null, abilities: abilityList, notes: notes.trim() || null }, { onConflict: "loadout_id,station" });
     if (error) throw error;
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["loadout_boffs"] }); toast.success("Bridge officer station saved"); setOpen(false); reset(); }, onError: (e: Error) => toast.error(e.message) });
   const remove = useMutation({ mutationFn: async (id: string) => { const { error } = await supabase.from("loadout_boffs").delete().eq("id", id); if (error) throw error; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["loadout_boffs"] }); toast.success("Bridge officer removed"); }, onError: (e: Error) => toast.error(e.message) });
