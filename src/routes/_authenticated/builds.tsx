@@ -93,7 +93,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     if (fleetShipId === "__none__") throw new Error("Choose a ship owned by that character.");
     const chosenShip = fleetShips.find((s:any) => s.id === fleetShipId);
     if (!chosenShip || chosenShip.character_id !== characterId) throw new Error("Choose a ship owned by the selected character.");
-    const payload = { name: name.trim(), ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId, role: role || null, status, notes: notes || null };
+    const payload = { name: trimmedName, ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId, role: role || null, status, notes: notes || null };
     let buildId = build?.id ?? null;
     const otherBuild = fleetShips.find((s:any) => s.id === fleetShipId && s.current_build_id && s.current_build_id !== buildId);
     if (otherBuild) throw new Error("That ship is already assigned to another build.");
@@ -172,9 +172,15 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
   const qc = useQueryClient();
+  const trimmedName = name.trim();
   const save = useMutation({ mutationFn: async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) throw new Error("Not signed in");
+    if (!buildId) throw new Error("Choose a build.");
+    if (!trimmedName) throw new Error("Enter a loadout name.");
+    const { data: duplicateName, error: duplicateError } = await supabase.from("loadouts").select("id").eq("build_id", buildId).eq("user_id", u.user.id).eq("name", trimmedName).maybeSingle();
+    if (duplicateError) throw duplicateError;
+    if (duplicateName) throw new Error("A loadout with that name already exists for this build.");
     const { data: activeLoadout } = await supabase
       .from("loadouts")
       .select("id")
