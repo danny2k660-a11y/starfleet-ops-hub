@@ -307,7 +307,7 @@ function ShipsPage() {
   const wishlistCount = (ships.data ?? []).filter((s) => s.ownership_status === "wishlist").length;
   const readyCount = fleetReadiness.fullyReady;
   const [fleetConfigOpen, setFleetConfigOpen] = useState(false);
-  const unassignedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !s.current_build_id).length;
+  const unassignedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.usage_mode !== "console_trait_only" && s.usage_mode !== "collection_only" && !s.current_build_id).length;
 
   return (
     <AppShell title="Ships" subtitle="Your STO fleet registry">
@@ -327,7 +327,7 @@ function ShipsPage() {
         <div className="panel p-3"><p className="lcars-label">Wishlist</p><p className="font-display text-xl text-primary">{wishlistCount}</p><p className="text-xs text-muted-foreground">planned</p></div>
         <div className="panel p-3"><p className="lcars-label">Ready pipeline</p><p className="font-display text-xl text-primary">{readyCount}</p><p className="text-xs text-muted-foreground">build linked</p></div>
         <div className="panel p-3"><p className="lcars-label">Catalog</p><p className="font-display text-xl text-primary">{catalog.data?.length ?? 0}</p><p className="text-xs text-muted-foreground">ships indexed</p></div>
-        <div className="col-span-2 panel p-3 sm:col-span-4"><p className="lcars-label">Command attention</p><p className="text-sm text-muted-foreground">{unassignedCount ? `${unassignedCount} owned ship${unassignedCount === 1 ? "" : "s"} still need a build assignment.` : "All owned ships currently have a build linked."}</p></div>
+        <div className="col-span-2 panel p-3 sm:col-span-4"><p className="lcars-label">Command attention</p><p className="text-sm text-muted-foreground">{unassignedCount ? `${unassignedCount} owned ship${unassignedCount === 1 ? "" : "s"} still need a build assignment.` : "All owned ships intended for builds currently have a build linked."}</p></div>
       </div>
 
       <div className="panel p-4">
