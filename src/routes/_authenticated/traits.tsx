@@ -67,7 +67,7 @@ function Page() {
       syncCatalog.mutate();
     }
   }, [catalog.isLoading, catalog.isError, catalog.data?.length, autoSyncAttempted]);
-  const characters = useQuery({ queryKey:["trait_characters"], queryFn:async()=>{ const {data,error}=await supabase.from("characters").select("id,name,level,species,elite_captain").order("name"); if(error)throw error; return data??[]; }});
+  const characters = useQuery({ queryKey:["trait_characters"], queryFn:async()=>{ const {data,error}=await supabase.from("characters").select("id,name,level,species,faction,career,elite_captain").order("name"); if(error)throw error; return data??[]; }});
   const loadouts = useQuery({ queryKey:["trait_loadouts"], queryFn:async()=>{ const {data,error}=await supabase.from("loadouts").select("id,name,build_id").order("updated_at",{ascending:false}); if(error)throw error; return data??[]; }});
   const builds = useQuery({ queryKey:["trait_builds"], queryFn:async()=>{ const {data,error}=await supabase.from("builds").select("id,name,user_ship_id").order("updated_at",{ascending:false}); if(error)throw error; return data??[]; }});
   const userShips = useQuery({ queryKey:["trait_user_ships"], queryFn:async()=>{ const {data,error}=await supabase.from("user_ships").select("id,character_id,custom_name,sto_ships(name)").order("created_at",{ascending:false}); if(error)throw error; return data??[] as any[]; }});
@@ -112,6 +112,8 @@ function Page() {
     const text=(String(c?.name??t.name??"")+" "+String(c?.trait_type??t.trait_category??"")+" "+String(c?.domain??t.domain??"")+" "+String(t.notes??"")+" "+String(characterById.get(t.character_id)?.name??"")).toLowerCase();
     return text.includes(q.toLowerCase());
   }),[characterTraits.data,catalogById,characterById,q]);
+
+  const speciesTraits = useMemo(()=> (catalog.data??[]).filter((t:any)=> (t.trait_type === "species" || t.availability_type === "innate") && t.domain && (characters.data??[]).some((ch:any)=> traitMatchesCharacter(t,ch))),[catalog.data,characters.data]);
 
   const shipTraits = useMemo(()=> (loadoutTraits.data??[]).filter((t:any)=>{
     const c:any=catalogById.get(t.trait_id);
@@ -165,6 +167,7 @@ function Page() {
           {!bucketTraits.length&&<div className="rounded border border-dashed p-4 text-center text-xs text-muted-foreground">No traits assigned.</div>}
         </div></div>})}
       </div></section>
+      <section className="panel p-4"><div className="mb-3 flex items-center justify-between"><div><p className="lcars-label">Species / innate</p><h2 className="font-display text-lg text-primary">Species Traits</h2><p className="text-xs text-muted-foreground">Innate species traits are recorded separately and do not consume personal trait slots.</p></div><Badge variant="secondary">{speciesTraits.length}</Badge></div><div className="space-y-2">{speciesTraits.map((t:any)=><div key={t.id} className="rounded border border-border bg-card/70 p-3"><div className="flex items-center justify-between gap-2"><div><p className="font-medium">{t.name}</p><div className="mt-1 flex gap-1"><Badge variant="secondary">{domainLabels[t.domain]??t.domain}</Badge><Badge variant="outline">Innate</Badge></div></div></div>{t.description&&<p className="mt-2 text-xs text-muted-foreground">{t.description}</p>}</div>)}{!speciesTraits.length&&<div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No matching innate species traits in the canonical catalogue.</div>}</div></section>
       <section className="panel p-4"><div className="mb-3 flex items-center justify-between"><div><p className="lcars-label">Ship loadouts</p><h2 className="font-display text-lg text-primary">Starship Traits</h2></div><Badge variant="secondary">{shipTraits.length}</Badge></div><div className="grid gap-3 sm:grid-cols-2">
         {shipTraits.map((t:any)=>{const c:any=catalogById.get(t.trait_id);const l:any=loadoutById.get(t.loadout_id);const b:any=buildById.get(l?.build_id);const s:any=shipById.get(b?.user_ship_id);return <div key={t.id} className="rounded-lg border border-border bg-card/70 p-3"><div className="flex items-start justify-between gap-2"><div><p className="font-medium">{c?.name??t.name??"Unnamed trait"}</p><div className="mt-1 flex flex-wrap gap-1"><Badge variant="secondary">Starship</Badge>{t.slot&&<Badge variant="outline">{t.slot}</Badge>}</div></div><Button size="icon" variant="ghost" onClick={()=>removeStarship.mutate(t.id)}><Trash2 className="size-4 text-destructive"/></Button></div><p className="mt-2 text-xs text-muted-foreground">{b?.name??"Build"} • {s?.custom_name||s?.sto_ships?.name||"Ship"} • {l?.name??"Loadout"}</p></div>})}
         {!shipTraits.length&&<div className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"><Sparkles className="mx-auto mb-2 size-5"/>No starship traits assigned yet.</div>}
