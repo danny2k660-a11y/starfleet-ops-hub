@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Trash2, Sparkles, UserRound } from "lucide-react";
+import { Plus, Search, Trash2, Sparkles, UserRound, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -42,6 +42,7 @@ function Page() {
   const [characterId,setCharacterId] = useState("");
   const [loadoutId,setLoadoutId] = useState("");
 
+  const syncCatalog = useMutation({ mutationFn: async () => { const { data, error } = await supabase.functions.invoke("sync-trait-catalog", { body: {} }); if (error) throw error; if (!data?.ok) throw new Error(data?.error ?? "Trait catalogue sync failed"); return data; }, onSuccess: (data) => { qc.invalidateQueries({ queryKey:["trait_catalog"] }); toast.success(`Trait catalogue synced: ${data.imported} records`); }, onError: (e:Error) => toast.error(e.message) });
   const catalog = useQuery({ queryKey:["trait_catalog"], queryFn:async()=>{ const {data,error}=await supabase.from("trait_catalog" as never).select("*").order("name"); if(error)throw error; return (data??[]) as any[]; }});
   const characters = useQuery({ queryKey:["trait_characters"], queryFn:async()=>{ const {data,error}=await supabase.from("characters").select("id,name,level").order("name"); if(error)throw error; return data??[]; }});
   const loadouts = useQuery({ queryKey:["trait_loadouts"], queryFn:async()=>{ const {data,error}=await supabase.from("loadouts").select("id,name,build_id").order("updated_at",{ascending:false}); if(error)throw error; return data??[]; }});
@@ -94,7 +95,7 @@ function Page() {
   return <AppShell title="Traits" subtitle="Personal ground/space traits and starship traits"><div className="space-y-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div><p className="lcars-label">Trait control</p><h1 className="font-display text-2xl text-primary">Traits</h1><p className="text-sm text-muted-foreground">Personal traits are character-owned. Starship traits belong to the ship loadout. Ground and space are tracked separately.</p></div>
-      <div className="flex flex-wrap gap-2"><Button onClick={openPersonal}><UserRound className="mr-1 size-4"/> Add personal trait</Button><Button variant="outline" onClick={openStarship}><Plus className="mr-1 size-4"/> Assign starship trait</Button></div>
+      <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>syncCatalog.mutate()} disabled={syncCatalog.isPending}><RefreshCw className={`mr-1 size-4 ${syncCatalog.isPending?"animate-spin":""}`}/> {syncCatalog.isPending?"Syncing…":"Sync canonical catalogue"}</Button><Button onClick={openPersonal}><UserRound className="mr-1 size-4"/> Add personal trait</Button><Button variant="outline" onClick={openStarship}><Plus className="mr-1 size-4"/> Assign starship trait</Button></div>
     </div>
     <div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-muted-foreground"/><Input className="pl-9" placeholder="Search traits, characters, builds or ships…" value={q} onChange={e=>setQ(e.target.value)}/></div>
     {(catalog.isError||characters.isError||loadouts.isError||builds.isError||characterTraits.isError||loadoutTraits.isError) && <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm"><p className="font-medium text-destructive">Trait data could not be fully loaded.</p><p className="mt-1 text-muted-foreground">Refresh the page and try again.</p></div>}
