@@ -844,6 +844,7 @@ function ShipsPage() {
         onOpenChange={setAdding}
         catalog={catalog.data ?? []}
         characters={characters.data ?? []}
+        sources={sources.data ?? []}
         onSaved={(id) => { setAdding(false); setSelectedId(id); }}
       />
       {selected && (
