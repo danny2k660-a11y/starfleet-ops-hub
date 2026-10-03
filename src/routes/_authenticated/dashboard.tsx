@@ -17,7 +17,8 @@ type Card = { label: string; icon: LucideIcon; to: NonNullable<LinkProps["to"]>;
 const cards: Card[] = [
   { label: "Characters", icon: Users, to: "/characters", key: "characters", hint: "Captains in your roster" },
   { label: "Ships", icon: Rocket, to: "/ships", key: "ships", hint: "Registered vessels" },
-  { label: "Builds", icon: Wrench, to: "/builds", key: "builds", hint: "Saved configurations" },
+  { label: "Space Builds", icon: Wrench, to: "/builds", key: "builds", hint: "Ship configurations" },
+  { label: "Ground Builds", icon: Wrench, to: "/ground-builds", key: "ground-builds", hint: "Character ground loadouts" },
   { label: "Ship Planner", icon: ListChecks, to: "/ship-planner", key: "planner", hint: "Claim and assign ships" },
   { label: "Inventory", icon: Package, to: "/inventory", key: "inventory", hint: "Tracked equipment" },
   { label: "Resources", icon: Database, to: "/resources", key: "resources", hint: "Currencies and materials" },
