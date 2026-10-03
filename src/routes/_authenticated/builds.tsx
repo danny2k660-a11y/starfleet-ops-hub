@@ -278,14 +278,14 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   };
   const addConsole = async (consoleName: string, sourceShip: string) => {
     const { data: u } = await supabase.auth.getUser();
-    if (!u.user || !shipContext.data?.characterId) return;
+    if (!u.user || !shipContext.data?.characterId || !consoleName.trim()) return;
+    const { data: existing, error: findError } = await supabase.from("equipment_items" as never)
+      .select("id").eq("user_id", u.user.id).eq("character_id", shipContext.data.characterId).eq("name", consoleName.trim()).eq("category", "Console").maybeSingle();
+    if (findError) { toast.error(findError.message); return; }
+    if (existing) { toast.info(`${consoleName} is already in character equipment`); return; }
     const { error } = await supabase.from("equipment_items" as never).insert({
-      user_id: u.user.id,
-      character_id: shipContext.data.characterId,
-      name: consoleName,
-      category: "Console",
-      slot: "Universal Console",
-      notes: `Unlocked from owned ship: ${sourceShip}`,
+      user_id: u.user.id, character_id: shipContext.data.characterId, name: consoleName.trim(),
+      category: "Console", slot: "Universal Console", notes: `Unlocked from owned ship: ${sourceShip}`,
     });
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["equipment_items"] });
