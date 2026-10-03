@@ -9,6 +9,7 @@ import {
   Database,
   Settings,
   ClipboardList,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,7 +27,8 @@ export const navItems: NavItem[] = [
   { to: "/ships", label: "Ships", icon: Rocket },
   { to: "/ship-planner", label: "Ship Planner", icon: ClipboardList },
   { to: "/ship-database", label: "Ship Database", icon: Database },
-  { to: "/builds", label: "Builds", icon: Wrench },
+  { to: "/builds", label: "Space Builds", icon: Wrench },
+  { to: "/ground-builds", label: "Ground Builds", icon: ShieldCheck },
   { to: "/equipment", label: "Equipment", icon: Shield },
   { to: "/traits", label: "Traits", icon: Sparkles },
   { to: "/bridge-officers", label: "Bridge Officers", icon: UsersRound },
