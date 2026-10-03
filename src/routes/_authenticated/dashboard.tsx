@@ -135,7 +135,7 @@ function Dashboard() {
         !!ship.current_build_id,
         !!active,
         !!catalog && slots.length > 0 && slots.every((slot) => assignedSlots.has(slot.toLowerCase())),
-        traits.length > 0,
+        traits.length >= 5,
         !!catalog && expectedStations.length > 0 && expectedStations.every((station) => configuredStations.has(station.toLowerCase())),
       ];
       return { checks, complete: checks.filter(Boolean).length };
