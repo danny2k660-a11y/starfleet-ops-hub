@@ -336,18 +336,27 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     const { data, error } = await supabase.from("duty_officer_catalog" as never).select("*").order("name");
     if (error) throw error; return data ?? [];
   }});
+  const traitCatalog = useQuery({ queryKey: ["trait_catalog"], queryFn: async () => {
+    const { data, error } = await supabase.from("trait_catalog" as never).select("*").order("name");
+    if (error) throw error; return data ?? [];
+  }});
   const [trait, setTrait] = useState("");
   const [traitType, setTraitType] = useState("starship");
+  const [traitId, setTraitId] = useState("");
   const [station, setStation] = useState("");
   const [specialization, setSpecialization] = useState("");
   const [abilities, setAbilities] = useState("");
   const [officer, setOfficer] = useState("");
   const [dutyOfficerId, setDutyOfficerId] = useState("");
   const addTrait = async () => {
-    if (!trait.trim()) return;
-    const { error } = await supabase.from("loadout_traits" as never).insert({ loadout_id: loadoutId, name: trait.trim(), trait_type: traitType });
+    const picked:any = (traitCatalog.data as any[] || []).find((t:any) => t.id === traitId);
+    const name = picked?.name || trait.trim();
+    if (!name) return;
+    const { error } = await supabase.from("loadout_traits" as never).insert({
+      loadout_id: loadoutId, trait_id: picked?.id || null, name, trait_type: picked?.trait_type || traitType, slot: picked?.domain || null
+    });
     if (error) { toast({ title: "Could not add trait", description: error.message, variant: "destructive" }); return; }
-    setTrait(""); qc.invalidateQueries({ queryKey: ["loadout_traits", loadoutId] });
+    setTrait(""); setTraitId(""); qc.invalidateQueries({ queryKey: ["loadout_traits", loadoutId] });
   };
   const addConsole = async (consoleName: string, sourceShip: string) => {
     const { data: u } = await supabase.auth.getUser();
@@ -390,13 +399,21 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Traits</p>
         {shipContext.data?.unlocks.filter((u:any)=>u.type==="trait").length ? <div className="mb-3 rounded border border-primary/20 bg-primary/5 p-2"><p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-primary">Starship traits unlocked by {shipContext.data.characterName}</p><div className="flex flex-wrap gap-1">{shipContext.data.unlocks.filter((u:any)=>u.type==="trait").map((u:any,i:number)=><button type="button" key={i} onClick={()=>{setTrait(u.name);setTraitType("starship");}} className="rounded border border-border px-2 py-1 text-xs hover:border-primary">{u.name} <span className="text-muted-foreground">({u.ship})</span></button>)}</div></div> : null}
         {shipContext.data?.unlocks.filter((u:any)=>u.type==="console").length ? <div className="mb-3 rounded border border-accent/20 bg-accent/5 p-2"><p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent">Ship consoles unlocked by {shipContext.data.characterName}</p><div className="space-y-1">{shipContext.data.unlocks.filter((u:any)=>u.type==="console").map((u:any,i:number)=><div key={i} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1.5 text-xs"><span><span className="text-primary">{u.name}</span> <span className="text-muted-foreground">from {u.ship}</span></span><Button type="button" size="sm" variant="outline" onClick={() => addConsole(u.name, u.ship)}>Add to character</Button></div>)}</div></div> : null}
-        <div className="flex gap-2">
-          <Input value={trait} onChange={(e) => setTrait(e.target.value)} placeholder="Trait name" className="h-9" />
-          <select value={traitType} onChange={(e) => setTraitType(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-xs">
-            <option value="starship">Starship</option><option value="personal_space">Personal Space</option><option value="reputation">Reputation</option><option value="active_space">Active Space</option><option value="ground">Ground</option><option value="other">Other</option>
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+          <select value={traitId} onChange={(e) => {
+            const id=e.target.value; setTraitId(id);
+            const picked:any=(traitCatalog.data as any[] || []).find((t:any)=>t.id===id);
+            if(picked){setTrait(picked.name);setTraitType(picked.trait_type || "other");}
+          }} className="h-9 rounded-md border bg-background px-2 text-xs">
+            <option value="">Select catalogue trait</option>
+            {((traitCatalog.data as any[]) || []).map((t:any) => <option key={t.id} value={t.id}>[{t.trait_type}] {t.name}</option>)}
           </select>
-          <Button size="sm" onClick={addTrait}>Add</Button>
+          <select value={traitType} onChange={(e) => setTraitType(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-xs">
+            <option value="starship">Starship</option><option value="personal_space">Personal Space</option><option value="personal_ground">Personal Ground</option><option value="reputation">Reputation</option><option value="active_space">Active Space</option><option value="ground">Ground</option><option value="other">Other</option>
+          </select>
+          <Button size="sm" onClick={addTrait} disabled={!trait.trim()}>Add</Button>
         </div>
+        <Input value={trait} onChange={(e) => setTrait(e.target.value)} placeholder="Manual trait name (if not in catalogue)" className="mt-2 h-9" />
         <div className="mt-2 space-y-1">{((traits.data as any[]) || []).map((t) => (
           <div key={t.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span>{t.name}<span className="ml-2 text-xs text-muted-foreground">{t.trait_type}</span></span><Button variant="ghost" size="icon" onClick={() => remove("loadout_traits", t.id, "loadout_traits")}><Trash2 className="h-3.5 w-3.5" /></Button></div>
         ))}</div>
