@@ -32,7 +32,7 @@ function BuildsPage() {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Build | null>(null);
   const readiness = useQuery({ queryKey: ["build_readiness"], queryFn: async () => { const { data, error } = await supabase.from("sto_build_readiness_audit" as never).select("*"); if (error) throw error; return (data ?? []) as any[]; } });
-  const loadouts = useQuery({ queryKey: ["loadouts"], queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("*").order("updated_at", { ascending: false }); if (error) throw error; return data as Loadout[]; } });
+  const loadouts = useQuery({ queryKey: ["loadouts"], queryFn: async () => { const { data, error } = await supabase.from("loadouts" as never).select("*").order("updated_at", { ascending: false }); if (error) throw error; return data as Loadout[]; } });
   const builds = useQuery({ queryKey: ["builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("*, ship_instances(*, characters(*)), user_ships(id,custom_name,character_id,sto_ship_id,characters(name),sto_ships(name))").order("updated_at", { ascending: false }); if (error) throw error; return data as unknown as (Build & { ship_instances: Ship & { characters: Character | null } | null })[]; } });
   const characters = useQuery({ queryKey: ["characters"], queryFn: async () => { const { data, error } = await supabase.from("characters").select("*").order("name"); if (error) throw error; return (data ?? []) as Character[]; } });
   const ownedShips = useQuery({ queryKey: ["build_owned_ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,character_id,current_build_id,characters(name),sto_ships(name)").order("custom_name"); if (error) throw error; return (data ?? []) as any[]; } });
@@ -92,7 +92,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     const payload = { name: name.trim(), ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId === "__none__" ? null : fleetShipId, role: role || null, status, notes: notes || null };
     let buildId = build?.id ?? null;
     if (build) {
-      const { error } = await supabase.from("builds").update(payload).eq("id", build.id);
+      const { error } = await supabase.from("builds").update(payload as never).eq("id", build.id);
       if (error) throw error;
     } else {
       const { data, error } = await supabase.from("builds").insert({ ...payload, user_id: u.user!.id }).select("id").single();
@@ -138,7 +138,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
         .eq("build_id", loadout.build_id)
         .eq("user_id", u.user.id);
       if (clearError) throw clearError;
-      const { error } = await supabase.from("loadouts").update({ is_active: true }).eq("id", loadout.id);
+      const { error } = await supabase.from("loadouts" as never).update({ is_active: true }).eq("id", loadout.id);
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ["loadouts"] });
       toast.success("Loadout activated");
@@ -177,7 +177,7 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
       .eq("user_id", u.user.id)
       .eq("is_active", true)
       .maybeSingle();
-    const { error } = await supabase.from("loadouts").insert({
+    const { error } = await supabase.from("loadouts" as never).insert({
       user_id: u.user.id,
       build_id: buildId,
       name: name.trim(),
@@ -243,7 +243,7 @@ function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: 
 function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const qc = useQueryClient();
   const shipContext = useQuery({ queryKey: ["loadout_ship_context", loadoutId], queryFn: async () => {
-    const { data: loadout, error: le } = await supabase.from("loadouts").select("build_id").eq("id", loadoutId).single();
+    const { data: loadout, error: le } = await supabase.from("loadouts" as never).select("build_id").eq("id", loadoutId).single();
     if (le) throw le;
     const { data: build, error: be } = await supabase.from("builds").select("user_ship_id").eq("id", loadout.build_id).single();
     if (be) throw be;
@@ -282,7 +282,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const addConsole = async (consoleName: string, sourceShip: string) => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user || !shipContext.data?.characterId) return;
-    const { error } = await supabase.from("equipment_items").insert({
+    const { error } = await supabase.from("equipment_items" as never).insert({
       user_id: u.user.id,
       character_id: shipContext.data.characterId,
       name: consoleName,
@@ -359,7 +359,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const equipment = useQuery({
     queryKey: ["equipment_items"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("equipment_items").select("*").order("name");
+      const { data, error } = await supabase.from("equipment_items" as never).select("*").order("name");
       if (error) throw error; return (data ?? []) as any[];
     },
   });
