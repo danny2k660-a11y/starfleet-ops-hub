@@ -241,6 +241,23 @@ function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: 
 }
 function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const qc = useQueryClient();
+  const shipContext = useQuery({ queryKey: ["loadout_ship_context", loadoutId], queryFn: async () => {
+    const { data: loadout, error: le } = await supabase.from("loadouts").select("build_id").eq("id", loadoutId).single();
+    if (le) throw le;
+    const { data: build, error: be } = await supabase.from("builds").select("user_ship_id").eq("id", loadout.build_id).single();
+    if (be) throw be;
+    if (!build?.user_ship_id) return null;
+    const { data: us, error: ue } = await supabase.from("user_ships").select("character_id,sto_ship_id,characters(name),sto_ships(name,ship_trait,special_console)").eq("id", build.user_ship_id).single();
+    if (ue) throw ue;
+    if (!us?.character_id) return null;
+    const { data: owned, error: oe } = await supabase.from("user_ships").select("sto_ship_id,sto_ships(name,ship_trait,special_console)").eq("character_id", us.character_id).eq("ownership_status","owned");
+    if (oe) throw oe;
+    const unlocks = (owned ?? []).flatMap((x:any) => {
+      const s=x.sto_ships ?? {};
+      return [{type:"trait",name:s.ship_trait,ship:s.name},{type:"console",name:s.special_console,ship:s.name}].filter((u:any)=>u.name);
+    });
+    return { characterId: us.character_id, characterName: us.characters?.name ?? "", shipName: us.sto_ships?.name ?? "", unlocks };
+  }});
   const traits = useQuery({ queryKey: ["loadout_traits", loadoutId], queryFn: async () => {
     const { data, error } = await supabase.from("loadout_traits" as never).select("*").eq("loadout_id", loadoutId).order("name");
     if (error) throw error; return data ?? [];
@@ -275,6 +292,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     <div className="mt-3 grid gap-3 lg:grid-cols-2">
       <div className="rounded-lg border border-border/70 bg-background/30 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Traits</p>
+        {shipContext.data?.unlocks.filter((u:any)=>u.type==="trait").length ? <div className="mb-3 rounded border border-primary/20 bg-primary/5 p-2"><p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-primary">Starship traits unlocked by {shipContext.data.characterName}</p><div className="flex flex-wrap gap-1">{shipContext.data.unlocks.filter((u:any)=>u.type==="trait").map((u:any,i:number)=><button type="button" key={i} onClick={()=>{setTrait(u.name);setTraitType("starship");}} className="rounded border border-border px-2 py-1 text-xs hover:border-primary">{u.name} <span className="text-muted-foreground">({u.ship})</span></button>)}</div></div> : null}
         <div className="flex gap-2">
           <Input value={trait} onChange={(e) => setTrait(e.target.value)} placeholder="Trait name" className="h-9" />
           <select value={traitType} onChange={(e) => setTraitType(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-xs">
