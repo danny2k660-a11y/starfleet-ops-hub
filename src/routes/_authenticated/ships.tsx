@@ -207,7 +207,7 @@ function ShipsPage() {
 
   const fleetReadiness = useMemo(() => {
     // Readiness belongs to real builds only. Owned ships without a build stay in the assignment queue.
-    const owned = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !!s.current_build_id);
+    const owned = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.usage_mode !== "console_trait_only" && s.usage_mode !== "collection_only" && !!s.current_build_id);
     const rows = owned.map((s) => {
       const active = s.current_build_id ? activeLoadoutByBuild.get(s.current_build_id) : undefined;
       const coverage = active ? loadoutCoverageById.get(active.id) : undefined;
