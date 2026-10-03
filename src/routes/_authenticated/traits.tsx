@@ -22,6 +22,11 @@ const categoryLabels: Record<string,string> = {
   other: "Other",
 };
 const domainLabels: Record<string,string> = { space: "Space", ground: "Ground" };
+const personalCategoryLabel = (type: string, domain: string) => {
+  if (type === "reputation") return `${domainLabels[domain] ?? domain} Reputation`;
+  if (type === "active") return `Active ${domainLabels[domain] ?? domain} Reputation`;
+  return `Personal ${domainLabels[domain] ?? domain}`;
+};
 const personalBuckets = [
   { key: "space", title: "Personal Space Traits", types: ["personal"], domain: "space" },
   { key: "ground", title: "Personal Ground Traits", types: ["personal"], domain: "ground" },
@@ -29,6 +34,8 @@ const personalBuckets = [
   { key: "ground-reputation", title: "Ground Reputation Traits", types: ["reputation"], domain: "ground" },
   { key: "space-active", title: "Active Space Reputation", types: ["active"], domain: "space" },
   { key: "ground-active", title: "Active Ground Reputation", types: ["active"], domain: "ground" },
+  { key: "space-species", title: "Species / Innate Space Traits", types: ["personal"], domain: "space" },
+  { key: "ground-species", title: "Species / Innate Ground Traits", types: ["personal"], domain: "ground" },
 ] as const;
 
 export const Route = createFileRoute("/_authenticated/traits")({
