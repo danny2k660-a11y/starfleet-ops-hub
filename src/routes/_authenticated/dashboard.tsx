@@ -72,7 +72,8 @@ function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_ships")
-        .select("id,custom_name,character_id,current_build_id,theme_id,ownership_status,sto_ships(*)")
+        .select("id,custom_name,character_id,current_build_id,ownership_status,sto_ships(*)")
+        .not("current_build_id", "is", null)
         .eq("ownership_status", "owned");
       if (error) throw error;
       return (data ?? []) as any[];
@@ -147,7 +148,6 @@ function Dashboard() {
       const checks = [
         !!ship.character_id,
         !!ship.current_build_id,
-        !!ship.theme_id,
         !!active,
         !!catalog && slots.length > 0 && slots.every((slot) => assignedSlots.has(slot.toLowerCase())),
         traits.length > 0,
@@ -156,10 +156,10 @@ function Dashboard() {
       return { checks, complete: checks.filter(Boolean).length };
     });
     const passed = rows.reduce((sum, row) => sum + row.complete, 0);
-    const total = rows.length * 7;
+    const total = rows.length * 6;
     return {
       shipCount: rows.length,
-      ready: rows.filter((row) => row.complete === 7).length,
+      ready: rows.filter((row) => row.complete === 6).length,
       action: rows.filter((row) => row.complete < 7).length,
       percent: total ? Math.round((passed / total) * 100) : 0,
       scanning: readinessShips.isLoading || readinessLoadouts.isLoading || readinessConfig.isLoading,
@@ -190,9 +190,9 @@ function Dashboard() {
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-4">
           <div className="rounded border border-border p-3"><p className="lcars-label text-[10px]">Fleet ships</p><p className="font-display text-2xl text-primary">{operational.scanning || operational.error ? "—" : operational.shipCount}</p><p className="text-[10px] text-muted-foreground">owned vessels</p></div>
-          <div className="rounded border border-border p-3"><p className="lcars-label text-[10px]">Fully ready</p><p className="font-display text-2xl text-primary">{operational.scanning || operational.error ? "—" : operational.ready}</p><p className="text-[10px] text-muted-foreground">7/7 checks</p></div>
+          <div className="rounded border border-border p-3"><p className="lcars-label text-[10px]">Fully ready</p><p className="font-display text-2xl text-primary">{operational.scanning || operational.error ? "—" : operational.ready}</p><p className="text-[10px] text-muted-foreground">6/6 checks</p></div>
           <div className="rounded border border-border p-3"><p className="lcars-label text-[10px]">Action required</p><p className="font-display text-2xl text-primary">{operational.scanning || operational.error ? "—" : operational.action}</p><p className="text-[10px] text-muted-foreground">one or more checks missing</p></div>
-          <div className="rounded border border-border p-3"><p className="lcars-label text-[10px]">Fleet score</p><p className="font-display text-2xl text-primary">{operational.scanning || operational.error ? "—" : `${operational.percent}%`}</p><p className="text-[10px] text-muted-foreground">{operational.error ? "scan unavailable" : operational.scanning ? "scanning…" : "operational checks passed"}</p></div>
+          <div className="rounded border border-border p-3"><p className="lcars-label text-[10px]">Build readiness</p><p className="font-display text-2xl text-primary">{operational.scanning || operational.error ? "—" : `${operational.percent}%`}</p><p className="text-[10px] text-muted-foreground">{operational.error ? "scan unavailable" : operational.scanning ? "scanning…" : "operational checks passed"}</p></div>
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded bg-muted"><div className="h-full bg-primary transition-all" style={{ width: `${operational.scanning || operational.error ? 0 : operational.percent}%` }} /></div>
       </div>
@@ -240,7 +240,6 @@ function Dashboard() {
                 const checks = [
                   !!ship.character_id,
                   !!ship.current_build_id,
-                  !!ship.theme_id,
                   !!active,
                   !!catalog && slots.length > 0 && slots.every((slot) => equipmentSlots.has(slot.toLowerCase())),
                   traits.length > 0,
@@ -267,7 +266,7 @@ function Dashboard() {
                       </div>
                       <div className="rounded border border-border p-2">
                         <p className="font-display text-xl text-primary">{ready}</p>
-                        <p className="text-[10px] text-muted-foreground">7/7 ready</p>
+                        <p className="text-[10px] text-muted-foreground">6/6 ready</p>
                       </div>
                     </div>
                   </Link>
