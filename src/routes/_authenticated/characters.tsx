@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, UserRound, Trash2, Rocket, Package, Target, Database, ChevronRight } from "lucide-react";
+import { Plus, Search, UserRound, Trash2, Rocket } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -134,42 +134,15 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
     queryFn: async () => {
       const { data, error } = await supabase
         .from("equipment_items" as never)
-        .select("id,name,category,rarity,quantity")
+        .select("id,name,category,slot,mark")
         .eq("character_id", characterId)
         .order("name");
-      if (error) throw error;
-      return data as any[];
-    },
-  });
-
-  const inventory = useQuery({
-    queryKey: ["character_ops_inventory", characterId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_items" as never)
-        .select("id,name,category,quantity,location")
-        .eq("character_id", characterId)
-        .order("name");
-      if (error) throw error;
-      return data as any[];
-    },
-  });
-
-  const projects = useQuery({
-    queryKey: ["character_ops_projects", characterId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects" as never)
-        .select("id,name,status,progress,priority")
-        .eq("character_id", characterId)
-        .order("updated_at", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
   });
 
   const shipCount = ships.data?.filter((ship: any) => ship.ownership_status === "owned").length ?? 0;
-  const activeProjects = projects.data?.filter((project: any) => project.status === "active").length ?? 0;
 
   return (
     <section className="panel space-y-4 p-4">
@@ -177,15 +150,13 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         <div>
           <p className="lcars-label">Captain operations</p>
           <h3 className="font-display text-lg text-primary">{characterName} — connected assets</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Character-scoped assets stay separated from every other captain.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Character-scoped ships and equipment stay separated from every other captain.</p>
         </div>
-        <div className="text-xs text-accent">{shipCount} owned ships · {activeProjects} active projects</div>
+        <div className="text-xs text-accent">{shipCount} owned ships · {equipment.data?.length ?? 0} equipment items</div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <OpsCard icon={<Rocket className="size-4" />} label="Ships" value={shipCount} detail={(ships.data ?? []).filter((s: any) => s.ownership_status === "owned").slice(0, 2).map((s: any) => s.custom_name || s.sto_ships?.name).join(" · ") || "None registered"} />
-        <OpsCard icon={<Package className="size-4" />} label="Equipment" value={equipment.data?.length ?? 0} detail={(equipment.data ?? []).slice(0, 2).map((e: any) => e.name).join(" · ") || "None assigned"} />
-        <OpsCard icon={<Database className="size-4" />} label="Inventory" value={inventory.data?.length ?? 0} detail={(inventory.data ?? []).slice(0, 2).map((i: any) => i.name).join(" · ") || "None assigned"} />
-        <OpsCard icon={<Target className="size-4" />} label="Projects" value={activeProjects} detail={(projects.data ?? []).slice(0, 2).map((p: any) => p.name).join(" · ") || "No active projects"} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <OpsCard icon={<Rocket className="size-4" />} label="Ships" value={shipCount} detail={(ships.data ?? []).filter((s: any) => s.ownership_status === "owned").slice(0, 3).map((s: any) => s.custom_name || s.sto_ships?.name).join(" · ") || "None registered"} />
+        <OpsCard icon={<Package className="size-4" />} label="Equipment" value={equipment.data?.length ?? 0} detail={(equipment.data ?? []).slice(0, 3).map((e: any) => e.name).join(" · ") || "None assigned"} />
       </div>
     </section>
   );
