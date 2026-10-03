@@ -49,7 +49,6 @@ function Dashboard() {
   const builds = useCount("builds");
   const plannerShips = useQuery({ queryKey: ["dashboard-planner-ships"], queryFn: async () => { const { count, error } = await supabase.from("user_ships").select("id",{count:"exact",head:true}).eq("ownership_status","owned").is("current_build_id",null); if(error) throw error; return count ?? 0; }});
   const recentShips = useQuery({ queryKey: ["dashboard-recent-ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,characters(name),sto_ships(name),builds(name,status)").order("created_at",{ascending:false}).limit(5); if(error) throw error; return data as any[]; }});
-  const activeProjects = { data: [] as any[], isLoading: false, isError: false };
   const attention = { data: { shipsWithoutBuild: [], draftBuilds: [], activeProjects: [], resourcesNearTarget: [] }, isLoading: false, isError: false };
 
 
