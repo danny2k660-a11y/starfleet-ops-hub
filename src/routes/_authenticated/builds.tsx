@@ -429,7 +429,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
         </div>
         <Input value={trait} onChange={(e) => setTrait(e.target.value)} placeholder="Manual trait name (if not in catalogue)" className="mt-2 h-9" />
         <div className="mt-2 space-y-1">{((traits.data as any[]) || []).map((t) => (
-          <div key={t.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span>{t.name}<span className="ml-2 text-xs text-muted-foreground">Starship</span></span><Button variant="ghost" size="icon" onClick={() => remove("loadout_traits", t.id, "loadout_traits")}><Trash2 className="h-3.5 w-3.5" /></div>
+          <div key={t.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span>{t.name}<span className="ml-2 text-xs text-muted-foreground">Starship</span></span><Button variant="ghost" size="icon" onClick={() => remove("loadout_traits", t.id, "loadout_traits")}><Trash2 className="h-3.5 w-3.5" /></Button></div>
         ))}</div>
         <div className="mt-3 rounded border border-accent/20 bg-accent/5 p-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">Character personal traits</p>
