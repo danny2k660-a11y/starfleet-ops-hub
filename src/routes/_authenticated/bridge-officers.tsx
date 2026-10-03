@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Trash2, UsersRound } from "lucide-react";
 import { toast } from "sonner";
@@ -40,8 +40,13 @@ function Page() {
   const [specialization, setSpecialization] = useState("");
   const [abilities, setAbilities] = useState(""); const [catalogId, setCatalogId] = useState("");
   const [notes, setNotes] = useState("");
+  const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
 
   const catalog = useQuery({ queryKey: ["boff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_catalog" as never).select("*").order("name"); if(error) throw error; return (data ?? []) as any[]; }});
+  const abilityCatalog = useQuery({ queryKey: ["boff_ability_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_ability_catalog" as never).select("id,name,region,career,rank1,rank2,rank3").order("name"); if(error) throw error; return (data ?? []) as any[]; }});
+  const syncAbilityCatalog = useMutation({ mutationFn: async () => { const { data, error } = await supabase.functions.invoke("sync-boff-ability-catalog", { body: {} }); if(error) throw error; return data as { imported?: number }; }, onSuccess: (data) => { qc.invalidateQueries({ queryKey: ["boff_ability_catalog"] }); toast.success(`BOFF ability catalogue synced: ${data?.imported ?? 0} records`); }, onError: (e: Error) => toast.error(e.message) });
+  useEffect(() => { if (!abilityCatalog.isLoading && !abilityCatalog.isError && (abilityCatalog.data?.length ?? 0) === 0 && !autoSyncAttempted) { setAutoSyncAttempted(true); syncAbilityCatalog.mutate(); } }, [abilityCatalog.isLoading, abilityCatalog.isError, abilityCatalog.data?.length, autoSyncAttempted]);
+
   const loadouts = useQuery({ queryKey: ["boff_loadouts"], queryFn: async () => {
     const { data, error } = await supabase.from("loadouts").select("id,name,build_id").order("updated_at", { ascending: false });
     if (error) throw error; return (data ?? []) as Loadout[];
@@ -76,7 +81,7 @@ function Page() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div><p className="lcars-label">Bridge command</p><h1 className="font-display text-2xl text-primary">Bridge Officers</h1><p className="text-sm text-muted-foreground">Configure the actual seating defined by each ship's STO catalogue record.</p></div>
-        <Button onClick={() => { reset(); setOpen(true); }}><Plus className="mr-1 size-4" /> Assign station</Button>
+        <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => syncAbilityCatalog.mutate()} disabled={syncAbilityCatalog.isPending}>Sync BOFF abilities ({abilityCatalog.data?.length ?? 0})</Button><Button onClick={() => { reset(); setOpen(true); }}><Plus className="mr-1 size-4" /> Assign station</Button></div>
       </div>
       <div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search officer, station or specialization…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -93,6 +98,8 @@ function Page() {
         })}
       </div>
       {!filtered.length && <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground"><UsersRound className="mx-auto mb-2 size-6 text-primary" />No bridge officer assignments recorded yet.</div>}
+
+      <div className="panel p-4"><p className="lcars-label">Canonical BOFF ability catalogue</p><p className="mt-1 text-sm text-muted-foreground">{abilityCatalog.data?.length ?? 0} canonical officer abilities imported from STOCD/SETS-Data. This catalogue is separate from the officers you actually own and from the stations you equip.</p></div>
 
       <div className="panel p-4"><p className="lcars-label">Seating verification</p><p className="mt-1 text-sm text-muted-foreground">The readiness system compares configured stations against the ship catalogue. A station cannot be marked complete merely because an officer exists elsewhere.</p></div>
 
