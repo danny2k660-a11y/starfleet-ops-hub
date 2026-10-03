@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type Build = Tables<"builds">;
 type Ship = Tables<"ship_instances">;
 type Character = Tables<"characters">;
-type Loadout = Tables<"loadouts">;
+type Loadout = { id: string; user_id: string; build_id: string; name: string; notes: string | null; is_active: boolean; created_at: string; updated_at: string };
 type FleetShip = Tables<"user_ships"> & { sto_ships: { name: string } | null; characters: Character | null };
 
 export const Route = createFileRoute("/_authenticated/builds")({
