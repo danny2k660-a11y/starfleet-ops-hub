@@ -336,8 +336,17 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const dutyOfficers = useQuery({ queryKey: ["build_doffs", buildContext.data?.build_id], enabled: !!buildContext.data?.build_id, queryFn: async () => { const { data, error } = await supabase.from("build_doffs" as never).select("*").eq("build_id", buildContext.data.build_id).order("name"); if (error) throw error; return data ?? []; }});
   const dutyOfficerCatalog = useQuery({ queryKey: ["doff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("doff_catalog" as never).select("*").order("name"); if (error) throw error; return data ?? []; }});
   const traitCatalog = useQuery({ queryKey: ["trait_catalog"], queryFn: async () => {
-    const { data, error } = await supabase.from("trait_catalog" as never).select("*").order("name");
+    const { data, error } = await supabase.from("trait_catalog" as never).select("*").eq("trait_type","starship").eq("domain","space").order("name");
     if (error) throw error; return data ?? [];
+  }});
+  const characterTraits = useQuery({ queryKey: ["loadout_character_traits", shipContext.data?.characterId], enabled: !!shipContext.data?.characterId, queryFn: async () => {
+    const { data, error } = await supabase.from("character_traits" as never)
+      .select("id,trait_id,domain,trait_category,slot_index,active,trait_catalog(name,trait_type,domain,description)")
+      .eq("character_id", shipContext.data.characterId)
+      .eq("active", true)
+      .order("domain")
+      .order("slot_index");
+    if (error) throw error; return (data ?? []) as any[];
   }});
   const [trait, setTrait] = useState("");
   const [traitType, setTraitType] = useState("starship");
@@ -351,8 +360,16 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     const picked:any = (traitCatalog.data as any[] || []).find((t:any) => t.id === traitId);
     const name = picked?.name || trait.trim();
     if (!name) return;
+    if (picked && picked.trait_type !== "starship") {
+      toast.error("Personal, species and reputation traits belong to the character trait roster, not the ship loadout.");
+      return;
+    }
+    if (!picked && traitType !== "starship") {
+      toast.error("Only starship traits can be assigned to a ship loadout.");
+      return;
+    }
     const { error } = await supabase.from("loadout_traits" as never).insert({
-      loadout_id: loadoutId, trait_id: picked?.id || null, name, trait_type: picked?.trait_type || traitType, slot: picked?.domain || null
+      loadout_id: loadoutId, trait_id: picked?.id || null, name, trait_type: "starship", slot: picked?.domain || "space", domain: "space", trait_category: "starship"
     });
     if (error) { toast({ title: "Could not add trait", description: error.message, variant: "destructive" }); return; }
     setTrait(""); setTraitId(""); qc.invalidateQueries({ queryKey: ["loadout_traits", loadoutId] });
@@ -405,15 +422,23 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
             <option value="">Select catalogue trait</option>
             {((traitCatalog.data as any[]) || []).map((t:any) => <option key={t.id} value={t.id}>[{t.trait_type}] {t.name}</option>)}
           </select>
-          <select value={traitType} onChange={(e) => setTraitType(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-xs">
-            <option value="starship">Starship</option><option value="personal_space">Personal Space</option><option value="personal_ground">Personal Ground</option><option value="reputation">Reputation</option><option value="active_space">Active Space</option><option value="ground">Ground</option><option value="other">Other</option>
+          <select value="starship" onChange={() => setTraitType("starship")} className="h-9 rounded-md border bg-background px-2 text-xs" aria-label="Trait type">
+            <option value="starship">Starship trait only</option>
           </select>
           <Button size="sm" onClick={addTrait} disabled={!trait.trim()}>Add</Button>
         </div>
         <Input value={trait} onChange={(e) => setTrait(e.target.value)} placeholder="Manual trait name (if not in catalogue)" className="mt-2 h-9" />
         <div className="mt-2 space-y-1">{((traits.data as any[]) || []).map((t) => (
-          <div key={t.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span>{t.name}<span className="ml-2 text-xs text-muted-foreground">{t.trait_type}</span></span><Button variant="ghost" size="icon" onClick={() => remove("loadout_traits", t.id, "loadout_traits")}><Trash2 className="h-3.5 w-3.5" /></Button></div>
+          <div key={t.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span>{t.name}<span className="ml-2 text-xs text-muted-foreground">Starship</span></span><Button variant="ghost" size="icon" onClick={() => remove("loadout_traits", t.id, "loadout_traits")}><Trash2 className="h-3.5 w-3.5" /></div>
         ))}</div>
+        <div className="mt-3 rounded border border-accent/20 bg-accent/5 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">Character personal traits</p>
+          <p className="mt-1 text-xs text-muted-foreground">Personal Space and Ground traits are owned by the captain and are tracked separately from starship traits.</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <div><p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Space</p><div className="space-y-1">{(characterTraits.data ?? []).filter((t:any)=>t.domain==="space").map((t:any)=><div key={t.id} className="rounded border border-border px-2 py-1.5 text-xs">{t.trait_catalog?.name ?? "Unnamed trait"}{t.slot_index != null ? " • Slot " + t.slot_index : ""}</div>)}{!(characterTraits.data ?? []).some((t:any)=>t.domain==="space")&&<div className="rounded border border-dashed p-2 text-xs text-muted-foreground">No personal Space traits assigned.</div>}</div></div>
+            <div><p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Ground</p><div className="space-y-1">{(characterTraits.data ?? []).filter((t:any)=>t.domain==="ground").map((t:any)=><div key={t.id} className="rounded border border-border px-2 py-1.5 text-xs">{t.trait_catalog?.name ?? "Unnamed trait"}{t.slot_index != null ? " • Slot " + t.slot_index : ""}</div>)}{!(characterTraits.data ?? []).some((t:any)=>t.domain==="ground")&&<div className="rounded border border-dashed p-2 text-xs text-muted-foreground">No personal Ground traits assigned.</div>}</div></div>
+          </div>
+        </div>
       </div>
       <div className="rounded-lg border border-border/70 bg-background/30 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bridge Officers</p>
