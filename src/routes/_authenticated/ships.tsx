@@ -21,15 +21,6 @@ type Character = Tables<"characters">;
 type Build = Tables<"builds">;
 type UserShip = Tables<"user_ships"> & { sto_ships: StoShip | null; characters: Character | null; builds: Build | null };
 
-const THEME_PRESETS = [
-  { id: "10000000-0000-4000-8000-000000000001", name: "Terran Empire" },
-  { id: "10000000-0000-4000-8000-000000000002", name: "Romulan" },
-  { id: "10000000-0000-4000-8000-000000000003", name: "Hur'q" },
-  { id: "10000000-0000-4000-8000-000000000004", name: "Discovery-era Terran" },
-  { id: "10000000-0000-4000-8000-000000000005", name: "Canon / Screen Accurate" },
-];
-function themeName(id: string | null | undefined) { return THEME_PRESETS.find((x) => x.id === id)?.name ?? "No theme assigned"; }
-
 const NOT_POPULATED = "Ship data not yet populated";
 const ALL = "__all__";
 const NONE = "__none__";
@@ -207,7 +198,6 @@ function ShipsPage() {
   const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup" | "captain" | "build" | "theme" | "loadout" | "equipment" | "traits" | "boffs">("all");
   const [charFilter, setCharFilter] = useState(ALL);
   const [factionFilter, setFactionFilter] = useState(ALL);
-  const [themeFilter, setThemeFilter] = useState(ALL);
   const [adding, setAdding] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -222,7 +212,6 @@ function ShipsPage() {
       const checks = [
         !!s.character_id,
         !!s.current_build_id,
-        !!s.theme_id,
         !!active,
         !!coverage?.catalogVerified && coverage.expectedEquipment > 0 && coverage.equipment === coverage.expectedEquipment,
         !!coverage?.traits,
@@ -233,23 +222,23 @@ function ShipsPage() {
         ship: s,
         checks,
         complete,
-        percent: Math.round((complete / 7) * 100),
+        percent: Math.round((complete / 6) * 100),
         activeLoadout: active,
         coverage,
       };
     });
-    const totalChecks = rows.length * 7;
+    const totalChecks = rows.length * 6;
     const passedChecks = rows.reduce((sum, row) => sum + row.complete, 0);
     return {
       rows,
       shipCount: rows.length,
-      fullyReady: readinessDataPending || readinessDataError ? 0 : rows.filter((row) => row.complete === 7).length,
+      fullyReady: readinessDataPending || readinessDataError ? 0 : rows.filter((row) => row.complete === 6).length,
       averagePercent: readinessDataPending || readinessDataError ? 0 : (totalChecks ? Math.round((passedChecks / totalChecks) * 100) : 0),
       state: readinessDataError ? "error" : readinessDataPending ? "scanning" : "ready",
     };
   }, [ships.data, activeLoadoutByBuild, loadoutCoverageById]);
   const readinessBreakdown = useMemo(() => {
-    const labels = ["Captain", "Build", "Theme", "Active loadout", "Equipment", "Traits", "Bridge crew"];
+    const labels = ["Captain", "Build", "Active loadout", "Equipment", "Traits", "Bridge crew"];
     return labels.map((label, index) => {
       const passed = fleetReadiness.rows.filter((row) => row.checks[index]).length;
       const total = fleetReadiness.shipCount;
@@ -291,7 +280,7 @@ function ShipsPage() {
         : readinessFilter === "ready"
           ? readinessRow?.complete === 7
           : readinessFilter === "needs_setup"
-            ? !!readinessRow && readinessRow.complete < 7
+            ? !!readinessRow && readinessRow.complete < 6
             : readinessFilter === "captain"
               ? !!readinessRow && !readinessRow.checks[0]
               : readinessFilter === "build"
@@ -311,8 +300,7 @@ function ShipsPage() {
     if (q && !q.startsWith("__") && !text.includes(q.toLowerCase())) return false;
     if (charFilter !== ALL && s.character_id !== charFilter) return false;
     if (factionFilter !== ALL && s.sto_ships?.faction !== factionFilter) return false;
-    if (themeFilter !== ALL && s.theme_id !== themeFilter) return false;
-    return true;
+        return true;
   });
 
   const selected = ships.data?.find((s) => s.id === selectedId) ?? null;
@@ -321,8 +309,6 @@ function ShipsPage() {
   const readyCount = (ships.data ?? []).filter((s) => !!s.current_build_id && s.ownership_status === "owned").length;
   const [fleetConfigOpen, setFleetConfigOpen] = useState(false);
   const unassignedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !s.current_build_id).length;
-  const themeCounts = THEME_PRESETS.map((theme) => ({ ...theme, count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.theme_id === theme.id).length }));
-  const themedOwnedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !!s.theme_id).length;
 
   return (
     <AppShell title="Ships" subtitle="Your STO fleet registry">
@@ -355,10 +341,10 @@ function ShipsPage() {
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-4">
           {[
-            { label: "Fully ready", count: fleetReadiness.fullyReady, note: "7/7 operational checks" },
+            { label: "Fully ready", count: fleetReadiness.fullyReady, note: "7/6 operational checks" },
             { label: "Build assigned", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.current_build_id).length, note: "build linked" },
             { label: "Active loadout", count: fleetReadiness.rows.filter((row) => row.checks[3]).length, note: "deployment loadout" },
-            { label: "Needs action", count: fleetReadiness.rows.filter((row) => row.complete < 7).length, note: "one or more checks missing" },
+            { label: "Needs action", count: fleetReadiness.rows.filter((row) => row.complete < 6).length, note: "one or more checks missing" },
           ].map((item) => (
             <button key={item.label} onClick={() => {
               setReadinessFilter(
@@ -372,8 +358,7 @@ function ShipsPage() {
               );
               setQ("");
               setCharFilter(ALL);
-              setThemeFilter(ALL);
-              setFactionFilter(ALL);
+                            setFactionFilter(ALL);
             }} className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary">
               <p className="lcars-label text-[10px]">{item.label}</p>
               <p className="font-display text-2xl text-primary">{item.count}</p>
@@ -477,8 +462,7 @@ function ShipsPage() {
                   setReadinessFilter(filters[item.index]);
                   setQ("");
                   setCharFilter(ALL);
-                  setThemeFilter(ALL);
-                  setFactionFilter(ALL);
+                                    setFactionFilter(ALL);
                 }}
                 disabled={fleetReadiness.state !== "ready"}
                 className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary disabled:cursor-wait disabled:opacity-60"
@@ -553,7 +537,7 @@ function ShipsPage() {
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           {[
             { label: "7/7 ready", count: fleetReadiness.fullyReady, note: "all operational checks passed" },
-            { label: "Action required", count: fleetReadiness.rows.filter((row) => row.complete < 7).length, note: "one or more checks missing" },
+            { label: "Action required", count: fleetReadiness.rows.filter((row) => row.complete < 6).length, note: "one or more checks missing" },
             { label: "Registry only", count: (ships.data ?? []).filter((s) => s.ownership_status !== "owned").length, note: "wishlist / planned" },
           ].map((item) => (
             <div key={item.label} className="rounded border border-border bg-muted/20 p-3">
@@ -620,7 +604,7 @@ function ShipsPage() {
         </div>
         <div className="mt-3 space-y-2">
           {fleetReadiness.rows
-            .filter((row) => row.complete < 7)
+            .filter((row) => row.complete < 6)
             .slice()
             .sort((a, b) => a.complete - b.complete)
             .slice(0, 5)
@@ -656,7 +640,7 @@ function ShipsPage() {
                 </div>
               );
             })}
-          {fleetReadiness.rows.filter((row) => row.complete < 7).length === 0 && (
+          {fleetReadiness.rows.filter((row) => row.complete < 6).length === 0 && (
             <p className="text-sm text-muted-foreground">All owned ships currently pass the seven-point operational readiness check.</p>
           )}
         </div>
@@ -690,7 +674,7 @@ function ShipsPage() {
             <p className="lcars-label">Command action queue</p>
             <p className="text-sm text-muted-foreground">Open the ships that need the next command step.</p>
           </div>
-          <Badge variant="outline">{fleetReadiness.rows.filter((row) => row.complete < 7).length} open</Badge>
+          <Badge variant="outline">{fleetReadiness.rows.filter((row) => row.complete < 6).length} open</Badge>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -710,8 +694,7 @@ function ShipsPage() {
                 setReadinessFilter(item.action);
                 setQ("");
                 setCharFilter(ALL);
-                setThemeFilter(ALL);
-                setFactionFilter(ALL);
+                                setFactionFilter(ALL);
               }}
               className="rounded border border-border bg-muted/20 p-3 text-left transition hover:border-primary disabled:cursor-default disabled:opacity-60"
             >
@@ -767,16 +750,10 @@ function ShipsPage() {
             <p className="lcars-label">Fleet composition</p>
             <p className="text-sm text-muted-foreground">Theme identity across your owned fleet.</p>
           </div>
-          <Badge variant="outline">{themedOwnedCount}/{ownedCount} themed</Badge>
+          
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-          {themeCounts.map((theme) => (
-            <button key={theme.id} onClick={() => setThemeFilter(themeFilter === theme.id ? ALL : theme.id)} className={`rounded border p-2 text-left transition hover:border-primary ${themeFilter === theme.id ? "border-primary bg-primary/10" : "border-border bg-muted/20"}`}>
-              <p className="truncate text-xs text-muted-foreground">{theme.name}</p>
-              <p className="font-display text-lg text-primary">{theme.count}</p>
-              <p className="text-[10px] text-muted-foreground">owned ships</p>
-            </button>
-          ))}
+          
         </div>
       </div>
 
@@ -789,7 +766,7 @@ function ShipsPage() {
               {readinessFilter !== "all" && <Badge variant="outline">Readiness: {readinessFilterLabel}</Badge>}
             </div>
           </div>
-          {(charFilter !== ALL || themeFilter !== ALL || factionFilter !== ALL || q || readinessFilter !== "all") && (
+          {(charFilter !== ALL || false || factionFilter !== ALL || q || readinessFilter !== "all") && (
             <Button variant="outline" size="sm" onClick={() => { setQ(""); setReadinessFilter("all"); setCharFilter(ALL); setThemeFilter(ALL); setFactionFilter(ALL); }}>
               Clear filters
             </Button>
@@ -804,13 +781,6 @@ function ShipsPage() {
           <SelectContent>
             <SelectItem value={ALL}>All characters</SelectItem>
             {(characters.data ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={themeFilter} onValueChange={setThemeFilter}>
-          <SelectTrigger><SelectValue placeholder="Theme" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All themes</SelectItem>
-            {THEME_PRESETS.map((theme) => <SelectItem key={theme.id} value={theme.id}>{theme.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={factionFilter} onValueChange={setFactionFilter}>
@@ -1057,14 +1027,13 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
   const [status, setStatus] = useState(ship.ownership_status);
   const [acquired, setAcquired] = useState(ship.date_acquired ?? "");
   const [notes, setNotes] = useState(ship.notes ?? "");
-  const [themeId, setThemeId] = useState(ship.theme_id ?? "");
   const [up, setUp] = useState({ t6: ship.t6_upgraded, t6x: ship.t6x_upgraded, t6x2: ship.t6x2_upgraded });
 
   const update = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("user_ships").update({
         custom_name: name.trim(), character_id: characterId, current_build_id: buildId === NONE ? null : buildId,
-        ownership_status: status, date_acquired: acquired || null, notes: notes || null, theme_id: themeId || null,
+        ownership_status: status, date_acquired: acquired || null, notes: notes || null,
         t6_upgraded: up.t6, t6x_upgraded: up.t6x, t6x2_upgraded: up.t6x2,
       }).eq("id", ship.id);
       if (error) throw error;
@@ -1144,8 +1113,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
 
         {!editing ? (
           <div>
-          <div className="mb-3 rounded-lg border border-primary/20 bg-primary/5 p-3"><p className="lcars-label">Theme identity</p><p className="font-medium text-primary">{themeName(ship.theme_id)}</p></div>
-          <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             <div><p className="lcars-label text-[10px]">Character</p>{ship.characters?.name}</div>
             <div><p className="lcars-label text-[10px]">Current build</p>{ship.builds?.name ?? "None"}</div>
             <div><p className="lcars-label text-[10px]">Upgrade</p>{tierLabel(ship) ?? "None"}</div>
@@ -1208,14 +1176,13 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
               <p className="lcars-label">Operational status</p>
               <p className="text-sm text-muted-foreground">Command readiness for this ship instance.</p>
             </div>
-            <Badge className={ship.current_build_id && ship.theme_id ? "bg-accent text-accent-foreground" : "border-primary text-primary"} variant={ship.current_build_id && ship.theme_id ? "default" : "outline"}>
-              {ship.current_build_id && ship.theme_id ? "COMMAND READY" : ship.current_build_id ? "THEME REQUIRED" : "BUILD REQUIRED"}
+            <Badge className={ship.current_build_id ? "bg-accent text-accent-foreground" : "border-primary text-primary"} variant={ship.current_build_id ? "default" : "outline"}>
+              {ship.current_build_id ? "COMMAND READY" : "BUILD REQUIRED"}
             </Badge>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div className="rounded border border-border bg-background/40 p-2"><p className="lcars-label text-[10px]">Captain</p><p className="text-sm">{ship.characters?.name ?? "Unassigned"}</p></div>
             <div className="rounded border border-border bg-background/40 p-2"><p className="lcars-label text-[10px]">Build</p><p className="text-sm">{ship.builds?.name ?? "Unassigned"}</p></div>
-            <div className="rounded border border-border bg-background/40 p-2"><p className="lcars-label text-[10px]">Theme</p><p className="text-sm">{themeName(ship.theme_id).replace("No theme assigned", "Unassigned")}</p></div>
             <div className="rounded border border-border bg-background/40 p-2"><p className="lcars-label text-[10px]">Loadouts</p><p className="text-sm">{loadouts.data?.length ?? 0} configured</p></div>
           </div>
           {ship.current_build_id && !loadouts.isLoading && !loadouts.data?.some((l: any) => l.is_active) && (
@@ -1253,17 +1220,16 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
               <p className="text-xs text-muted-foreground">Exact operational state for this ship. Open the detail workflow from the relevant item.</p>
             </div>
             <Badge variant="outline">{[
-              !!ship.character_id, !!ship.current_build_id, !!ship.theme_id, !!activeLoadout,
+              !!ship.character_id, !!ship.current_build_id, !!null, !!activeLoadout,
               detailCoverage.catalogVerified && detailCoverage.equipmentExpected > 0 && detailCoverage.equipmentFilled === detailCoverage.equipmentExpected,
               (manifest.data?.traits.length ?? 0) > 0,
               detailCoverage.catalogVerified && detailCoverage.boffsExpected > 0 && detailCoverage.boffsFilled === detailCoverage.boffsExpected,
-            ].filter(Boolean).length}/7 complete</Badge>
+            ].filter(Boolean).length}/6 complete</Badge>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {[
               { label: "Captain", ok: !!ship.character_id, detail: ship.characters?.name ?? "No character assigned" },
               { label: "Build", ok: !!ship.current_build_id, detail: ship.builds?.name ?? "No build linked" },
-              { label: "Theme", ok: !!ship.theme_id, detail: themeName(ship.theme_id).replace("No theme assigned", "No theme assigned") },
               { label: "Active loadout", ok: !!activeLoadout, detail: activeLoadout?.name ?? (ship.current_build_id ? "No active loadout" : "Requires build first") },
               { label: "Equipment", ok: detailCoverage.catalogVerified && detailCoverage.equipmentExpected > 0 && detailCoverage.equipmentFilled === detailCoverage.equipmentExpected, detail: manifest.isLoading ? "Scanning…" : detailCoverage.equipmentExpected ? `${detailCoverage.equipmentFilled}/${detailCoverage.equipmentExpected} slots filled${detailCoverage.missingEquipment.length ? ` · Missing: ${detailCoverage.missingEquipment.slice(0, 2).join(", ")}${detailCoverage.missingEquipment.length > 2 ? "…" : ""}` : ""}` : "Catalogue slot data unavailable" },
               { label: "Traits", ok: !!manifest.data && (manifest.data.traits.length > 0), detail: manifest.isLoading ? "Scanning…" : manifest.data ? `${manifest.data.traits.length} configured` : "Configuration unavailable" },
@@ -1290,17 +1256,16 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
               <p className="text-xs text-muted-foreground">Core assignments required before this ship is considered operational.</p>
             </div>
             <Badge variant="outline">{[
-              !!ship.character_id, !!ship.current_build_id, !!ship.theme_id, !!activeLoadout,
+              !!ship.character_id, !!ship.current_build_id, !!null, !!activeLoadout,
               (manifest.data?.equipment.length ?? 0) > 0,
               (manifest.data?.traits.length ?? 0) > 0,
               (manifest.data?.boffs.length ?? 0) > 0,
-            ].filter(Boolean).length}/7 complete</Badge>
+            ].filter(Boolean).length}/6 complete</Badge>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {[
               ["Captain assigned", !!ship.character_id],
               ["Build linked", !!ship.current_build_id],
-              ["Theme assigned", !!ship.theme_id],
               ["Active loadout", !!activeLoadout],
               ["Equipment fitted", (manifest.data?.equipment.length ?? 0) > 0],
               ["Traits configured", (manifest.data?.traits.length ?? 0) > 0],
@@ -1342,12 +1307,11 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
               style={{ width: ([
                 !!ship.character_id,
                 !!ship.current_build_id,
-                !!ship.theme_id,
                 !!activeLoadout,
                 (manifest.data?.equipment.length ?? 0) > 0,
                 (manifest.data?.traits.length ?? 0) > 0,
                 (manifest.data?.boffs.length ?? 0) > 0,
-              ].filter(Boolean).length / 7 * 100) + "%" }}
+              ].filter(Boolean).length / 6 * 100) + "%" }}
             />
           </div>
           <p className="mt-1 text-right text-[10px] text-muted-foreground">Operational configuration completeness</p>
