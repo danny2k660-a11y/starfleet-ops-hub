@@ -95,6 +95,8 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     if (!chosenShip || chosenShip.character_id !== characterId) throw new Error("Choose a ship owned by the selected character.");
     const payload = { name: name.trim(), ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId === "__none__" ? null : fleetShipId, role: role || null, status, notes: notes || null };
     let buildId = build?.id ?? null;
+    const otherBuild = fleetShips.find((s:any) => s.id === fleetShipId && s.current_build_id && s.current_build_id !== buildId);
+    if (otherBuild) throw new Error("That ship is already assigned to another build.");
     if (build) {
       const { error } = await supabase.from("builds").update(payload as never).eq("id", build.id);
       if (error) throw error;
@@ -104,10 +106,10 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
       buildId = data.id;
     }
     if (!buildId) throw new Error("Build ID was not available");
-    const { error: clearError } = await supabase.from("user_ships").update({ current_build_id: null }).eq("current_build_id", buildId);
+    const { error: clearError } = await supabase.from("user_ships").update({ current_build_id: null, usage_mode: "build_pending" } as never).eq("current_build_id", buildId);
     if (clearError) throw clearError;
     if (fleetShipId !== "__none__") {
-      const { error: linkError } = await supabase.from("user_ships").update({ current_build_id: buildId }).eq("id", fleetShipId);
+      const { error: linkError } = await supabase.from("user_ships").update({ current_build_id: buildId, usage_mode: "build_created" } as never).eq("id", fleetShipId);
       if (linkError) throw linkError;
     }
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["builds"] }); toast.success(build ? "Build updated" : "Build created"); onOpenChange(false); }, onError: (e: Error) => toast.error(e.message) });
