@@ -80,12 +80,13 @@ function CharacterDialog({ open, onOpenChange, character, onDeleted }: { open: b
   const [species, setSpecies] = useState(character?.species ?? "");
   const [level, setLevel] = useState(character?.level?.toString() ?? "");
   const [notes, setNotes] = useState(character?.notes ?? "");
+  const [eliteCaptain, setEliteCaptain] = useState(character?.elite_captain ?? false);
 
-  const reset = (c: Character | null) => { setName(c?.name ?? ""); setFaction(c?.faction ?? ""); setCareer(c?.career ?? ""); setSpecies(c?.species ?? ""); setLevel(c?.level?.toString() ?? ""); setNotes(c?.notes ?? ""); };
+  const reset = (c: Character | null) => { setName(c?.name ?? ""); setFaction(c?.faction ?? ""); setCareer(c?.career ?? ""); setSpecies(c?.species ?? ""); setLevel(c?.level?.toString() ?? ""); setNotes(c?.notes ?? ""); setEliteCaptain(c?.elite_captain ?? false); };
   const save = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
-      const payload = { name: name.trim(), faction: faction || null, career: career || null, species: species || null, level: level ? Number(level) : null, notes: notes || null };
+      const payload = { name: name.trim(), faction: faction || null, career: career || null, species: species || null, level: level ? Number(level) : null, notes: notes || null, elite_captain: eliteCaptain };
       if (character) {
         const { error } = await supabase.from("characters").update(payload).eq("id", character.id);
         if (error) throw error;
@@ -107,7 +108,7 @@ function CharacterDialog({ open, onOpenChange, character, onDeleted }: { open: b
         <div className="space-y-1"><Label>Career</Label><Select value={career} onValueChange={setCareer}><SelectTrigger><SelectValue placeholder="Select career" /></SelectTrigger><SelectContent><SelectItem value="Tactical">Tactical</SelectItem><SelectItem value="Science">Science</SelectItem><SelectItem value="Engineering">Engineering</SelectItem></SelectContent></Select></div>
         <div className="space-y-1"><Label>Species</Label><Input value={species} onChange={e => setSpecies(e.target.value)} placeholder="Species" /></div>
         <div className="space-y-1"><Label>Level</Label><Input type="number" min="1" max="65" value={level} onChange={e => setLevel(e.target.value)} /></div>
-        <div className="space-y-1 sm:col-span-2"><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Theme rules, important character notes…" /></div>
+        <div className="space-y-1"><Label>Elite Captain</Label><label className="flex h-10 items-center gap-2 rounded-md border border-input px-3 text-sm"><input type="checkbox" checked={eliteCaptain} onChange={e => setEliteCaptain(e.target.checked)} /> Extra personal Ground + Space trait slots</label></div><div className="space-y-1 sm:col-span-2"><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Theme rules, important character notes…" /></div>
       </div>
       <DialogFooter className="gap-2">{character && <Button variant="ghost" className="mr-auto text-destructive" onClick={() => { if (confirm("Remove this character? Their linked ships may also be affected.")) onDeleted(); }}><Trash2 className="mr-1 size-4" /> Remove</Button>}<Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : character ? "Save changes" : "Add character"}</Button></DialogFooter>
     </DialogContent>
