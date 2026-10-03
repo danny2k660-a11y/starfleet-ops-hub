@@ -86,7 +86,6 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
   const [role, setRole] = useState(build?.role ?? "");
   const [status, setStatus] = useState(build?.status ?? "draft");
   const [notes, setNotes] = useState(build?.notes ?? "");
-  const [themeId, setThemeId] = useState<string>((existingFleetShip?.theme_id as string | null) ?? "__none__");
 
   const save = useMutation({ mutationFn: async () => {
     const { data: u } = await supabase.auth.getUser();
@@ -110,17 +109,16 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     const { error: clearError } = await supabase.from("user_ships").update({ current_build_id: null, usage_mode: "build_pending" } as never).eq("current_build_id", buildId);
     if (clearError) throw clearError;
     if (fleetShipId !== "__none__") {
-      const { error: linkError } = await supabase.from("user_ships").update({ current_build_id: buildId, usage_mode: "build_created", theme_id: themeId === "__none__" ? null : themeId } as never).eq("id", fleetShipId);
+      const { error: linkError } = await supabase.from("user_ships").update({ current_build_id: buildId, usage_mode: "build_created" } as never).eq("id", fleetShipId);
       if (linkError) throw linkError;
     }
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["builds"] }); toast.success(build ? "Build updated" : "Build created"); onOpenChange(false); }, onError: (e: Error) => toast.error(e.message) });
 
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle className="font-display text-primary">{build ? "Edit build" : "New build"}</DialogTitle></DialogHeader>
     <div className="space-y-4">
-      <div className="space-y-1"><Label>Character</Label><Select value={characterId} onValueChange={(v) => { setCharacterId(v); setFleetShipId("__none__"); setShipId("__none__"); setThemeId("__none__"); }}><SelectTrigger><SelectValue placeholder="Choose character" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose character</SelectItem>{characters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
+      <div className="space-y-1"><Label>Character</Label><Select value={characterId} onValueChange={(v) => { setCharacterId(v); setFleetShipId("__none__"); setShipId("__none__"); }}><SelectTrigger><SelectValue placeholder="Choose character" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose character</SelectItem>{characters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
       <div className="space-y-1"><Label>Ship</Label><Select value={fleetShipId} onValueChange={setFleetShipId}><SelectTrigger><SelectValue placeholder="Choose ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose ship</SelectItem>{fleetShips.filter((s:any) => s.character_id === characterId).map((s:any) => <SelectItem key={s.id} value={s.id}>{s.custom_name || s.sto_ships?.name || "Unnamed ship"}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Only ships owned by this character are shown.</p></div>
       <div className="space-y-1"><Label>Build name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Elite CSV — Terran" /></div>
-      <div className="space-y-1"><Label>Theme</Label><Select value={themeId} onValueChange={setThemeId}><SelectTrigger><SelectValue placeholder="Choose theme" /></SelectTrigger><SelectContent><SelectItem value="__none__">No theme assigned</SelectItem>{LOADOUT_THEME_PRESETS.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Theme is stored on the character-owned ship and follows the build.</p></div>
       {build?.ship_instance_id && <div className="rounded border border-amber-500/30 bg-amber-500/5 p-3"><p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Legacy ship link</p><p className="mt-1 text-xs text-muted-foreground">Retained for compatibility; the primary owned ship above is authoritative.</p><div className="mt-2"><Select value={shipId} onValueChange={setShipId}><SelectTrigger><SelectValue placeholder="Legacy ship instance" /></SelectTrigger><SelectContent><SelectItem value="__none__">Clear legacy link</SelectItem>{ships.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select></div></div>}
       <div className="space-y-1"><Label>Role</Label><Input value={role} onChange={e => setRole(e.target.value)} placeholder="CSV, BO, FAW, Science, Carrier…" /></div>
       <div className="space-y-1"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="testing">Testing</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="retired">Retired</SelectItem></SelectContent></Select></div>
