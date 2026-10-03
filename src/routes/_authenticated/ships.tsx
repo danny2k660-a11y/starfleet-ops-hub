@@ -304,7 +304,7 @@ function ShipsPage() {
   const selected = ships.data?.find((s) => s.id === selectedId) ?? null;
   const ownedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned").length;
   const wishlistCount = (ships.data ?? []).filter((s) => s.ownership_status === "wishlist").length;
-  const readyCount = (ships.data ?? []).filter((s) => !!s.current_build_id && s.ownership_status === "owned").length;
+  const readyCount = fleetReadiness.fullyReady;
   const [fleetConfigOpen, setFleetConfigOpen] = useState(false);
   const unassignedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !s.current_build_id).length;
 
@@ -446,9 +446,9 @@ function ShipsPage() {
             {[
               { label: "Captain", index: 0, note: "Character assigned" },
               { label: "Build", index: 1, note: "Current build linked" },
-              { label: "Active loadout", index: 3, note: "Deployment loadout active" },
-              { label: "Equipment", index: 4, note: "Verified fitting slots complete" },
-              { label: "Traits", index: 5, note: "At least one trait configured" },
+              { label: "Active loadout", index: 2, note: "Deployment loadout active" },
+              { label: "Equipment", index: 3, note: "Verified fitting slots complete" },
+              { label: "Traits", index: 4, note: "At least one trait configured" },
               { label: "Bridge crew", index: 5, note: "Verified stations complete" },
             ].map((item) => (
               <button
@@ -581,7 +581,7 @@ function ShipsPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-2 text-[10px] text-primary">All seven operational checks passed.</p>
+                  <p className="mt-2 text-[10px] text-primary">All six operational checks passed.</p>
                 )}
               </div>
             );
@@ -606,7 +606,7 @@ function ShipsPage() {
             .slice(0, 5)
             .map((row) => {
               const s = row.ship;
-              const labels = ["Captain", "Build", "Theme", "Active loadout", "Equipment", "Traits", "Bridge crew"];
+              const labels = ["Captain", "Build", "Active loadout", "Equipment", "Traits", "Bridge crew"];
               const missing = labels.filter((_, index) => !row.checks[index]);
               const equipmentMissing = row.coverage?.missingEquipmentSlots ?? [];
               const boffMissing = row.coverage?.missingBoffStations ?? [];
@@ -637,7 +637,7 @@ function ShipsPage() {
               );
             })}
           {fleetReadiness.rows.filter((row) => row.complete < 6).length === 0 && (
-            <p className="text-sm text-muted-foreground">All owned ships currently pass the seven-point operational readiness check.</p>
+            <p className="text-sm text-muted-foreground">All owned ships currently pass the six-point operational readiness check.</p>
           )}
         </div>
       </div>
