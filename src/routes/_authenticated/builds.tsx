@@ -132,37 +132,87 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
 function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: string }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [name, setName] = useState(loadout.name);
+  const [notes, setNotes] = useState(loadout.notes ?? "");
   const activate = async () => {
     setBusy(true);
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
-      const { error: clearError } = await supabase
-        .from("loadouts")
-        .update({ is_active: false })
-        .eq("build_id", loadout.build_id)
-        .eq("user_id", u.user.id);
+      const { error: clearError } = await supabase.from("loadouts").update({ is_active: false }).eq("build_id", loadout.build_id).eq("user_id", u.user.id);
       if (clearError) throw clearError;
       const { error } = await supabase.from("loadouts" as never).update({ is_active: true }).eq("id", loadout.id);
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ["loadouts"] });
       toast.success("Loadout activated");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not activate loadout");
-    } finally {
-      setBusy(false);
-    }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Could not activate loadout"); }
+    finally { setBusy(false); }
+  };
+  const saveEdit = async () => {
+    const nextName = name.trim();
+    if (!nextName) { toast.error("Enter a loadout name."); return; }
+    setBusy(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in");
+      const { data: duplicate } = await supabase.from("loadouts").select("id").eq("build_id", loadout.build_id).eq("user_id", u.user.id).eq("name", nextName).neq("id", loadout.id).maybeSingle();
+      if (duplicate) throw new Error("A loadout with that name already exists for this build.");
+      const { error } = await supabase.from("loadouts" as never).update({ name: nextName, notes: notes.trim() || null }).eq("id", loadout.id);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["loadouts"] });
+      setEditOpen(false);
+      toast.success("Loadout updated");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Could not update loadout"); }
+    finally { setBusy(false); }
+  };
+  const remove = async () => {
+    if (!window.confirm(`Delete loadout "${loadout.name}"?`)) return;
+    setBusy(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in");
+      const { error: equipmentError } = await supabase.from("loadout_equipment" as never).delete().eq("loadout_id", loadout.id);
+      if (equipmentError) throw equipmentError;
+      const { error: traitsError } = await supabase.from("loadout_traits" as never).delete().eq("loadout_id", loadout.id);
+      if (traitsError) throw traitsError;
+      const { error: boffsError } = await supabase.from("loadout_boffs" as never).delete().eq("loadout_id", loadout.id);
+      if (boffsError) throw boffsError;
+      const { error } = await supabase.from("loadouts" as never).delete().eq("id", loadout.id).eq("user_id", u.user.id);
+      if (error) throw error;
+      if (loadout.is_active) {
+        const { data: replacement } = await supabase.from("loadouts").select("id").eq("build_id", loadout.build_id).eq("user_id", u.user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (replacement) await supabase.from("loadouts" as never).update({ is_active: true }).eq("id", replacement.id);
+      }
+      await qc.invalidateQueries({ queryKey: ["loadouts"] });
+      toast.success("Loadout deleted");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Could not delete loadout"); }
+    finally { setBusy(false); }
   };
   return <div className="panel p-4">
     <div className="flex items-start justify-between gap-2">
       <div className="min-w-0"><p className="lcars-label">{buildName}</p><h3 className="truncate font-display text-lg text-primary">{loadout.name}</h3></div>
-      {loadout.is_active ? <Badge className="shrink-0 bg-accent text-accent-foreground">ACTIVE</Badge> : <Button size="sm" variant="outline" className="shrink-0" disabled={busy} onClick={activate}>{busy ? "Activating…" : "Activate"}</Button>}
+      <div className="flex shrink-0 gap-2">
+        {loadout.is_active ? <Badge className="bg-accent text-accent-foreground">ACTIVE</Badge> : <Button size="sm" variant="outline" disabled={busy} onClick={activate}>{busy ? "Activating…" : "Activate"}</Button>}
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEditOpen(true)}>Edit</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={remove}>Delete</Button>
+      </div>
     </div>
     {loadout.notes && <p className="mt-2 text-sm text-muted-foreground">{loadout.notes}</p>}
     <LoadoutConfiguration loadoutId={loadout.id} />
     <LoadoutReadiness loadoutId={loadout.id} buildId={loadout.build_id} />
     <ThemeCompliance loadoutId={loadout.id} />
     <LoadoutEquipment loadoutId={loadout.id} buildId={loadout.build_id} />
+    <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle className="font-display text-primary">Edit loadout</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1"><Label>Loadout name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} /></div>
+        </div>
+        <DialogFooter><Button variant="ghost" onClick={() => setEditOpen(false)}>Cancel</Button><Button disabled={!name.trim() || busy} onClick={saveEdit}>{busy ? "Saving…" : "Save changes"}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>;
 }
 
