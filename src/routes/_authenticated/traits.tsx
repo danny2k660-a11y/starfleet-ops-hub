@@ -59,6 +59,7 @@ function Page() {
   const [notes,setNotes] = useState("");
   const [characterId,setCharacterId] = useState("");
   const [loadoutId,setLoadoutId] = useState("");
+  const [repExtra,setRepExtra] = useState(false);
 
   const syncCatalog = useMutation({ mutationFn: async () => { const { data, error } = await supabase.functions.invoke("sync-trait-catalog", { body: {} }); if (error) throw error; if (!data?.ok) throw new Error(data?.error ?? "Trait catalogue sync failed"); return data; }, onSuccess: (data) => { qc.invalidateQueries({ queryKey:["trait_catalog"] }); toast.success(`Trait catalogue synced: ${data.imported} records`); }, onError: (e:Error) => toast.error(e.message) });
   const catalog = useQuery({ queryKey:["trait_catalog"], queryFn:async()=>{ const {data,error}=await supabase.from("trait_catalog" as never).select("*").order("name"); if(error)throw error; return (data??[]) as any[]; }});
@@ -66,6 +67,7 @@ function Page() {
   const loadouts = useQuery({ queryKey:["trait_loadouts"], queryFn:async()=>{ const {data,error}=await supabase.from("loadouts").select("id,name,build_id").order("updated_at",{ascending:false}); if(error)throw error; return data??[]; }});
   const builds = useQuery({ queryKey:["trait_builds"], queryFn:async()=>{ const {data,error}=await supabase.from("builds").select("id,name,user_ship_id").order("updated_at",{ascending:false}); if(error)throw error; return data??[]; }});
   const userShips = useQuery({ queryKey:["trait_user_ships"], queryFn:async()=>{ const {data,error}=await supabase.from("user_ships").select("id,character_id,custom_name,sto_ships(name)").order("created_at",{ascending:false}); if(error)throw error; return data??[] as any[]; }});
+  const slotUnlocks = useQuery({ queryKey:["character_trait_slot_unlocks"], queryFn:async()=>{ const {data,error}=await supabase.from("character_trait_slot_unlocks" as never).select("*"); if(error)throw error; return (data??[]) as any[]; }});
   const characterTraits = useQuery({ queryKey:["character_traits"], queryFn:async()=>{ const {data,error}=await supabase.from("character_traits" as never).select("*").order("created_at",{ascending:false}); if(error)throw error; return (data??[]) as any[]; }});
   const loadoutTraits = useQuery({ queryKey:["loadout_traits"], queryFn:async()=>{ const {data,error}=await supabase.from("loadout_traits" as never).select("*").order("created_at",{ascending:false}); if(error)throw error; return (data??[]) as any[]; }});
 
@@ -75,7 +77,7 @@ function Page() {
   const loadoutById = useMemo(()=>new Map((loadouts.data??[]).map((l:any)=>[l.id,l])),[loadouts.data]);
   const shipById = useMemo(()=>new Map((userShips.data??[]).map((s:any)=>[s.id,s])),[userShips.data]);
 
-  const reset=()=>{setName("");setCatalogId("");setCategory(mode==="personal"?"personal":"starship");setDomain("space");setSlotIndex("");setNotes("");setCharacterId("");setLoadoutId("");};
+  const reset=()=>{setName("");setCatalogId("");setCategory(mode==="personal"?"personal":"starship");setDomain("space");setSlotIndex("");setNotes("");setCharacterId("");setLoadoutId("");setRepExtra(false);};
   const selectedCharacter = useMemo(()=> (characters.data??[]).find((c:any)=>c.id===characterId),[characters.data,characterId]);
   const personalSlotLimit = (character:any) => {
     const level = Number(character?.level ?? 1);
@@ -85,7 +87,7 @@ function Page() {
     const eliteBonus = character?.elite_captain ? 1 : 0;
     return base + speciesBonus + eliteBonus;
   };
-  const reputationSlotLimit = 4;
+  const reputationSlotLimit = (characterId:string, group:string) => 4 + ((slotUnlocks.data??[]).some((u:any)=>u.character_id===characterId && u.slot_group===group && u.unlocked) ? 1 : 0);
 
   const personalTraits = useMemo(()=> (characterTraits.data??[]).filter((t:any)=>{
     const c:any=catalogById.get(t.trait_id);
@@ -110,12 +112,13 @@ function Page() {
     const slotGroup = traitCategory === "reputation" || traitCategory === "activereputation"
       ? `${traitDomain}_${isActiveRep ? "active_reputation" : "reputation"}`
       : `${traitDomain}_personal`;
-    const limit = traitCategory === "reputation" || traitCategory === "activereputation" ? reputationSlotLimit : personalSlotLimit(selectedCharacter);
+    const limit = traitCategory === "reputation" || traitCategory === "activereputation" ? reputationSlotLimit(characterId, slotGroup) : personalSlotLimit(selectedCharacter);
     const requestedSlot = slotIndex ? Number(slotIndex) : null;
     if (requestedSlot !== null && (requestedSlot < 1 || requestedSlot > limit)) throw new Error(`Slot must be between 1 and ${limit} for this character/category`);
     const payload:any={user_id:u.user.id,character_id:characterId,trait_id:catalogId||null,source:"manual",notes:notes.trim()||null,active:true,slot_index:requestedSlot,domain:traitDomain,trait_category:traitCategory,availability_type:cat?.availability_type??"general",slot_group:slotGroup};
     const {error}=await supabase.from("character_traits" as never).insert(payload); if(error)throw error;
-  },onSuccess:()=>{qc.invalidateQueries({queryKey:["character_traits"]});toast.success("Personal trait added");setOpen(false);reset();},onError:(e:Error)=>toast.error(e.message)});
+    if ((traitCategory === "reputation" || traitCategory === "activereputation") && repExtra) { const {error:unlockError}=await supabase.from("character_trait_slot_unlocks" as never).upsert({user_id:u.user.id,character_id:characterId,slot_group:slotGroup,source:"Fleet Research Lab",unlocked:true},{onConflict:"character_id,slot_group,source"}); if(unlockError)throw unlockError; }
+  },onSuccess:()=>{qc.invalidateQueries({queryKey:["character_traits"]});qc.invalidateQueries({queryKey:["character_trait_slot_unlocks"]});toast.success("Personal trait added");setOpen(false);reset();setRepExtra(false);},onError:(e:Error)=>toast.error(e.message)});
 
   const saveStarship = useMutation({ mutationFn:async()=>{
     if(!loadoutId||!name.trim())throw new Error("Loadout and trait name are required");
@@ -154,7 +157,7 @@ function Page() {
         <div className="space-y-1"><Label>Character</Label><Select value={characterId} onValueChange={setCharacterId}><SelectTrigger><SelectValue placeholder="Choose character"/></SelectTrigger><SelectContent>{(characters.data??[]).map((c:any)=><SelectItem key={c.id} value={c.id}>{c.name}{c.level!=null?" — Lv "+c.level:""}</SelectItem>)}</SelectContent></Select></div>
         <div className="space-y-1"><Label>Catalogue personal trait</Label><Select value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setCategory(t.trait_type??"personal");setDomain(t.domain??"space");setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose a canonical personal, species or reputation trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).filter((t:any)=>t.trait_type!=="starship").map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name} — {personalCategoryLabel(t.trait_type, t.domain, Boolean(t.is_active_ability))}</SelectItem>)}</SelectContent></Select></div>
         <div className="rounded border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">Personal traits are stored on the character, not on the ship. At level 65 the normal personal pool is 9 Ground + 9 Space slots; Alien characters receive one additional Ground + Space slot, and Elite Captains receive one additional Ground + Space slot. Reputation has separate 4-slot Passive Ground, Passive Space, Active Ground and Active Space categories, with separate Fleet Research Lab expansions.</div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Environment</Label><Select value={domain} onValueChange={setDomain}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="space">Space</SelectItem><SelectItem value="ground">Ground</SelectItem></SelectContent></Select></div><div className="space-y-1"><Label>Category</Label><Select value={category} onValueChange={setCategory}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{Object.entries(categoryLabels).filter(([k])=>k!=="starship").map(([k,v])=><SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div></div>
-        <div className="space-y-1"><Label>Slot number</Label><Input type="number" min="1" value={slotIndex} onChange={e=>setSlotIndex(e.target.value)} placeholder="Optional slot"/><p className="text-xs text-muted-foreground">Personal {domain === "space" ? "Space" : "Ground"} slots: {selectedCharacter ? personalSlotLimit(selectedCharacter) : "choose a character first"}. Each reputation passive/active Ground/Space category starts with 4 slots; Fleet Research Lab purchases are tracked separately.</p></div>
+        <div className="space-y-1"><Label>Slot number</Label><Input type="number" min="1" value={slotIndex} onChange={e=>setSlotIndex(e.target.value)} placeholder="Optional slot"/><p className="text-xs text-muted-foreground">Personal {domain === "space" ? "Space" : "Ground"} slots: {selectedCharacter ? personalSlotLimit(selectedCharacter) : "choose a character first"}.</p></div><div className="flex items-center gap-2 rounded border p-3 text-sm"><input type="checkbox" checked={repExtra} onChange={e=>setRepExtra(e.target.checked)} disabled={category!=="reputation" && category!=="activereputation"} /><span>Fleet Research Lab +1 reputation slot for this Ground/Space category</span></div>
       </> : <>
         <div className="space-y-1"><Label>Loadout</Label><Select value={loadoutId} onValueChange={setLoadoutId}><SelectTrigger><SelectValue placeholder="Choose a ship loadout"/></SelectTrigger><SelectContent>{(loadouts.data??[]).map((l:any)=>{const b:any=buildById.get(l.build_id);const s:any=shipById.get(b?.user_ship_id);return <SelectItem key={l.id} value={l.id}>{b?.name??"Build"} — {s?.custom_name||s?.sto_ships?.name||"Ship"} — {l.name}</SelectItem>})}</SelectContent></Select></div>
         <div className="space-y-1"><Label>Catalogue starship trait</Label><Select value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose a canonical starship trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).filter((t:any)=>t.trait_type==="starship").map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
