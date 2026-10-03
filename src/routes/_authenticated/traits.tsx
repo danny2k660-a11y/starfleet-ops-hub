@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Trash2, Sparkles, UserRound, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,9 +57,16 @@ function Page() {
   const [characterId,setCharacterId] = useState("");
   const [loadoutId,setLoadoutId] = useState("");
   const [repExtra,setRepExtra] = useState(false);
+  const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
 
   const syncCatalog = useMutation({ mutationFn: async () => { const { data, error } = await supabase.functions.invoke("sync-trait-catalog", { body: {} }); if (error) throw error; if (!data?.ok) throw new Error(data?.error ?? "Trait catalogue sync failed"); return data; }, onSuccess: (data) => { qc.invalidateQueries({ queryKey:["trait_catalog"] }); toast.success(`Trait catalogue synced: ${data.imported} records`); }, onError: (e:Error) => toast.error(e.message) });
   const catalog = useQuery({ queryKey:["trait_catalog"], queryFn:async()=>{ const {data,error}=await supabase.from("trait_catalog" as never).select("*").order("name"); if(error)throw error; return (data??[]) as any[]; }});
+  useEffect(() => {
+    if (!catalog.isLoading && !catalog.isError && (catalog.data?.length ?? 0) === 0 && !autoSyncAttempted) {
+      setAutoSyncAttempted(true);
+      syncCatalog.mutate();
+    }
+  }, [catalog.isLoading, catalog.isError, catalog.data?.length, autoSyncAttempted]);
   const characters = useQuery({ queryKey:["trait_characters"], queryFn:async()=>{ const {data,error}=await supabase.from("characters").select("id,name,level,species,elite_captain").order("name"); if(error)throw error; return data??[]; }});
   const loadouts = useQuery({ queryKey:["trait_loadouts"], queryFn:async()=>{ const {data,error}=await supabase.from("loadouts").select("id,name,build_id").order("updated_at",{ascending:false}); if(error)throw error; return data??[]; }});
   const builds = useQuery({ queryKey:["trait_builds"], queryFn:async()=>{ const {data,error}=await supabase.from("builds").select("id,name,user_ship_id").order("updated_at",{ascending:false}); if(error)throw error; return data??[]; }});
