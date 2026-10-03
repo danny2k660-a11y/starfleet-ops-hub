@@ -27,24 +27,36 @@ export const Route = createFileRoute("/_authenticated/ship-database")({
 
 function seating(ship: StoShip): Array<{ slot: number; rank: string; career: string; specialization?: string | null; label: string }> {
   const raw = ship.bridge_officer_stations as any;
-  if (raw?.slots && Array.isArray(raw.slots)) {
-    return raw.slots.map((entry: any, index: number) => ({
-      slot: Number(entry?.slot ?? index + 1),
-      rank: String(entry?.rank ?? ""),
-      career: String(entry?.career ?? ""),
-      specialization: entry?.specialization ? String(entry.specialization) : null,
-      label: String(entry?.label ?? ""),
-    })).filter((entry: any) => entry.rank || entry.career || entry.label);
-  }
-  const labels = Array.isArray(raw) ? raw : Array.isArray(raw?.stations) ? raw.stations : [];
-  return labels.map((label: any, index: number) => {
-    const text = String(label);
+  const entries = raw?.slots && Array.isArray(raw.slots)
+    ? raw.slots
+    : Array.isArray(raw) ? raw.map((label: unknown) => ({ label }))
+    : Array.isArray(raw?.stations) ? raw.stations.map((label: unknown) => ({ label }))
+    : [];
+
+  return entries.map((entry: any, index: number) => {
+    const text = String(entry?.label ?? "");
+    if (entry?.rank || entry?.career) {
+      return {
+        slot: Number(entry?.slot ?? index + 1),
+        rank: String(entry.rank ?? ""),
+        career: String(entry.career ?? ""),
+        specialization: entry.specialization ? String(entry.specialization) : null,
+        label: text,
+      };
+    }
+
     const match = text.match(/^(Commander|Lieutenant Commander|Lieutenant|Ensign)\\s+(.*)$/);
     const rank = match?.[1] ?? "";
     const remainder = match?.[2] ?? text;
     const parts = remainder.split(/[/-]/).map((part) => part.trim()).filter(Boolean);
-    return { slot: index + 1, rank, career: parts[0] ?? "", specialization: parts[1] ?? null, label: text };
-  });
+    return {
+      slot: index + 1,
+      rank,
+      career: parts[0] ?? "",
+      specialization: parts[1] ?? null,
+      label: text,
+    };
+  }).filter((entry: any) => entry.rank || entry.career || entry.label);
 }
 
 function ShipDatabasePage() {
@@ -256,7 +268,7 @@ function ShipDatabasePage() {
                         ref.bonus_engine_power ? `E ${ref.bonus_engine_power}` : null,
                         ref.bonus_aux_power ? `A ${ref.bonus_aux_power}` : null,
                       ].filter(Boolean).join(" · ")} />
-                      <Info label="Seat maxima" value={[
+                      <Info label="Seat maxima (reference)" value={[
                         ref.max_tactical_seat ? `Tac ${ref.max_tactical_seat}` : null,
                         ref.max_engineering_seat ? `Eng ${ref.max_engineering_seat}` : null,
                         ref.max_science_seat ? `Sci ${ref.max_science_seat}` : null,
