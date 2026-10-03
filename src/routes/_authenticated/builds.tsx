@@ -279,7 +279,7 @@ function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const boffs = useQuery({ queryKey: ["readiness_boffs", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_boffs" as never).select("id,station").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
   const ship = useQuery({ queryKey: ["readiness_ship", buildId], queryFn: async () => { const {data,error}=await supabase.from("user_ships" as never).select("sto_ships(*)").eq("current_build_id",buildId).maybeSingle(); if(error) throw error; return data as any; }});
   const s:any=ship.data?.sto_ships||{};
-  const stationNames = (() => { const raw=s.bridge_officer_stations; if(Array.isArray(raw)) return raw.map((x:any)=>typeof x==="string"?x:(x?.station||x?.name)).filter(Boolean).map(String); if(raw && typeof raw==="object") return Object.keys(raw); return []; })();
+  const stationNames = (() => { const raw=s.bridge_officer_seating ?? s.bridge_officer_stations; if(Array.isArray(raw)) return raw.map((x:any)=>typeof x==="string"?x:(x?.station||x?.name)).filter(Boolean).map(String); if(raw && typeof raw==="object") return Object.keys(raw); return []; })();
   const configuredStations = new Set(((boffs.data as any[])||[]).map(x=>String(x.station||"").trim().toLowerCase()).filter(Boolean));
   const missingStations = stationNames.filter(x=>!configuredStations.has(x.toLowerCase()));
   const slots:string[]=[]; const add=(label:string,n:number)=>{for(let i=1;i<=Number(n||0);i++)slots.push(label+" "+i);};
