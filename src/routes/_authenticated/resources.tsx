@@ -1,28 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Search, Filter } from "lucide-react";
-import { AppShell } from "@/components/app-shell";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { PlaceholderPage } from "@/components/app-shell";
 
-export const Route=createFileRoute("/_authenticated/resources")({head:()=>({meta:[{title:"Resources — STO Command Center"}]}),component:Page});
+export const Route = createFileRoute("/_authenticated/resources")({
+  head: () => ({ meta: [{ title: "Resources — STO Command Center" }] }),
+  component: Page,
+});
 
-function Page(){
- const qc=useQueryClient(); const [name,setName]=useState(""); const [search,setSearch]=useState(""); const [filter,setFilter]=useState("All"); const [characterId,setCharacterId]=useState(""); const [quantity,setQuantity]=useState("0"); const [target,setTarget]=useState(""); const [category,setCategory]=useState("Currency"); const [editingId,setEditingId]=useState<string|null>(null);
- const chars=useQuery({queryKey:["resource-characters"],queryFn:async()=>{const {data,error}=await supabase.from("characters").select("id,name").order("name");if(error)throw error;return data??[];}});
- const resources=useQuery({queryKey:["resource_balances"],queryFn:async()=>{const {data,error}=await supabase.from("resource_balances" as never).select("*,characters(name)").order("category").order("name");if(error)throw error;return data??[];}});
- const save=useMutation({mutationFn:async()=>{const payload={name:name.trim(),category,quantity:Number(quantity)||0,target:target?Number(target):null,character_id:characterId||null};const q=editingId?supabase.from("resource_balances" as never).update(payload).eq("id",editingId):supabase.from("resource_balances" as never).insert(payload);const {error}=await q;if(error)throw error;},onSuccess:()=>{setName("");setQuantity("0");setTarget("");setCharacterId("");setEditingId(null);qc.invalidateQueries({queryKey:["resource_balances"]});toast.success("Resource saved");},onError:(e:Error)=>toast.error(e.message)});
- const filtered=(resources.data as any[]||[]).filter((r:any)=>(filter==="All"||r.category===filter)&&(`${r.name} ${r.characters?.name||""}`.toLowerCase().includes(search.toLowerCase())));
- const del=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("resource_balances" as never).delete().eq("id",id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["resource_balances"]})});
- return <AppShell title="Resources" subtitle="Currencies, materials and stockpiles"><div className="space-y-5">
- <div><p className="lcars-label">Fleet economy</p><h2 className="font-display text-2xl text-primary">Resource Control</h2><p className="mt-2 text-sm text-muted-foreground">Track currencies and materials across your STO account without mixing character ownership.</p></div>
- <Card><CardHeader><CardTitle className="text-base">Add resource</CardTitle></CardHeader><CardContent><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5"><Input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Dilithium"/><select value={characterId} onChange={e=>setCharacterId(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm"><option value="">Account-wide</option>{(chars.data||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><select value={category} onChange={e=>setCategory(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm"><option>Currency</option><option>Reputation</option><option>Upgrade Material</option><option>Event</option><option>Token</option><option>Other</option></select><Input type="number" value={quantity} onChange={e=>setQuantity(e.target.value)} placeholder="Current"/><div className="flex gap-2"><Input type="number" value={target} onChange={e=>setTarget(e.target.value)} placeholder="Target"/><Button disabled={!name.trim()||save.isPending} onClick={()=>save.mutate()}><Plus className="h-4 w-4"/></Button></div></div></CardContent></Card>
- <div className="panel p-4"><div className="grid gap-2 sm:grid-cols-[1fr_auto]"><div className="relative"><Search className="absolute left-2 top-2.5 size-4 text-muted-foreground"/><Input className="pl-8" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search resources or captains…"/></div><div className="flex items-center gap-2"><Filter className="size-4 text-muted-foreground"/><select value={filter} onChange={e=>setFilter(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm"><option>All</option><option>Currency</option><option>Reputation</option><option>Upgrade Material</option><option>Event</option><option>Token</option><option>Other</option></select></div></div></div>
- <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{filtered.map(r=>{const pct=r.target?Math.min(100,Math.round(r.quantity/r.target*100)):null;return <Card key={r.id}><CardContent className="p-4"><div className="flex items-start justify-between"><div><p className="text-xs uppercase tracking-wider text-muted-foreground">{r.category}</p><h3 className="mt-1 font-semibold">{r.name}</h3></div><div className="flex"><Button variant="ghost" size="sm" onClick={()=>{setEditingId(r.id);setName(r.name);setCategory(r.category);setQuantity(String(r.quantity));setTarget(r.target?String(r.target):"");setCharacterId(r.character_id||"");}}>Edit</Button><Button variant="ghost" size="icon" onClick={()=>del.mutate(r.id)}><Trash2 className="h-4 w-4"/></Button></div></div><p className="mt-3 font-display text-2xl text-primary">{Number(r.quantity).toLocaleString()}</p>{r.target&&<><div className="mt-2 h-2 overflow-hidden rounded bg-muted"><div className="h-full bg-primary" style={{width:pct+"%"}}/></div><p className="mt-1 text-xs text-muted-foreground">{pct}% of {Number(r.target).toLocaleString()} target</p></>}</CardContent></Card>})}</div>
- {resources.isError?<div className="panel p-6 text-center text-destructive">Unable to load resources. Refresh and try again.</div>:!resources.isLoading&&!filtered.length&&<div className="panel p-8 text-center text-sm text-muted-foreground">{(resources.data as any[])?.length?"No resources match the current filters.":"No resources tracked yet."}</div>}
- </div></AppShell>
+function Page() {
+  return <PlaceholderPage title="Resources" subtitle="Currencies and stockpiles" description="Resource tracking is reserved for a future data module. No resource-balance table exists in the live database, so this screen no longer attempts broken queries." planned={["Dilithium and currencies","Upgrade materials","Event and campaign tokens","Character versus account balances"]} />;
 }
