@@ -11,6 +11,7 @@ import {
   Palette,
   ListChecks,
   Settings,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export const navItems: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/characters", label: "Characters", icon: Users },
   { to: "/ships", label: "Ships", icon: Rocket },
+  { to: "/ship-planner", label: "Ship Planner", icon: ClipboardList },
   { to: "/ship-database", label: "Ship Database", icon: Database },
   { to: "/builds", label: "Builds", icon: Wrench },
   { to: "/inventory", label: "Inventory", icon: Boxes },
