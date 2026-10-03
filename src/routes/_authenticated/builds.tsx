@@ -342,7 +342,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const characterTraits = useQuery({ queryKey: ["loadout_character_traits", shipContext.data?.characterId], enabled: !!shipContext.data?.characterId, queryFn: async () => {
     const { data, error } = await supabase.from("character_traits" as never)
       .select("id,trait_id,domain,trait_category,slot_index,active,trait_catalog(name,trait_type,domain,description)")
-      .eq("character_id", shipContext.data.characterId)
+      .eq("character_id", shipContext.data?.characterId ?? "")
       .eq("active", true)
       .order("domain")
       .order("slot_index");
