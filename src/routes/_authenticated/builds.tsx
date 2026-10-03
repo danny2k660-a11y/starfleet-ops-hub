@@ -405,6 +405,9 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   });
   const shipData = ship.data?.sto_ships ?? null;
   const shipCharacterId = ship.data?.character_id ?? null;
+  const boff = (shipData?.bridge_officer_seating ?? shipData?.bridge_officer_stations ?? {}) as Record<string, unknown>;
+  const trait = shipData?.ship_trait as string | null | undefined;
+  const special = [shipData?.special_console, shipData?.special_weapons, shipData?.special_mechanics].filter(Boolean) as string[];
 
   const equipment = useQuery({
     queryKey: ["equipment_items"],
@@ -427,7 +430,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
     const s: any = shipData; const out: string[] = [];
     const add = (label: string, n: number) => { for (let i=1;i<=Number(n||0);i++) out.push(`${label} ${i}`); };
     add("Fore Weapon", s?.fore_weapon_slots); add("Aft Weapon", s?.aft_weapon_slots);
-    if (s?.experimental_weapon) out.push("Experimental Weapon");
+    if (s?.experimental_weapon_slot) out.push("Experimental Weapon");
     add("Engineering Console", s?.engineering_console_slots); add("Science Console", s?.science_console_slots);
     add("Tactical Console", s?.tactical_console_slots); add("Universal Console", s?.universal_console_slots);
     add("Hangar Bay", s?.hangar_bays);
