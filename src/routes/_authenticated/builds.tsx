@@ -5,6 +5,7 @@ import { Plus, Search, Wrench, Trash2, Package } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { GroundBuildSection } from "@/components/ground-build-section";
 import type { Tables } from "@/integrations/supabase/types";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -203,6 +204,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
     </div>
     {loadout.notes && <p className="mt-2 text-sm text-muted-foreground">{loadout.notes}</p>}
     <LoadoutConfiguration loadoutId={loadout.id} />
+    <GroundBuildSection buildId={loadout.build_id} />
     <LoadoutReadiness loadoutId={loadout.id} buildId={loadout.build_id} />
     <ThemeCompliance loadoutId={loadout.id} />
     <LoadoutEquipment loadoutId={loadout.id} buildId={loadout.build_id} />
