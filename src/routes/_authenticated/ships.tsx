@@ -60,6 +60,7 @@ function useData() {
     },
   });
   const sources = useQuery({ queryKey: ["ship_sources"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources" as never).select("id,sto_ship_id,source_type,source_name,bundle_id,character_restriction,account_unlock").order("source_name"); if (error) throw error; return (data ?? []) as any[]; } });
+  const referenceData = useQuery({ queryKey: ["sto_ship_reference_data"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_reference_data" as never).select("sto_ship_id,seats_text,total_boff_stations,total_boff_abilities,max_engineering_seat,max_science_seat,max_tactical_seat,max_universal_seat,fore_weapon_slots,aft_weapon_slots,experimental_weapon_slot,engineering_console_slots,science_console_slots,tactical_console_slots,universal_console_slots,hangar_bays").order("sto_ship_id"); if (error) throw error; return (data ?? []) as any[]; } });
   const characters = useQuery({
     queryKey: ["characters"],
     queryFn: async () => {
@@ -76,7 +77,20 @@ function useData() {
       return data;
     },
   });
-  return { ships, catalog, characters, builds, sources };
+  return { ships, catalog, characters, builds, sources, referenceData };
+}
+
+function shipDataWithReference(ship: any, referenceRows: any[]) {
+  const ref = referenceRows.find((r) => r.sto_ship_id === ship?.id);
+  if (!ref) return ship;
+  const merged = { ...ship };
+  const fields = ["fore_weapon_slots","aft_weapon_slots","experimental_weapon_slot","engineering_console_slots","science_console_slots","tactical_console_slots","universal_console_slots","hangar_bays","seats_text","total_boff_stations","total_boff_abilities","max_engineering_seat","max_science_seat","max_tactical_seat","max_universal_seat"];
+  for (const field of fields) {
+    const value = merged[field];
+    const missing = value === null || value === undefined || value === "" || (typeof value === "number" && value === 0);
+    if (missing && ref[field] !== null && ref[field] !== undefined && ref[field] !== "") merged[field] = ref[field];
+  }
+  return merged;
 }
 
 function tierLabel(s: UserShip) {
@@ -87,7 +101,7 @@ function tierLabel(s: UserShip) {
 }
 
 function ShipsPage() {
-  const { ships, catalog, characters, builds, sources } = useData();
+  const { ships, catalog, characters, builds, sources, referenceData } = useData();
   const buildIds = useMemo(
     () => (ships.data ?? []).map((s) => s.current_build_id).filter(Boolean) as string[],
     [ships.data],
@@ -145,7 +159,7 @@ function ShipsPage() {
     for (const id of activeLoadoutIds) {
       const loadout = Array.from(activeLoadoutByBuild.values()).find((entry: any) => entry.id === id);
       const ship = (ships.data ?? []).find((entry) => entry.current_build_id === loadout?.build_id);
-      const catalog = ship?.sto_ships as any;
+      const catalog = shipDataWithReference(ship?.sto_ships as any, referenceData.data ?? []);
       const slots: string[] = [];
       const addSlots = (label: string, count: unknown) => {
         for (let i = 1; i <= Number(count || 0); i += 1) slots.push(`${label} ${i}`);
