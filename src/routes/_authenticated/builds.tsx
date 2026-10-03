@@ -328,12 +328,21 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     const { data, error } = await supabase.from("loadout_boffs" as never).select("*").eq("loadout_id", loadoutId).order("station");
     if (error) throw error; return data ?? [];
   }});
+  const dutyOfficers = useQuery({ queryKey: ["loadout_duty_officers", loadoutId], queryFn: async () => {
+    const { data, error } = await supabase.from("loadout_duty_officers" as never).select("*").eq("loadout_id", loadoutId).order("name");
+    if (error) throw error; return data ?? [];
+  }});
+  const dutyOfficerCatalog = useQuery({ queryKey: ["duty_officer_catalog"], queryFn: async () => {
+    const { data, error } = await supabase.from("duty_officer_catalog" as never).select("*").order("name");
+    if (error) throw error; return data ?? [];
+  }});
   const [trait, setTrait] = useState("");
   const [traitType, setTraitType] = useState("starship");
   const [station, setStation] = useState("");
   const [specialization, setSpecialization] = useState("");
   const [abilities, setAbilities] = useState("");
   const [officer, setOfficer] = useState("");
+  const [dutyOfficerId, setDutyOfficerId] = useState("");
   const addTrait = async () => {
     if (!trait.trim()) return;
     const { error } = await supabase.from("loadout_traits" as never).insert({ loadout_id: loadoutId, name: trait.trim(), trait_type: traitType });
@@ -360,6 +369,16 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     const { error } = await supabase.from("loadout_boffs" as never).upsert({ loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null, specialization: specialization.trim() || null, abilities: abilities.split(",").map((x) => x.trim()).filter(Boolean) });
     if (error) { toast({ title: "Could not save officer", description: error.message, variant: "destructive" }); return; }
     setStation(""); setOfficer(""); setSpecialization(""); setAbilities(""); qc.invalidateQueries({ queryKey: ["loadout_boffs", loadoutId] });
+  };
+  const saveDutyOfficer = async () => {
+    const picked:any = (dutyOfficerCatalog.data as any[] || []).find((d:any) => d.id === dutyOfficerId);
+    if (!picked) return;
+    const { error } = await supabase.from("loadout_duty_officers" as never).upsert({
+      loadout_id: loadoutId, duty_officer_id: picked.id, name: picked.name,
+      department: picked.department || null, effect_text: picked.effect_text || picked.ability_text || null
+    }, { onConflict: "loadout_id,name" });
+    if (error) { toast({ title: "Could not save duty officer", description: error.message, variant: "destructive" }); return; }
+    setDutyOfficerId(""); qc.invalidateQueries({ queryKey: ["loadout_duty_officers", loadoutId] });
   };
   const remove = async (table: string, id: string, key: string) => {
     const { error } = await supabase.from(table as never).delete().eq("id", id);
@@ -388,6 +407,23 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
         <Button size="sm" className="mt-2" onClick={saveOfficer}>Save Officer</Button>
         <div className="mt-2 space-y-1">{((boffs.data as any[]) || []).map((b) => (
           <div key={b.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span><span>{b.station}</span><span className="ml-2 text-primary">{b.officer_name || "Unassigned"}</span>{b.specialization && <span className="ml-2 text-xs text-muted-foreground">{b.specialization}</span>}{Array.isArray(b.abilities) && b.abilities.length > 0 && <span className="mt-1 block text-xs text-muted-foreground">{b.abilities.join(" • ")}</span>}</span><Button variant="ghost" size="icon" onClick={() => remove("loadout_boffs", b.id, "loadout_boffs")}><Trash2 className="h-3.5 w-3.5" /></Button></div>
+        ))}</div>
+      </div>
+      <div className="rounded-lg border border-border/70 bg-background/30 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duty Officers</p>
+        <p className="mb-2 text-xs text-muted-foreground">Record the exact Duty Officers assigned to this ship loadout and what their active/passive effects do. Catalogue entries are shown only when verified data exists.</p>
+        <div className="flex gap-2">
+          <select value={dutyOfficerId} onChange={(e) => setDutyOfficerId(e.target.value)} className="h-9 flex-1 rounded-md border bg-background px-2 text-xs">
+            <option value="">Select Duty Officer</option>
+            {((dutyOfficerCatalog.data as any[]) || []).map((d:any) => <option key={d.id} value={d.id}>{d.name}{d.department ? ` — ${d.department}` : ""}{d.rarity ? ` • ${d.rarity}` : ""}</option>)}
+          </select>
+          <Button size="sm" onClick={saveDutyOfficer} disabled={!dutyOfficerId}>Assign</Button>
+        </div>
+        <div className="mt-2 space-y-1">{((dutyOfficers.data as any[]) || []).map((d:any) => (
+          <div key={d.id} className="flex items-start justify-between gap-2 rounded border border-border px-2 py-1.5 text-sm">
+            <span><span className="text-primary">{d.name}</span>{d.department && <span className="ml-2 text-xs text-muted-foreground">{d.department}</span>}{d.effect_text && <span className="mt-1 block text-xs text-muted-foreground">{d.effect_text}</span>}</span>
+            <Button variant="ghost" size="icon" onClick={() => remove("loadout_duty_officers", d.id, "loadout_duty_officers")}><Trash2 className="h-3.5 w-3.5" /></Button>
+          </div>
         ))}</div>
       </div>
     </div>
