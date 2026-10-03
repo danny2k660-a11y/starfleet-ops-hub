@@ -94,7 +94,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     const chosenShip = fleetShips.find((s:any) => s.id === fleetShipId);
     if (!chosenShip || chosenShip.character_id !== characterId) throw new Error("Choose a ship owned by the selected character.");
     if (["console_trait_only", "collection_only"].includes(chosenShip.usage_mode)) throw new Error("This ship is marked as non-build. Return it to the build queue before creating a build.");
-    const payload = { name: trimmedName, ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId, character_id: characterId, role: role || null, status, notes: notes || null };
+    const payload = { name: trimmedName, ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId, character_id: characterId, role: role || null, status, notes: notes || null, build_domain: "space" };
     let buildId = build?.id ?? null;
     const otherBuild = fleetShips.find((s:any) => s.id === fleetShipId && s.current_build_id && s.current_build_id !== buildId);
     if (otherBuild) throw new Error("That ship is already assigned to another build.");
@@ -179,7 +179,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
       if (traitsError) throw traitsError;
       const { error: boffsError } = await supabase.from("loadout_boffs" as never).delete().eq("loadout_id", loadout.id);
       if (boffsError) throw boffsError;
-      const { error: doffsError } = await supabase.from("loadout_duty_officers" as never).delete().eq("loadout_id", loadout.id);
+      const { error: doffsError } = await supabase.from("build_doffs" as never).delete().eq("build_id", loadout.build_id);
       if (doffsError) throw doffsError;
       const { error } = await supabase.from("loadouts" as never).delete().eq("id", loadout.id).eq("user_id", u.user.id);
       if (error) throw error;
@@ -389,7 +389,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
       department: picked.department || null, effect_text: picked.effect_text || picked.ability_text || null
     }, { onConflict: "loadout_id,name" });
     if (error) { toast({ title: "Could not save duty officer", description: error.message, variant: "destructive" }); return; }
-    setDutyOfficerId(""); qc.invalidateQueries({ queryKey: ["loadout_duty_officers", loadoutId] });
+    setDutyOfficerId(""); qc.invalidateQueries({ queryKey: ["build_doffs", buildContext.data?.build_id] });
   };
   const remove = async (table: string, id: string, key: string) => {
     const { error } = await supabase.from(table as never).delete().eq("id", id);
