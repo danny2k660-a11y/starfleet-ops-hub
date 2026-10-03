@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type Build = Tables<"builds"> & { user_ship_id?: string | null };
+type Build = Tables<"builds">;
 type Ship = Tables<"ship_instances">;
 type Character = Tables<"characters">;
 type Loadout = Tables<"loadouts">;
