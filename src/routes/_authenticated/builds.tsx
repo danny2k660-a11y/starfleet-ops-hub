@@ -278,6 +278,21 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     if (error) { toast({ title: "Could not add trait", description: error.message, variant: "destructive" }); return; }
     setTrait(""); qc.invalidateQueries({ queryKey: ["loadout_traits", loadoutId] });
   };
+  const addConsole = async (consoleName: string, sourceShip: string) => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user || !shipContext.data?.characterId) return;
+    const { error } = await supabase.from("equipment_items").insert({
+      user_id: u.user.id,
+      character_id: shipContext.data.characterId,
+      name: consoleName,
+      category: "Console",
+      slot: "Universal Console",
+      notes: `Unlocked from owned ship: ${sourceShip}`,
+    });
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["equipment_items"] });
+    toast.success(`${consoleName} added to character equipment`);
+  };
   const saveOfficer = async () => {
     if (!station.trim()) return;
     const { error } = await supabase.from("loadout_boffs" as never).upsert({ loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null, specialization: specialization.trim() || null, abilities: abilities.split(",").map((x) => x.trim()).filter(Boolean) });
@@ -293,7 +308,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
       <div className="rounded-lg border border-border/70 bg-background/30 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Traits</p>
         {shipContext.data?.unlocks.filter((u:any)=>u.type==="trait").length ? <div className="mb-3 rounded border border-primary/20 bg-primary/5 p-2"><p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-primary">Starship traits unlocked by {shipContext.data.characterName}</p><div className="flex flex-wrap gap-1">{shipContext.data.unlocks.filter((u:any)=>u.type==="trait").map((u:any,i:number)=><button type="button" key={i} onClick={()=>{setTrait(u.name);setTraitType("starship");}} className="rounded border border-border px-2 py-1 text-xs hover:border-primary">{u.name} <span className="text-muted-foreground">({u.ship})</span></button>)}</div></div> : null}
-        {shipContext.data?.unlocks.filter((u:any)=>u.type==="console").length ? <div className="mb-3 rounded border border-accent/20 bg-accent/5 p-2"><p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent">Ship consoles unlocked by {shipContext.data.characterName}</p><div className="space-y-1">{shipContext.data.unlocks.filter((u:any)=>u.type==="console").map((u:any,i:number)=><div key={i} className="rounded border border-border px-2 py-1.5 text-xs"><span className="text-primary">{u.name}</span> <span className="text-muted-foreground">from {u.ship}</span></div>)}</div></div> : null}
+        {shipContext.data?.unlocks.filter((u:any)=>u.type==="console").length ? <div className="mb-3 rounded border border-accent/20 bg-accent/5 p-2"><p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent">Ship consoles unlocked by {shipContext.data.characterName}</p><div className="space-y-1">{shipContext.data.unlocks.filter((u:any)=>u.type==="console").map((u:any,i:number)=><div key={i} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1.5 text-xs"><span><span className="text-primary">{u.name}</span> <span className="text-muted-foreground">from {u.ship}</span></span><Button type="button" size="sm" variant="outline" onClick={() => addConsole(u.name, u.ship)}>Add to character</Button></div>)}</div></div> : null}
         <div className="flex gap-2">
           <Input value={trait} onChange={(e) => setTrait(e.target.value)} placeholder="Trait name" className="h-9" />
           <select value={traitType} onChange={(e) => setTraitType(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-xs">
