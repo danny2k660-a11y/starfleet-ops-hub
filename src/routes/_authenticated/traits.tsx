@@ -89,6 +89,20 @@ function Page() {
   };
   const reputationSlotLimit = (characterId:string, group:string) => 4 + ((slotUnlocks.data??[]).some((u:any)=>u.character_id===characterId && u.slot_group===group && u.unlocked) ? 1 : 0);
 
+  const traitMatchesCharacter = (t:any, character:any) => {
+    if (!character) return false;
+    const norm = (v:any) => String(v ?? "").trim().toLowerCase();
+    const restriction = norm(t.species_restriction);
+    if (restriction && restriction !== "all" && restriction !== norm(character.species)) return false;
+    const careerRestriction = norm(t.career_restriction);
+    if (careerRestriction && careerRestriction !== "all" && careerRestriction !== norm(character.career)) return false;
+    const factionRestriction = norm(t.faction_restriction);
+    if (factionRestriction && factionRestriction !== "all" && factionRestriction !== norm(character.faction)) return false;
+    const availability = norm(t.availability_type || t.availability);
+    if (availability === "species" && !t.species_restriction && !String(character.species ?? "").trim()) return false;
+    return true;
+  };
+
   const personalTraits = useMemo(()=> (characterTraits.data??[]).filter((t:any)=>{
     const c:any=catalogById.get(t.trait_id);
     const text=(String(c?.name??t.name??"")+" "+String(c?.trait_type??t.trait_category??"")+" "+String(c?.domain??t.domain??"")+" "+String(t.notes??"")+" "+String(characterById.get(t.character_id)?.name??"")).toLowerCase();
@@ -155,7 +169,7 @@ function Page() {
     <Dialog open={open} onOpenChange={v=>{setOpen(v);if(!v)reset()}}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle className="font-display text-primary">{mode==="personal"?"Add personal trait":"Assign starship trait"}</DialogTitle></DialogHeader><div className="grid gap-4">
       {mode==="personal" ? <>
         <div className="space-y-1"><Label>Character</Label><Select value={characterId} onValueChange={setCharacterId}><SelectTrigger><SelectValue placeholder="Choose character"/></SelectTrigger><SelectContent>{(characters.data??[]).map((c:any)=><SelectItem key={c.id} value={c.id}>{c.name}{c.level!=null?" — Lv "+c.level:""}</SelectItem>)}</SelectContent></Select></div>
-        <div className="space-y-1"><Label>Catalogue personal trait</Label><Select value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setCategory(t.trait_type??"personal");setDomain(t.domain??"space");setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose a canonical personal, species or reputation trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).filter((t:any)=>t.trait_type!=="starship").map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name} — {personalCategoryLabel(t.trait_type, t.domain, Boolean(t.is_active_ability))}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Catalogue personal trait</Label><Select value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setCategory(t.trait_type??"personal");setDomain(t.domain??"space");setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose an eligible personal, species or reputation trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).filter((t:any)=>t.trait_type!=="starship" && traitMatchesCharacter(t, selectedCharacter)).map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name} — {personalCategoryLabel(t.trait_type, t.domain, Boolean(t.is_active_ability))}</SelectItem>)}</SelectContent></Select></div>
         <div className="rounded border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">Personal traits are stored on the character, not on the ship. At level 65 the normal personal pool is 9 Ground + 9 Space slots; Alien characters receive one additional Ground + Space slot, and Elite Captains receive one additional Ground + Space slot. Reputation has separate 4-slot Passive Ground, Passive Space, Active Ground and Active Space categories, with separate Fleet Research Lab expansions.</div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Environment</Label><Select value={domain} onValueChange={setDomain}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="space">Space</SelectItem><SelectItem value="ground">Ground</SelectItem></SelectContent></Select></div><div className="space-y-1"><Label>Category</Label><Select value={category} onValueChange={setCategory}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{Object.entries(categoryLabels).filter(([k])=>k!=="starship").map(([k,v])=><SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div></div>
         <div className="space-y-1"><Label>Slot number</Label><Input type="number" min="1" value={slotIndex} onChange={e=>setSlotIndex(e.target.value)} placeholder="Optional slot"/><p className="text-xs text-muted-foreground">Personal {domain === "space" ? "Space" : "Ground"} slots: {selectedCharacter ? personalSlotLimit(selectedCharacter) : "choose a character first"}.</p></div><div className="flex items-center gap-2 rounded border p-3 text-sm"><input type="checkbox" checked={repExtra} onChange={e=>setRepExtra(e.target.checked)} disabled={category!=="reputation" && category!=="activereputation"} /><span>Fleet Research Lab +1 reputation slot for this Ground/Space category</span></div>
       </> : <>
