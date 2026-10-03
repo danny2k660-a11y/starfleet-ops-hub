@@ -330,14 +330,9 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     const { data, error } = await supabase.from("loadout_boffs" as never).select("*").eq("loadout_id", loadoutId).order("station");
     if (error) throw error; return data ?? [];
   }});
-  const dutyOfficers = useQuery({ queryKey: ["loadout_duty_officers", loadoutId], queryFn: async () => {
-    const { data, error } = await supabase.from("loadout_duty_officers" as never).select("*").eq("loadout_id", loadoutId).order("name");
-    if (error) throw error; return data ?? [];
-  }});
-  const dutyOfficerCatalog = useQuery({ queryKey: ["duty_officer_catalog"], queryFn: async () => {
-    const { data, error } = await supabase.from("duty_officer_catalog" as never).select("*").order("name");
-    if (error) throw error; return data ?? [];
-  }});
+  const buildContext = useQuery({ queryKey: ["loadout_build_context", loadoutId], queryFn: async () => { const { data, error } = await supabase.from("loadouts" as never).select("build_id").eq("id", loadoutId).single(); if (error) throw error; return data as any; }});
+  const dutyOfficers = useQuery({ queryKey: ["build_doffs", buildContext.data?.build_id], enabled: !!buildContext.data?.build_id, queryFn: async () => { const { data, error } = await supabase.from("build_doffs" as never).select("*").eq("build_id", buildContext.data.build_id).order("name"); if (error) throw error; return data ?? []; }});
+  const dutyOfficerCatalog = useQuery({ queryKey: ["doff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("doff_catalog" as never).select("*").order("name"); if (error) throw error; return data ?? []; }});
   const traitCatalog = useQuery({ queryKey: ["trait_catalog"], queryFn: async () => {
     const { data, error } = await supabase.from("trait_catalog" as never).select("*").order("name");
     if (error) throw error; return data ?? [];
@@ -384,10 +379,8 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const saveDutyOfficer = async () => {
     const picked:any = (dutyOfficerCatalog.data as any[] || []).find((d:any) => d.id === dutyOfficerId);
     if (!picked) return;
-    const { error } = await supabase.from("loadout_duty_officers" as never).upsert({
-      loadout_id: loadoutId, duty_officer_id: picked.id, name: picked.name,
-      department: picked.department || null, effect_text: picked.effect_text || picked.ability_text || null
-    }, { onConflict: "loadout_id,name" });
+    if (!buildContext.data?.build_id) return;
+    const { error } = await supabase.from("build_doffs" as never).insert({ build_id: buildContext.data.build_id, doff_id: picked.id, name: picked.name, department: picked.department || null, specialization: picked.specialization || null, assignment: picked.domain || null });
     if (error) { toast({ title: "Could not save duty officer", description: error.message, variant: "destructive" }); return; }
     setDutyOfficerId(""); qc.invalidateQueries({ queryKey: ["build_doffs", buildContext.data?.build_id] });
   };
@@ -441,7 +434,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
         <div className="mt-2 space-y-1">{((dutyOfficers.data as any[]) || []).map((d:any) => (
           <div key={d.id} className="flex items-start justify-between gap-2 rounded border border-border px-2 py-1.5 text-sm">
             <span><span className="text-primary">{d.name}</span>{d.department && <span className="ml-2 text-xs text-muted-foreground">{d.department}</span>}{d.effect_text && <span className="mt-1 block text-xs text-muted-foreground">{d.effect_text}</span>}</span>
-            <Button variant="ghost" size="icon" onClick={() => remove("loadout_duty_officers", d.id, "loadout_duty_officers")}><Trash2 className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => remove("build_doffs", d.id, "build_doffs")}><Trash2 className="h-3.5 w-3.5" /></Button>
           </div>
         ))}</div>
       </div>
