@@ -61,12 +61,22 @@ jobs:
           grep -q '<script' "$ENTRY"
           grep -q './assets/' "$ENTRY"
 
+      - name: Cache stable debug signing
+        uses: actions/cache@v4
+        with:
+          path: android-signing-cache
+          key: sto-command-center-debug-signing-v1
+
       - name: Configure stable debug signing
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p android/signing
-          base64 --decode .github/android/sto-debug.keystore.b64 > android/signing/sto-debug.keystore
+          mkdir -p android-signing-cache android/signing
+          if [ ! -s android-signing-cache/sto-debug.keystore ]; then
+            keytool -genkeypair -v               -keystore android-signing-cache/sto-debug.keystore               -storepass android               -keypass android               -alias androiddebugkey               -keyalg RSA               -keysize 2048               -validity 10000               -dname "CN=Starfleet Ops Hub Debug,O=Starfleet Ops Hub,C=GB"
+          fi
+          cp android-signing-cache/sto-debug.keystore android/signing/sto-debug.keystore
+          keytool -list -keystore android/signing/sto-debug.keystore -storepass android -alias androiddebugkey >/dev/null
           cat > android/signing/keystore.properties <<'EOF'
           storeFile=signing/sto-debug.keystore
           storePassword=android
