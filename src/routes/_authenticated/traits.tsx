@@ -7,45 +7,120 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Trash2, Sparkles } from "lucide-react";
+import { Plus, Search, Trash2, Sparkles, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-const types = ["personal_space","starship","reputation","active_space","ground","other"] as const;
-const labels: Record<string,string> = { personal_space:"Personal Space", starship:"Starship", reputation:"Reputation", active_space:"Active Space", ground:"Ground", other:"Other" };
+const categoryLabels: Record<string,string> = {
+  personal: "Personal",
+  starship: "Starship",
+  reputation: "Reputation",
+  active: "Active Reputation",
+  species: "Species",
+  other: "Other",
+};
+const domainLabels: Record<string,string> = { space: "Space", ground: "Ground" };
 
 export const Route = createFileRoute("/_authenticated/traits")({
-  head: () => ({ meta: [{ title: "Traits — STO Command Center" }, { name: "description", content: "Track traits assigned to STO loadouts." }] }),
+  head: () => ({ meta: [{ title: "Traits — STO Command Center" }, { name: "description", content: "Track personal ground and space traits, reputation traits and starship traits." }] }),
   component: Page,
 });
 
 function Page() {
   const qc = useQueryClient();
-  const [q,setQ] = useState(""); const [open,setOpen] = useState(false);
-  const [name,setName] = useState(""); const [catalogId,setCatalogId] = useState(""); const [type,setType] = useState("personal_space"); const [slot,setSlot] = useState(""); const [notes,setNotes] = useState(""); const [loadoutId,setLoadoutId] = useState("");
-  const catalog = useQuery({ queryKey:["trait_catalog"], queryFn: async () => { const { data,error } = await supabase.from("trait_catalog" as never).select("*").order("name"); if(error) throw error; return (data ?? []) as any[]; } });
-  const loadouts = useQuery({ queryKey:["loadouts"], queryFn: async () => { const { data,error } = await supabase.from("loadouts").select("id,name,build_id").order("updated_at",{ascending:false}); if(error) throw error; return data ?? []; } });
-  const builds = useQuery({ queryKey:["trait_builds"], queryFn: async () => { const { data,error } = await supabase.from("builds").select("id,name,ship_instances(name,characters(name))").order("updated_at",{ascending:false}); if(error) throw error; return data ?? []; } });
-  const traits = useQuery({ queryKey:["loadout_traits"], queryFn: async () => { const { data,error } = await supabase.from("loadout_traits").select("*").order("created_at",{ascending:false}); if(error) throw error; return data ?? []; } });
-  const buildById = useMemo(() => new Map((builds.data ?? []).map((b:any)=>[b.id,b])),[builds.data]);
-  const filtered = useMemo(() => (traits.data ?? []).filter((t:any) => { const l:any=(loadouts.data??[]).find((x:any)=>x.id===t.loadout_id); const b:any=buildById.get(l?.build_id); return (String(t.name)+" "+String(t.trait_type)+" "+String(b?.name??"")+" "+String(b?.ship_instances?.name??"")).toLowerCase().includes(q.toLowerCase()); }),[traits.data,loadouts.data,buildById,q]);
-  const reset=()=>{setName("");setCatalogId("");setType("personal_space");setSlot("");setNotes("");setLoadoutId("");};
-  const save = useMutation({ mutationFn: async () => { const { data:u }=await supabase.auth.getUser(); if(!u.user) throw new Error("Not signed in"); if(!loadoutId||!name.trim()) throw new Error("Loadout and trait name are required"); const { error }=await supabase.from("loadout_traits" as never).insert({user_id:u.user.id,loadout_id:loadoutId,trait_id:catalogId||null,trait_type:type,name:name.trim(),slot:slot.trim()||null,notes:notes.trim()||null}); if(error) throw error; }, onSuccess:()=>{qc.invalidateQueries({queryKey:["loadout_traits"]});toast.success("Trait assigned");setOpen(false);reset();}, onError:(e:Error)=>toast.error(e.message) });
-  const remove = useMutation({ mutationFn:async(id:string)=>{const {error}=await supabase.from("loadout_traits").delete().eq("id",id);if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["loadout_traits"]});toast.success("Trait removed");},onError:(e:Error)=>toast.error(e.message) });
-  return <AppShell title="Traits" subtitle="Trait library and loadout assignments"><div className="space-y-5">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="lcars-label">Trait control</p><h1 className="font-display text-2xl text-primary">Traits</h1><p className="text-sm text-muted-foreground">Track personal, starship, reputation and active traits against real loadouts.</p></div><Button onClick={()=>{reset();setOpen(true)}}><Plus className="mr-1 size-4"/> Assign trait</Button></div>
-    <div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-muted-foreground"/><Input className="pl-9" placeholder="Search traits, builds or ships…" value={q} onChange={e=>setQ(e.target.value)}/></div>
-    {(catalog.isError || loadouts.isError || builds.isError || traits.isError) && <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm"><p className="font-medium text-destructive">Trait data could not be fully loaded.</p><p className="mt-1 text-muted-foreground">Refresh the page and try again. Existing trait assignments are not changed by this warning.</p></div>}
-    {(catalog.isLoading || loadouts.isLoading || builds.isLoading || traits.isLoading) && <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">Loading trait assignments…</div>}
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{filtered.map((t:any)=>{const l:any=(loadouts.data??[]).find((x:any)=>x.id===t.loadout_id);const b:any=buildById.get(l?.build_id);return <div key={t.id} className="rounded-lg border border-border bg-card/70 p-4"><div className="flex items-start justify-between gap-2"><div><p className="font-medium">{t.name}</p><div className="mt-1 flex flex-wrap gap-1"><Badge variant="secondary">{labels[t.trait_type]??t.trait_type}</Badge>{t.slot&&<Badge variant="outline">{t.slot}</Badge>}</div></div><Button size="icon" variant="ghost" onClick={()=>remove.mutate(t.id)}><Trash2 className="size-4 text-destructive"/></Button></div><p className="mt-3 text-xs text-muted-foreground">{b?.name??"Unknown build"}{b?.ship_instances?.name?" • "+b.ship_instances.name:""}</p>{t.notes&&<p className="mt-2 text-xs text-muted-foreground">{t.notes}</p>}</div>})}</div>
-    {!filtered.length&&<div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground"><Sparkles className="mx-auto mb-2 size-5"/>{q?"No traits match your search.":"No traits assigned yet. Add the first trait to a loadout."}</div>}
-    <Dialog open={open} onOpenChange={v=>{setOpen(v);if(!v)reset()}}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle className="font-display text-primary">Assign trait</DialogTitle></DialogHeader><div className="grid gap-4">
-      <div className="space-y-1"><Label>Loadout</Label><Select value={loadoutId} onValueChange={setLoadoutId}><SelectTrigger><SelectValue placeholder="Choose a loadout"/></SelectTrigger><SelectContent>{(loadouts.data??[]).map((l:any)=>{const b:any=buildById.get(l.build_id);return <SelectItem key={l.id} value={l.id}>{b?.name??"Build"} — {l.name}</SelectItem>})}</SelectContent></Select></div>
-      <div className="space-y-1"><Label>Catalogue trait</Label><Select value={catalogId} onValueChange={(v)=>{setCatalogId(v);const t=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setType(t.trait_type??"other");setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose a catalogue trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name} — {labels[t.trait_type]??t.trait_type}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Choose from the canonical catalogue when populated, or enter a custom trait below.</p></div><div className="space-y-1"><Label>Trait name</Label><Input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Boimler Effect"/></div>
-      <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Type</Label><Select value={type} onValueChange={setType}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{types.map(t=><SelectItem key={t} value={t}>{labels[t]}</SelectItem>)}</SelectContent></Select></div><div className="space-y-1"><Label>Slot</Label><Input value={slot} onChange={e=>setSlot(e.target.value)} placeholder="1, 2, Universal…"/></div></div>
-      <div className="space-y-1"><Label>Notes</Label><Textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Theme role, source, or setup notes…"/></div>
-    </div><DialogFooter><Button variant="outline" onClick={()=>setOpen(false)}>Cancel</Button><Button onClick={()=>save.mutate()} disabled={save.isPending}>{save.isPending?"Assigning…":"Assign trait"}</Button></DialogFooter></DialogContent></Dialog>
+  const [q,setQ] = useState("");
+  const [open,setOpen] = useState(false);
+  const [mode,setMode] = useState<"personal"|"starship">("personal");
+  const [name,setName] = useState("");
+  const [catalogId,setCatalogId] = useState("");
+  const [category,setCategory] = useState("personal");
+  const [domain,setDomain] = useState("space");
+  const [slotIndex,setSlotIndex] = useState("");
+  const [notes,setNotes] = useState("");
+  const [characterId,setCharacterId] = useState("");
+  const [loadoutId,setLoadoutId] = useState("");
+
+  const catalog = useQuery({ queryKey:["trait_catalog"], queryFn:async()=>{ const {data,error}=await supabase.from("trait_catalog" as never).select("*").order("name"); if(error)throw error; return (data??[]) as any[]; }});
+  const characters = useQuery({ queryKey:["trait_characters"], queryFn:async()=>{ const {data,error}=await supabase.from("characters").select("id,name,level").order("name"); if(error)throw error; return data??[]; }});
+  const loadouts = useQuery({ queryKey:["trait_loadouts"], queryFn:async()=>{ const {data,error}=await supabase.from("loadouts").select("id,name,build_id").order("updated_at",{ascending:false}); if(error)throw error; return data??[]; }});
+  const builds = useQuery({ queryKey:["trait_builds"], queryFn:async()=>{ const {data,error}=await supabase.from("builds").select("id,name,user_ship_id").order("updated_at",{ascending:false}); if(error)throw error; return data??[]; }});
+  const userShips = useQuery({ queryKey:["trait_user_ships"], queryFn:async()=>{ const {data,error}=await supabase.from("user_ships").select("id,character_id,custom_name,sto_ships(name)").order("created_at",{ascending:false}); if(error)throw error; return data??[] as any[]; }});
+  const characterTraits = useQuery({ queryKey:["character_traits"], queryFn:async()=>{ const {data,error}=await supabase.from("character_traits" as never).select("*").order("created_at",{ascending:false}); if(error)throw error; return (data??[]) as any[]; }});
+  const loadoutTraits = useQuery({ queryKey:["loadout_traits"], queryFn:async()=>{ const {data,error}=await supabase.from("loadout_traits" as never).select("*").order("created_at",{ascending:false}); if(error)throw error; return (data??[]) as any[]; }});
+
+  const catalogById = useMemo(()=>new Map((catalog.data??[]).map(t=>[t.id,t])),[catalog.data]);
+  const characterById = useMemo(()=>new Map((characters.data??[]).map((c:any)=>[c.id,c])),[characters.data]);
+  const buildById = useMemo(()=>new Map((builds.data??[]).map((b:any)=>[b.id,b])),[builds.data]);
+  const loadoutById = useMemo(()=>new Map((loadouts.data??[]).map((l:any)=>[l.id,l])),[loadouts.data]);
+  const shipById = useMemo(()=>new Map((userShips.data??[]).map((s:any)=>[s.id,s])),[userShips.data]);
+
+  const reset=()=>{setName("");setCatalogId("");setCategory(mode==="personal"?"personal":"starship");setDomain("space");setSlotIndex("");setNotes("");setCharacterId("");setLoadoutId("");};
+
+  const personalTraits = useMemo(()=> (characterTraits.data??[]).filter((t:any)=>{
+    const c:any=catalogById.get(t.trait_id);
+    const text=(String(c?.name??t.name??"")+" "+String(c?.trait_type??t.trait_category??"")+" "+String(c?.domain??t.domain??"")+" "+String(t.notes??"")+" "+String(characterById.get(t.character_id)?.name??"")).toLowerCase();
+    return text.includes(q.toLowerCase());
+  }),[characterTraits.data,catalogById,characterById,q]);
+
+  const shipTraits = useMemo(()=> (loadoutTraits.data??[]).filter((t:any)=>{
+    const c:any=catalogById.get(t.trait_id);
+    const l:any=loadoutById.get(t.loadout_id); const b:any=buildById.get(l?.build_id); const s:any=shipById.get(b?.user_ship_id);
+    const text=(String(c?.name??t.name??"")+" "+String(b?.name??"")+" "+String(s?.custom_name??s?.sto_ships?.name??"")).toLowerCase();
+    return text.includes(q.toLowerCase());
+  }),[loadoutTraits.data,catalogById,loadoutById,buildById,shipById,q]);
+
+  const savePersonal = useMutation({ mutationFn:async()=>{
+    const {data:u}=await supabase.auth.getUser(); if(!u.user)throw new Error("Not signed in");
+    if(!characterId||!name.trim())throw new Error("Character and trait name are required");
+    const payload:any={user_id:u.user.id,character_id:characterId,trait_id:catalogId||null,source:"manual",notes:notes.trim()||null,active:true,slot_index:slotIndex?Number(slotIndex):null,domain,trait_category:category};
+    const {error}=await supabase.from("character_traits" as never).insert(payload); if(error)throw error;
+  },onSuccess:()=>{qc.invalidateQueries({queryKey:["character_traits"]});toast.success("Personal trait added");setOpen(false);reset();},onError:(e:Error)=>toast.error(e.message)});
+
+  const saveStarship = useMutation({ mutationFn:async()=>{
+    if(!loadoutId||!name.trim())throw new Error("Loadout and trait name are required");
+    const cat:any= catalogById.get(catalogId);
+    if(catalogId && cat?.trait_type!=="starship")throw new Error("Only starship traits can be assigned to a ship loadout");
+    const {error}=await supabase.from("loadout_traits" as never).insert({loadout_id:loadoutId,trait_id:catalogId||null,trait_type:"starship",name:name.trim(),slot:slotIndex.trim()||null}); if(error)throw error;
+  },onSuccess:()=>{qc.invalidateQueries({queryKey:["loadout_traits"]});toast.success("Starship trait assigned");setOpen(false);reset();},onError:(e:Error)=>toast.error(e.message)});
+
+  const removePersonal=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("character_traits" as never).delete().eq("id",id);if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["character_traits"]});toast.success("Personal trait removed")},onError:(e:Error)=>toast.error(e.message)});
+  const removeStarship=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("loadout_traits").delete().eq("id",id);if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["loadout_traits"]});toast.success("Starship trait removed")},onError:(e:Error)=>toast.error(e.message)});
+
+  const openPersonal=()=>{setMode("personal");reset();setOpen(true)};
+  const openStarship=()=>{setMode("starship");reset();setOpen(true)};
+
+  return <AppShell title="Traits" subtitle="Personal ground/space traits and starship traits"><div className="space-y-5">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div><p className="lcars-label">Trait control</p><h1 className="font-display text-2xl text-primary">Traits</h1><p className="text-sm text-muted-foreground">Personal traits are character-owned. Starship traits belong to the ship loadout. Ground and space are tracked separately.</p></div>
+      <div className="flex flex-wrap gap-2"><Button onClick={openPersonal}><UserRound className="mr-1 size-4"/> Add personal trait</Button><Button variant="outline" onClick={openStarship}><Plus className="mr-1 size-4"/> Assign starship trait</Button></div>
+    </div>
+    <div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-muted-foreground"/><Input className="pl-9" placeholder="Search traits, characters, builds or ships…" value={q} onChange={e=>setQ(e.target.value)}/></div>
+    {(catalog.isError||characters.isError||loadouts.isError||builds.isError||characterTraits.isError||loadoutTraits.isError) && <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm"><p className="font-medium text-destructive">Trait data could not be fully loaded.</p><p className="mt-1 text-muted-foreground">Refresh the page and try again.</p></div>}
+    <div className="grid gap-5 lg:grid-cols-2">
+      <section className="panel p-4"><div className="mb-3 flex items-center justify-between"><div><p className="lcars-label">Character-owned</p><h2 className="font-display text-lg text-primary">Personal Traits</h2></div><Badge variant="secondary">{personalTraits.length}</Badge></div><div className="grid gap-3 sm:grid-cols-2">
+        {personalTraits.map((t:any)=>{const c:any=catalogById.get(t.trait_id);return <div key={t.id} className="rounded-lg border border-border bg-card/70 p-3"><div className="flex items-start justify-between gap-2"><div><p className="font-medium">{c?.name??t.name??"Unnamed trait"}</p><div className="mt-1 flex flex-wrap gap-1"><Badge variant="secondary">{domainLabels[c?.domain??t.domain]??(c?.domain??t.domain??"Unknown")}</Badge><Badge variant="outline">{categoryLabels[c?.trait_type??t.trait_category]??(c?.trait_category??"Personal")}</Badge>{t.active&&<Badge variant="outline">Active</Badge>}</div></div><Button size="icon" variant="ghost" onClick={()=>removePersonal.mutate(t.id)}><Trash2 className="size-4 text-destructive"/></Button></div><p className="mt-2 text-xs text-muted-foreground">{characterById.get(t.character_id)?.name??"Unknown character"}{t.slot_index!=null?" • Slot "+t.slot_index:""}</p>{(c?.description||t.notes)&&<p className="mt-2 text-xs text-muted-foreground">{c?.description||t.notes}</p>}</div>})}
+        {!personalTraits.length&&<div className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"><Sparkles className="mx-auto mb-2 size-5"/>No personal traits assigned yet.</div>}
+      </div></section>
+      <section className="panel p-4"><div className="mb-3 flex items-center justify-between"><div><p className="lcars-label">Ship loadouts</p><h2 className="font-display text-lg text-primary">Starship Traits</h2></div><Badge variant="secondary">{shipTraits.length}</Badge></div><div className="grid gap-3 sm:grid-cols-2">
+        {shipTraits.map((t:any)=>{const c:any=catalogById.get(t.trait_id);const l:any=loadoutById.get(t.loadout_id);const b:any=buildById.get(l?.build_id);const s:any=shipById.get(b?.user_ship_id);return <div key={t.id} className="rounded-lg border border-border bg-card/70 p-3"><div className="flex items-start justify-between gap-2"><div><p className="font-medium">{c?.name??t.name??"Unnamed trait"}</p><div className="mt-1 flex flex-wrap gap-1"><Badge variant="secondary">Starship</Badge>{t.slot&&<Badge variant="outline">{t.slot}</Badge>}</div></div><Button size="icon" variant="ghost" onClick={()=>removeStarship.mutate(t.id)}><Trash2 className="size-4 text-destructive"/></Button></div><p className="mt-2 text-xs text-muted-foreground">{b?.name??"Build"} • {s?.custom_name||s?.sto_ships?.name||"Ship"} • {l?.name??"Loadout"}</p></div>})}
+        {!shipTraits.length&&<div className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"><Sparkles className="mx-auto mb-2 size-5"/>No starship traits assigned yet.</div>}
+      </div></section>
+    </div>
+    <Dialog open={open} onOpenChange={v=>{setOpen(v);if(!v)reset()}}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle className="font-display text-primary">{mode==="personal"?"Add personal trait":"Assign starship trait"}</DialogTitle></DialogHeader><div className="grid gap-4">
+      {mode==="personal" ? <>
+        <div className="space-y-1"><Label>Character</Label><Select value={characterId} onValueChange={setCharacterId}><SelectTrigger><SelectValue placeholder="Choose character"/></SelectTrigger><SelectContent>{(characters.data??[]).map((c:any)=><SelectItem key={c.id} value={c.id}>{c.name}{c.level!=null?" — Lv "+c.level:""}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Catalogue personal trait</Label><Select value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setCategory(t.trait_type??"personal");setDomain(t.domain??"space");setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose a canonical personal/reputation trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).filter((t:any)=>t.trait_type!=="starship").map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name} — {domainLabels[t.domain]??t.domain} — {categoryLabels[t.trait_type]??t.trait_type}</SelectItem>)}</SelectContent></Select></div>
+        <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Environment</Label><Select value={domain} onValueChange={setDomain}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="space">Space</SelectItem><SelectItem value="ground">Ground</SelectItem></SelectContent></Select></div><div className="space-y-1"><Label>Category</Label><Select value={category} onValueChange={setCategory}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{Object.entries(categoryLabels).filter(([k])=>k!=="starship").map(([k,v])=><SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div></div>
+        <div className="space-y-1"><Label>Slot number</Label><Input type="number" min="1" value={slotIndex} onChange={e=>setSlotIndex(e.target.value)} placeholder="Optional active slot"/></div>
+      </> : <>
+        <div className="space-y-1"><Label>Loadout</Label><Select value={loadoutId} onValueChange={setLoadoutId}><SelectTrigger><SelectValue placeholder="Choose a ship loadout"/></SelectTrigger><SelectContent>{(loadouts.data??[]).map((l:any)=>{const b:any=buildById.get(l.build_id);const s:any=shipById.get(b?.user_ship_id);return <SelectItem key={l.id} value={l.id}>{b?.name??"Build"} — {s?.custom_name||s?.sto_ships?.name||"Ship"} — {l.name}</SelectItem>})}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Catalogue starship trait</Label><Select value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose a canonical starship trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).filter((t:any)=>t.trait_type==="starship").map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Trait name</Label><Input value={name} onChange={e=>setName(e.target.value)} placeholder="Starship trait name"/></div>
+        <div className="space-y-1"><Label>Trait slot</Label><Input value={slotIndex} onChange={e=>setSlotIndex(e.target.value)} placeholder="1, 2, 3, 4, extra…"/></div>
+      </>}
+      <div className="space-y-1"><Label>Notes</Label><Textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Source, theme role, or setup notes…"/></div>
+    </div><DialogFooter><Button variant="outline" onClick={()=>setOpen(false)}>Cancel</Button><Button onClick={()=>mode==="personal"?savePersonal.mutate():saveStarship.mutate()} disabled={savePersonal.isPending||saveStarship.isPending}>{savePersonal.isPending||saveStarship.isPending?"Saving…":"Save trait"}</Button></DialogFooter></DialogContent></Dialog>
   </div></AppShell>;
 }
