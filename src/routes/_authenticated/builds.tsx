@@ -191,7 +191,7 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
     const { error } = await supabase.from("loadouts" as never).insert({
       user_id: u.user.id,
       build_id: buildId,
-      name: name.trim(),
+      name: trimmedName,
       is_active: !activeLoadout,
       notes: notes.trim() || null,
     });
