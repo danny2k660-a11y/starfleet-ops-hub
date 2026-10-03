@@ -1,0 +1,2 @@
+alter table public.user_ships add column if not exists acquisition_source_id uuid references public.sto_ship_sources(id) on delete set null;
+create index if not exists idx_user_ships_acquisition_source on public.user_ships(acquisition_source_id);
