@@ -34,6 +34,7 @@ function BuildsPage() {
   const readiness = useQuery({ queryKey: ["build_readiness"], queryFn: async () => { const { data, error } = await supabase.from("sto_build_readiness_audit" as never).select("*"); if (error) throw error; return (data ?? []) as any[]; } });
   const loadouts = useQuery({ queryKey: ["loadouts"], queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("*").order("updated_at", { ascending: false }); if (error) throw error; return data as Loadout[]; } });
   const builds = useQuery({ queryKey: ["builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("*, ship_instances(*, characters(*)), user_ships(id,custom_name,character_id,sto_ship_id,characters(name),sto_ships(name))").order("updated_at", { ascending: false }); if (error) throw error; return data as unknown as (Build & { ship_instances: Ship & { characters: Character | null } | null })[]; } });
+  const ownedShips = useQuery({ queryKey: ["build_owned_ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,character_id,current_build_id,characters(name),sto_ships(name)").order("custom_name"); if (error) throw error; return (data ?? []) as any[]; } });
   const ships = useQuery({ queryKey: ["ship_instances"], queryFn: async () => { const { data, error } = await supabase.from("ship_instances").select("*, characters(*)").order("name"); if (error) throw error; return data as unknown as (Ship & { characters: Character | null })[]; } });
   const fleetLinks = useQuery({ queryKey: ["build-fleet-links"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,current_build_id,custom_name,sto_ships(name),characters(name)").not("current_build_id","is",null); if (error) throw error; return data ?? []; } });
   const fleetByBuild = useMemo(() => new Map((fleetLinks.data ?? []).map((s:any) => [s.current_build_id, s])), [fleetLinks.data]);
@@ -66,15 +67,16 @@ function BuildsPage() {
         </div>
       )}
     </section>
-    <BuildDialog key={selected?.id ?? "new"} open={open} onOpenChange={setOpen} build={selected} ships={ships.data ?? []} fleetShips={fleetLinks.data ?? []} onDeleted={() => selected && remove.mutate(selected.id)} />
+    <BuildDialog key={selected?.id ?? "new"} open={open} onOpenChange={setOpen} build={selected} ships={ships.data ?? []} fleetShips={ownedShips.data ?? []} characters={characters.data ?? []} onDeleted={() => selected && remove.mutate(selected.id)} />
   </div></AppShell>;
 }
 
-function BuildDialog({ open, onOpenChange, build, ships, fleetShips, onDeleted }: { open: boolean; onOpenChange: (v: boolean) => void; build: (Build & { ship_instances: Ship & { characters: Character | null } | null }) | null; ships: (Ship & { characters: Character | null })[]; fleetShips: FleetShip[]; onDeleted: () => void }) {
+function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters, onDeleted }: { open: boolean; onOpenChange: (v: boolean) => void; build: (Build & { ship_instances: Ship & { characters: Character | null } | null }) | null; ships: (Ship & { characters: Character | null })[]; fleetShips: any[]; characters: Character[]; onDeleted: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState(build?.name ?? "");
   const existingFleetShip = fleetShips.find((s) => s.current_build_id === build?.id) ?? (build as any)?.user_ships ?? null;
-  const [shipId, setShipId] = useState(build?.ship_instance_id ?? "__none__");
+  const [characterId, setCharacterId] = useState(existingFleetShip?.character_id ?? "__none__");
+  const [shipId, setShipId = useState(build?.ship_instance_id ?? "__none__");
   const [fleetShipId, setFleetShipId] = useState(existingFleetShip?.id ?? "__none__");
   const [role, setRole] = useState(build?.role ?? "");
   const [status, setStatus] = useState(build?.status ?? "draft");
@@ -82,6 +84,10 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, onDeleted }
 
   const save = useMutation({ mutationFn: async () => {
     const { data: u } = await supabase.auth.getUser();
+    if (characterId === "__none__") throw new Error("Choose a character.");
+    if (fleetShipId === "__none__") throw new Error("Choose a ship owned by that character.");
+    const chosenShip = fleetShips.find((s:any) => s.id === fleetShipId);
+    if (!chosenShip || chosenShip.character_id !== characterId) throw new Error("Choose a ship owned by the selected character.");
     const payload = { name: name.trim(), ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId === "__none__" ? null : fleetShipId, role: role || null, status, notes: notes || null };
     let buildId = build?.id ?? null;
     if (build) {
@@ -103,6 +109,8 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, onDeleted }
 
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle className="font-display text-primary">{build ? "Edit build" : "New build"}</DialogTitle></DialogHeader>
     <div className="space-y-4">
+      <div className="space-y-1"><Label>Character</Label><Select value={characterId} onValueChange={(v) => { setCharacterId(v); setFleetShipId("__none__"); }}><SelectTrigger><SelectValue placeholder="Choose character" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose character</SelectItem>{characters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
+      <div className="space-y-1"><Label>Ship</Label><Select value={fleetShipId} onValueChange={setFleetShipId}><SelectTrigger><SelectValue placeholder="Choose ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose ship</SelectItem>{fleetShips.filter((s:any) => s.character_id === characterId).map((s:any) => <SelectItem key={s.id} value={s.id}>{s.custom_name || s.sto_ships?.name || "Unnamed ship"}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Only ships owned by this character are shown.</p></div>
       <div className="space-y-1"><Label>Build name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Elite CSV — Terran" /></div>
       <div className="space-y-1"><Label>Primary owned ship</Label><Select value={fleetShipId} onValueChange={setFleetShipId}><SelectTrigger><SelectValue placeholder="Link to owned ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">No fleet ship link</SelectItem>{fleetShips.map(s => <SelectItem key={s.id} value={s.id}>{s.custom_name || s.sto_ships?.name || "Unnamed ship"}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">This is the canonical owned-ship link for this build. New builds should use this field.</p></div>
       {build?.ship_instance_id && <div className="rounded border border-amber-500/30 bg-amber-500/5 p-3"><p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Legacy ship link</p><p className="mt-1 text-xs text-muted-foreground">Retained for compatibility; the primary owned ship above is authoritative.</p><div className="mt-2"><Select value={shipId} onValueChange={setShipId}><SelectTrigger><SelectValue placeholder="Legacy ship instance" /></SelectTrigger><SelectContent><SelectItem value="__none__">Clear legacy link</SelectItem>{ships.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select></div></div>}
