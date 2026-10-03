@@ -1019,9 +1019,15 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
   const [acquired, setAcquired] = useState(ship.date_acquired ?? "");
   const [notes, setNotes] = useState(ship.notes ?? "");
   const [up, setUp] = useState({ t6: ship.t6_upgraded, t6x: ship.t6x_upgraded, t6x2: ship.t6x2_upgraded });
+  const characterBuilds = useMemo(() => builds.filter((b: any) => !characterId || b.user_ship_id === ship.id || b.user_ship_id == null || (b.user_ship_id && (b as any).user_ships?.character_id === characterId)), [builds, characterId, ship.id]);
 
   const update = useMutation({
     mutationFn: async () => {
+      if (buildId !== NONE) {
+        const selectedBuild = builds.find((b) => b.id === buildId) as any;
+        if (!selectedBuild) throw new Error("Selected build could not be found.");
+        if (selectedBuild.user_ship_id && selectedBuild.user_ship_id !== ship.id) throw new Error("That build belongs to another ship.");
+      }
       const { error } = await supabase.from("user_ships").update({
         custom_name: name.trim(), character_id: characterId, current_build_id: buildId === NONE ? null : buildId,
         ownership_status: status, date_acquired: acquired || null, notes: notes || null,
@@ -1127,7 +1133,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>None</SelectItem>
-                  {builds.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}{b.id === ship.current_build_id ? " • CURRENT" : ""}</SelectItem>)}
+                  {characterBuilds.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}{b.id === ship.current_build_id ? " • CURRENT" : ""}</SelectItem>)}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">This saves the selected build as the ship's active build link. Build ownership remains separate from the ship catalogue record.</p>
@@ -1198,7 +1204,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
               <p className="text-xs text-muted-foreground">Exact operational state for this ship. Open the detail workflow from the relevant item.</p>
             </div>
             <Badge variant="outline">{[
-              !!ship.character_id, !!ship.current_build_id, !!null, !!activeLoadout,
+              !!ship.character_id, !!ship.current_build_id, !!activeLoadout,
               detailCoverage.catalogVerified && detailCoverage.equipmentExpected > 0 && detailCoverage.equipmentFilled === detailCoverage.equipmentExpected,
               (manifest.data?.traits.length ?? 0) > 0,
               detailCoverage.catalogVerified && detailCoverage.boffsExpected > 0 && detailCoverage.boffsFilled === detailCoverage.boffsExpected,
@@ -1234,7 +1240,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
               <p className="text-xs text-muted-foreground">Core assignments required before this ship is considered operational.</p>
             </div>
             <Badge variant="outline">{[
-              !!ship.character_id, !!ship.current_build_id, !!null, !!activeLoadout,
+              !!ship.character_id, !!ship.current_build_id, !!activeLoadout,
               (manifest.data?.equipment.length ?? 0) > 0,
               (manifest.data?.traits.length ?? 0) > 0,
               (manifest.data?.boffs.length ?? 0) > 0,
