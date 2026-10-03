@@ -805,6 +805,7 @@ function ShipsPage() {
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 <Badge variant="outline">{s.characters?.name ?? "No character"}</Badge>
                 {s.sto_ships?.faction && <Badge variant="outline">{s.sto_ships.faction}</Badge>}
+                <Badge variant="outline">{(s as any).usage_mode === "console_trait_only" ? "Console / Trait only" : (s as any).usage_mode === "collection_only" ? "Collection only" : "Build"}</Badge>
                 {tierLabel(s) && <Badge className="bg-accent text-accent-foreground">{tierLabel(s)}</Badge>}
                 <Badge variant="secondary">{s.ownership_status}</Badge>
               </div>
@@ -858,6 +859,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, onSaved }: {
   const [newChar, setNewChar] = useState("");
   const [name, setName] = useState("");
   const [up, setUp] = useState({ t6: false, t6x: false, t6x2: false });
+  const [usageMode, setUsageMode] = useState<"build_pending" | "console_trait_only" | "collection_only">("build_pending");
 
   const results = catalog.filter((s) => `${s.name} ${s.ship_class ?? ""} ${s.faction ?? ""}`.toLowerCase().includes(search.toLowerCase()));
 
@@ -877,6 +879,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, onSaved }: {
       const { data: u } = await supabase.auth.getUser();
       const { data, error } = await supabase.from("user_ships").insert({
         user_id: u.user!.id, character_id: characterId, sto_ship_id: shipId!, custom_name: name.trim(),
+        usage_mode: usageMode,
         t6_upgraded: up.t6, t6x_upgraded: up.t6x, t6x2_upgraded: up.t6x2,
       }).select("id").single();
       if (error) throw error;
@@ -885,7 +888,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, onSaved }: {
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["user_ships"] });
       toast.success("Ship registered");
-      setSearch(""); setShipId(null); setName(""); setUp({ t6: false, t6x: false, t6x2: false });
+      setSearch(""); setShipId(null); setName(""); setUsageMode("build_pending"); setUp({ t6: false, t6x: false, t6x2: false });
       onSaved(id);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -930,7 +933,19 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, onSaved }: {
             <Input placeholder="e.g. I.S.S. Predator" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>4. Upgrade status</Label>
+            <Label>4. What are you using this ship for?</Label>
+            <Select value={usageMode} onValueChange={(v) => setUsageMode(v as typeof usageMode)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="build_pending">Build this ship</SelectItem>
+                <SelectItem value="console_trait_only">Console / trait only</SelectItem>
+                <SelectItem value="collection_only">Collection only</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Console/trait and collection ships remain owned but do not need a build.</p>
+          </div>
+          <div className="space-y-2">
+            <Label>5. Upgrade status</Label>
             <UpgradeChecks {...up} set={setUp} />
           </div>
         </div>
