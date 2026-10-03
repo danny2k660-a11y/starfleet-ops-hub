@@ -205,7 +205,8 @@ function ShipsPage() {
   const readinessDataError = ships.error || catalog.error || fleetLoadouts.error || fleetLoadoutConfig.error;
 
   const fleetReadiness = useMemo(() => {
-    const owned = (ships.data ?? []).filter((s) => s.ownership_status === "owned");
+    // Readiness belongs to real builds only. Owned ships without a build stay in the assignment queue.
+    const owned = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && !!s.current_build_id);
     const rows = owned.map((s) => {
       const active = s.current_build_id ? activeLoadoutByBuild.get(s.current_build_id) : undefined;
       const coverage = active ? loadoutCoverageById.get(active.id) : undefined;
@@ -285,11 +286,11 @@ function ShipsPage() {
               : readinessFilter === "build"
                 ? !!readinessRow && !readinessRow.checks[1]
                 : readinessFilter === "loadout"
-                    ? !!readinessRow && !readinessRow.checks[3]
+                    ? !!readinessRow && !readinessRow.checks[2]
                     : readinessFilter === "equipment"
-                      ? !!readinessRow && !readinessRow.checks[4]
+                      ? !!readinessRow && !readinessRow.checks[3]
                       : readinessFilter === "traits"
-                        ? !!readinessRow && !readinessRow.checks[5]
+                        ? !!readinessRow && !readinessRow.checks[4]
                         : readinessFilter === "boffs"
                           ? !!readinessRow && !readinessRow.checks[5]
                           : true;
@@ -338,9 +339,9 @@ function ShipsPage() {
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-4">
           {[
-            { label: "Fully ready", count: fleetReadiness.fullyReady, note: "7/6 operational checks" },
+            { label: "Fully ready", count: fleetReadiness.fullyReady, note: "6/6 operational checks" },
             { label: "Build assigned", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.current_build_id).length, note: "build linked" },
-            { label: "Active loadout", count: fleetReadiness.rows.filter((row) => row.checks[3]).length, note: "deployment loadout" },
+            { label: "Active loadout", count: fleetReadiness.rows.filter((row) => row.checks[2]).length, note: "deployment loadout" },
             { label: "Needs action", count: fleetReadiness.rows.filter((row) => row.complete < 6).length, note: "one or more checks missing" },
           ].map((item) => (
             <button key={item.label} onClick={() => {
