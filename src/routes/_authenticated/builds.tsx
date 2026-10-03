@@ -425,7 +425,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
       </div>
       <div className="rounded-lg border border-border/70 bg-background/30 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duty Officers</p>
-        <p className="mb-2 text-xs text-muted-foreground">Record the exact Duty Officers assigned to this ship loadout and what their active/passive effects do. Catalogue entries are shown only when verified data exists.</p>
+        <p className="mb-2 text-xs text-muted-foreground">Duty Officers belong to the ship build, while your character roster records which officers you own. Space and ground DOffs are kept distinct.</p><Button size="sm" variant="outline" onClick={async()=>{const {error}=await supabase.functions.invoke("sync-doff-catalog",{body:{}});if(error)toast.error(error.message);else{qc.invalidateQueries({queryKey:["doff_catalog"]});toast.success("Duty Officer catalogue synced");}}}>Sync DOff catalogue</Button>
         <div className="flex gap-2">
           <select value={dutyOfficerId} onChange={(e) => setDutyOfficerId(e.target.value)} className="h-9 flex-1 rounded-md border bg-background px-2 text-xs">
             <option value="">Select Duty Officer</option>
