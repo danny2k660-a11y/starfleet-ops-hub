@@ -59,6 +59,7 @@ function useData() {
       return data;
     },
   });
+  const sources = useQuery({ queryKey: ["ship_sources"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources" as never).select("id,sto_ship_id,source_type,source_name,bundle_id,character_restriction,account_unlock").order("source_name"); if (error) throw error; return (data ?? []) as any[]; } });
   const characters = useQuery({
     queryKey: ["characters"],
     queryFn: async () => {
@@ -75,7 +76,7 @@ function useData() {
       return data;
     },
   });
-  return { ships, catalog, characters, builds };
+  return { ships, catalog, characters, builds, sources };
 }
 
 function tierLabel(s: UserShip) {
@@ -86,7 +87,7 @@ function tierLabel(s: UserShip) {
 }
 
 function ShipsPage() {
-  const { ships, catalog, characters, builds } = useData();
+  const { ships, catalog, characters, builds, sources } = useData();
   const buildIds = useMemo(
     () => (ships.data ?? []).map((s) => s.current_build_id).filter(Boolean) as string[],
     [ships.data],
@@ -849,8 +850,8 @@ function UpgradeChecks({ t6, t6x, t6x2, set }: { t6: boolean; t6x: boolean; t6x2
   );
 }
 
-function AddShipDialog({ open, onOpenChange, catalog, characters, onSaved }: {
-  open: boolean; onOpenChange: (o: boolean) => void; catalog: StoShip[]; characters: Character[]; onSaved: (id: string) => void;
+function AddShipDialog({ open, onOpenChange, catalog, characters, sources, onSaved }: {
+  open: boolean; onOpenChange: (o: boolean) => void; catalog: StoShip[]; characters: Character[]; sources: any[]; onSaved: (id: string) => void;
 }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -860,6 +861,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, onSaved }: {
   const [name, setName] = useState("");
   const [up, setUp] = useState({ t6: false, t6x: false, t6x2: false });
   const [usageMode, setUsageMode] = useState<"build_pending" | "console_trait_only" | "collection_only">("build_pending");
+  const [sourceId, setSourceId] = useState("__none__");
 
   const results = catalog.filter((s) => `${s.name} ${s.ship_class ?? ""} ${s.faction ?? ""}`.toLowerCase().includes(search.toLowerCase()));
 
@@ -880,6 +882,8 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, onSaved }: {
       const { data, error } = await supabase.from("user_ships").insert({
         user_id: u.user!.id, character_id: characterId, sto_ship_id: shipId!, custom_name: name.trim(),
         usage_mode: usageMode,
+        acquisition_source_id: sourceId === "__none__" ? null : sourceId,
+        acquisition_group: sourceId !== "__none__" ? (sources.find((x) => x.id === sourceId)?.source_name ?? null) : null,
         t6_upgraded: up.t6, t6x_upgraded: up.t6x, t6x2_upgraded: up.t6x2,
       }).select("id").single();
       if (error) throw error;
@@ -888,7 +892,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, onSaved }: {
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["user_ships"] });
       toast.success("Ship registered");
-      setSearch(""); setShipId(null); setName(""); setUsageMode("build_pending"); setUp({ t6: false, t6x: false, t6x2: false });
+      setSearch(""); setShipId(null); setName(""); setUsageMode("build_pending"); setSourceId("__none__"); setUp({ t6: false, t6x: false, t6x2: false });
       onSaved(id);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -933,7 +937,12 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, onSaved }: {
             <Input placeholder="e.g. I.S.S. Predator" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>4. What are you using this ship for?</Label>
+            <Label>4. Acquisition source</Label>
+            <Select value={sourceId} onValueChange={setSourceId}><SelectTrigger><SelectValue placeholder="Select acquisition route" /></SelectTrigger><SelectContent><SelectItem value="__none__">Not specified</SelectItem>{sources.filter((x) => !shipId || x.sto_ship_id === shipId).map((x) => <SelectItem key={x.id} value={x.id}>{x.source_name}{x.source_type ? " · " + x.source_type : ""}</SelectItem>)}</SelectContent></Select>
+            <p className="text-xs text-muted-foreground">Track Zen Store, bundle and other acquisition routes for this ship.</p>
+          </div>
+          <div className="space-y-2">
+            <Label>5. What are you using this ship for?</Label>
             <Select value={usageMode} onValueChange={(v) => setUsageMode(v as typeof usageMode)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -945,7 +954,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, onSaved }: {
             <p className="text-xs text-muted-foreground">Console/trait and collection ships remain owned but do not need a build.</p>
           </div>
           <div className="space-y-2">
-            <Label>5. Upgrade status</Label>
+            <Label>6. Upgrade status</Label>
             <UpgradeChecks {...up} set={setUp} />
           </div>
         </div>
