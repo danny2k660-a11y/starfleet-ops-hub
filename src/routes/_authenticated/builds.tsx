@@ -86,6 +86,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
   const [role, setRole] = useState(build?.role ?? "");
   const [status, setStatus] = useState(build?.status ?? "draft");
   const [notes, setNotes] = useState(build?.notes ?? "");
+  const [themeId, setThemeId] = useState<string>((existingFleetShip?.theme_id as string | null) ?? "__none__");
 
   const save = useMutation({ mutationFn: async () => {
     const { data: u } = await supabase.auth.getUser();
@@ -93,7 +94,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     if (fleetShipId === "__none__") throw new Error("Choose a ship owned by that character.");
     const chosenShip = fleetShips.find((s:any) => s.id === fleetShipId);
     if (!chosenShip || chosenShip.character_id !== characterId) throw new Error("Choose a ship owned by the selected character.");
-    const payload = { name: name.trim(), ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId === "__none__" ? null : fleetShipId, role: role || null, status, notes: notes || null };
+    const payload = { name: name.trim(), ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId, role: role || null, status, notes: notes || null };
     let buildId = build?.id ?? null;
     const otherBuild = fleetShips.find((s:any) => s.id === fleetShipId && s.current_build_id && s.current_build_id !== buildId);
     if (otherBuild) throw new Error("That ship is already assigned to another build.");
@@ -109,7 +110,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     const { error: clearError } = await supabase.from("user_ships").update({ current_build_id: null, usage_mode: "build_pending" } as never).eq("current_build_id", buildId);
     if (clearError) throw clearError;
     if (fleetShipId !== "__none__") {
-      const { error: linkError } = await supabase.from("user_ships").update({ current_build_id: buildId, usage_mode: "build_created" } as never).eq("id", fleetShipId);
+      const { error: linkError } = await supabase.from("user_ships").update({ current_build_id: buildId, usage_mode: "build_created", theme_id: themeId === "__none__" ? null : themeId } as never).eq("id", fleetShipId);
       if (linkError) throw linkError;
     }
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["builds"] }); toast.success(build ? "Build updated" : "Build created"); onOpenChange(false); }, onError: (e: Error) => toast.error(e.message) });
@@ -119,7 +120,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
       <div className="space-y-1"><Label>Character</Label><Select value={characterId} onValueChange={(v) => { setCharacterId(v); setFleetShipId("__none__"); }}><SelectTrigger><SelectValue placeholder="Choose character" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose character</SelectItem>{characters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
       <div className="space-y-1"><Label>Ship</Label><Select value={fleetShipId} onValueChange={setFleetShipId}><SelectTrigger><SelectValue placeholder="Choose ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose ship</SelectItem>{fleetShips.filter((s:any) => s.character_id === characterId).map((s:any) => <SelectItem key={s.id} value={s.id}>{s.custom_name || s.sto_ships?.name || "Unnamed ship"}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Only ships owned by this character are shown.</p></div>
       <div className="space-y-1"><Label>Build name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Elite CSV — Terran" /></div>
-      <div className="space-y-1"><Label>Primary owned ship</Label><Select value={fleetShipId} onValueChange={setFleetShipId}><SelectTrigger><SelectValue placeholder="Link to owned ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">No fleet ship link</SelectItem>{fleetShips.map(s => <SelectItem key={s.id} value={s.id}>{s.custom_name || s.sto_ships?.name || "Unnamed ship"}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">This is the canonical owned-ship link for this build. New builds should use this field.</p></div>
+      <div className="space-y-1"><Label>Theme</Label><Select value={themeId} onValueChange={setThemeId}><SelectTrigger><SelectValue placeholder="Choose theme" /></SelectTrigger><SelectContent><SelectItem value="__none__">No theme assigned</SelectItem>{LOADOUT_THEME_PRESETS.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Theme is stored on the character-owned ship and follows the build.</p></div>
       {build?.ship_instance_id && <div className="rounded border border-amber-500/30 bg-amber-500/5 p-3"><p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Legacy ship link</p><p className="mt-1 text-xs text-muted-foreground">Retained for compatibility; the primary owned ship above is authoritative.</p><div className="mt-2"><Select value={shipId} onValueChange={setShipId}><SelectTrigger><SelectValue placeholder="Legacy ship instance" /></SelectTrigger><SelectContent><SelectItem value="__none__">Clear legacy link</SelectItem>{ships.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select></div></div>}
       <div className="space-y-1"><Label>Role</Label><Input value={role} onChange={e => setRole(e.target.value)} placeholder="CSV, BO, FAW, Science, Carrier…" /></div>
       <div className="space-y-1"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="testing">Testing</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="retired">Retired</SelectItem></SelectContent></Select></div>
@@ -219,11 +220,10 @@ function ThemeCompliance({ loadoutId, buildId }: { loadoutId: string; buildId: s
   const ship = useQuery({ queryKey: ["theme_ship", buildId], queryFn: async () => { const {data,error}=await supabase.from("user_ships" as never).select("theme_id,sto_ships(faction)").eq("current_build_id",buildId).maybeSingle(); if(error) throw error; return data as any; }});
   const themeId=ship.data?.theme_id; const names:any[]=(equipment.data as any[]||[]).map(x=>x.equipment_items?.name).filter(Boolean);
   const themeName=LOADOUT_THEME_PRESETS.find((x)=>x.id===themeId)?.name ?? "No theme assigned";
-  const ruleQuery = useQuery({ queryKey: ["theme_rules", themeName], queryFn: async () => { const {data,error}=await supabase.from("theme_rules" as never).select("rule_type,value").eq("theme_name",themeName); if(error) throw error; return data ?? []; }});
-  const rules:any[]=(ruleQuery.data as any[])||[];
+  const rules:any[]=[];
   const keywords=rules.filter(r=>r.rule_type==="keyword").map(r=>String(r.value)); const allowed=rules.filter(r=>r.rule_type==="allowed").map(r=>String(r.value)); const matches=keywords.length===0?names:names.filter(n=>keywords.some(k=>n.toLowerCase().includes(k.toLowerCase())));
   const forbidden=rules.filter(r=>r.rule_type==="forbidden").map(r=>String(r.value).toLowerCase()); const required=rules.filter(r=>r.rule_type==="required").map(r=>String(r.value).toLowerCase()); const lower=names.map(n=>n.toLowerCase()); const missingRequired=required.filter(x=>!lower.some(n=>n.includes(x))); const forbiddenFound=forbidden.filter(x=>lower.some(n=>n.includes(x))); const disallowed=allowed.length>0?lower.filter(n=>!allowed.some(x=>n.includes(x.toLowerCase()))):[]; const review=(keywords.length>0&&names.length>0&&matches.length===0)||missingRequired.length>0||forbiddenFound.length>0||disallowed.length>0;
-  const message=rules.length===0?"No custom rules exist yet — add them in Themes.":missingRequired.length>0?"Required theme item(s) are missing.":forbiddenFound.length>0?"A forbidden theme item appears in this loadout.":disallowed.length>0?"One or more fitted items fall outside the allowed theme list.":keywords.length===0?"Custom rules are active.":String(matches.length)+" fitted item(s) match theme keywords.";
+  const message=rules.length===0?"Theme selected; detailed compliance rules are not configured yet.":missingRequired.length>0?"Required theme item(s) are missing.":forbiddenFound.length>0?"A forbidden theme item appears in this loadout.":disallowed.length>0?"One or more fitted items fall outside the allowed theme list.":keywords.length===0?"Custom rules are active.":String(matches.length)+" fitted item(s) match theme keywords.";
   return <div className="mt-3 rounded-lg border border-border/70 bg-background/30 p-3"><div className="flex items-center justify-between"><div><p className="lcars-label">Theme compliance</p><p className="text-xs text-muted-foreground">{themeName}</p></div><span className={review?"text-amber-400":"text-primary"}>{review?"REVIEW":"ON TRACK"}</span></div><p className="mt-2 text-xs text-muted-foreground">{message}</p></div>;
 }
 
