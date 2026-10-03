@@ -18,7 +18,6 @@ const categoryLabels: Record<string,string> = {
   starship: "Starship",
   reputation: "Reputation",
   activereputation: "Active Reputation",
-  activereputation: "Active Reputation",
   species: "Species",
   other: "Other",
 };
@@ -35,8 +34,10 @@ const personalBuckets = [
   { key: "ground-reputation", title: "Ground Reputation Traits", types: ["reputation"], domain: "ground" },
   { key: "space-active", title: "Active Space Reputation", types: ["activereputation"], domain: "space" },
   { key: "ground-active", title: "Active Ground Reputation", types: ["activereputation"], domain: "ground" },
-  { key: "space-species", title: "Species / Innate Space Traits", types: ["personal"], domain: "space", availability: "innate" },
-  { key: "ground-species", title: "Species / Innate Ground Traits", types: ["personal"], domain: "ground", availability: "species" },
+  { key: "space-species", title: "Species-specific Space Traits", types: ["personal"], domain: "space", availability: "species" },
+  { key: "ground-species", title: "Species-specific Ground Traits", types: ["personal"], domain: "ground", availability: "species" },
+  { key: "space-innate", title: "Innate / Required Space Traits", types: ["personal"], domain: "space", availability: "innate" },
+  { key: "ground-innate", title: "Innate / Required Ground Traits", types: ["personal"], domain: "ground", availability: "innate" },
 ] as const;
 
 export const Route = createFileRoute("/_authenticated/traits")({
@@ -74,6 +75,16 @@ function Page() {
   const shipById = useMemo(()=>new Map((userShips.data??[]).map((s:any)=>[s.id,s])),[userShips.data]);
 
   const reset=()=>{setName("");setCatalogId("");setCategory(mode==="personal"?"personal":"starship");setDomain("space");setSlotIndex("");setNotes("");setCharacterId("");setLoadoutId("");};
+  const selectedCharacter = useMemo(()=> (characters.data??[]).find((c:any)=>c.id===characterId),[characters.data,characterId]);
+  const personalSlotLimit = (character:any, environment:string) => {
+    const level = Number(character?.level ?? 1);
+    const alien = String(character?.species ?? "").toLowerCase() === "alien";
+    const base = alien ? 4 : 3;
+    const unlocked = base + Math.min(6, Math.floor(level / 10));
+    const elite = character?.elite_captain ? 1 : 0;
+    return unlocked + elite;
+  };
+  const reputationSlotLimit = 4;
 
   const personalTraits = useMemo(()=> (characterTraits.data??[]).filter((t:any)=>{
     const c:any=catalogById.get(t.trait_id);
@@ -91,7 +102,13 @@ function Page() {
   const savePersonal = useMutation({ mutationFn:async()=>{
     const {data:u}=await supabase.auth.getUser(); if(!u.user)throw new Error("Not signed in");
     if(!characterId||!name.trim())throw new Error("Character and trait name are required");
-    const payload:any={user_id:u.user.id,character_id:characterId,trait_id:catalogId||null,source:"manual",notes:notes.trim()||null,active:true,slot_index:slotIndex?Number(slotIndex):null,domain,trait_category:category};
+    const cat:any = catalogId ? catalogById.get(catalogId) : null;
+    const traitDomain = cat?.domain ?? domain;
+    const traitCategory = cat?.trait_type ?? category;
+    const limit = traitCategory === "reputation" || traitCategory === "activereputation" ? reputationSlotLimit : personalSlotLimit(selectedCharacter, traitDomain);
+    const requestedSlot = slotIndex ? Number(slotIndex) : null;
+    if (requestedSlot !== null && (requestedSlot < 1 || requestedSlot > limit)) throw new Error(`Slot must be between 1 and ${limit} for this character/category`);
+    const payload:any={user_id:u.user.id,character_id:characterId,trait_id:catalogId||null,source:"manual",notes:notes.trim()||null,active:true,slot_index:requestedSlot,domain:traitDomain,trait_category:traitCategory,availability:cat?.availability??null,availability_type:cat?.availability_type??null};
     const {error}=await supabase.from("character_traits" as never).insert(payload); if(error)throw error;
   },onSuccess:()=>{qc.invalidateQueries({queryKey:["character_traits"]});toast.success("Personal trait added");setOpen(false);reset();},onError:(e:Error)=>toast.error(e.message)});
 
@@ -131,8 +148,8 @@ function Page() {
       {mode==="personal" ? <>
         <div className="space-y-1"><Label>Character</Label><Select value={characterId} onValueChange={setCharacterId}><SelectTrigger><SelectValue placeholder="Choose character"/></SelectTrigger><SelectContent>{(characters.data??[]).map((c:any)=><SelectItem key={c.id} value={c.id}>{c.name}{c.level!=null?" — Lv "+c.level:""}</SelectItem>)}</SelectContent></Select></div>
         <div className="space-y-1"><Label>Catalogue personal trait</Label><Select value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setCategory(t.trait_type??"personal");setDomain(t.domain??"space");setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose a canonical personal, species or reputation trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).filter((t:any)=>t.trait_type!=="starship").map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name} — {personalCategoryLabel(t.trait_type, t.domain)}</SelectItem>)}</SelectContent></Select></div>
-        <div className="rounded border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">Personal traits are stored on the character, not on the ship. Space and Ground are separate environments; reputation and active reputation traits are tracked separately.</div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Environment</Label><Select value={domain} onValueChange={setDomain}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="space">Space</SelectItem><SelectItem value="ground">Ground</SelectItem></SelectContent></Select></div><div className="space-y-1"><Label>Category</Label><Select value={category} onValueChange={setCategory}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{Object.entries(categoryLabels).filter(([k])=>k!=="starship").map(([k,v])=><SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div></div>
-        <div className="space-y-1"><Label>Slot number</Label><Input type="number" min="1" value={slotIndex} onChange={e=>setSlotIndex(e.target.value)} placeholder="Optional active slot"/></div>
+        <div className="rounded border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">Personal traits are stored on the character, not on the ship. Space and Ground are separate environments. Reputation and Active Reputation have their own four-slot categories. Species-specific entries are tracked separately from the normal selectable pool.</div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Environment</Label><Select value={domain} onValueChange={setDomain}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="space">Space</SelectItem><SelectItem value="ground">Ground</SelectItem></SelectContent></Select></div><div className="space-y-1"><Label>Category</Label><Select value={category} onValueChange={setCategory}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{Object.entries(categoryLabels).filter(([k])=>k!=="starship").map(([k,v])=><SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div></div>
+        <div className="space-y-1"><Label>Slot number</Label><Input type="number" min="1" value={slotIndex} onChange={e=>setSlotIndex(e.target.value)} placeholder="Optional active slot"/><p className="text-xs text-muted-foreground">Personal {domain === "space" ? "Space" : "Ground"} slots: {selectedCharacter ? personalSlotLimit(selectedCharacter, domain) : "choose a character first"}. Reputation categories use 4 slots by default.</p></div>
       </> : <>
         <div className="space-y-1"><Label>Loadout</Label><Select value={loadoutId} onValueChange={setLoadoutId}><SelectTrigger><SelectValue placeholder="Choose a ship loadout"/></SelectTrigger><SelectContent>{(loadouts.data??[]).map((l:any)=>{const b:any=buildById.get(l.build_id);const s:any=shipById.get(b?.user_ship_id);return <SelectItem key={l.id} value={l.id}>{b?.name??"Build"} — {s?.custom_name||s?.sto_ships?.name||"Ship"} — {l.name}</SelectItem>})}</SelectContent></Select></div>
         <div className="space-y-1"><Label>Catalogue starship trait</Label><Select value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose a canonical starship trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).filter((t:any)=>t.trait_type==="starship").map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
