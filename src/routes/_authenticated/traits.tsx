@@ -23,7 +23,6 @@ const categoryLabels: Record<string,string> = {
 };
 const domainLabels: Record<string,string> = { space: "Space", ground: "Ground" };
 const personalCategoryLabel = (type: string, domain: string, active = false) => {
-  if (type === "reputation") return `${domainLabels[domain] ?? domain} Reputation`;
   if (type === "activereputation") return `Active ${domainLabels[domain] ?? domain} Reputation`;
   if (type === "reputation") return `${active ? "Active " : ""}${domainLabels[domain] ?? domain} Reputation`;
   return `Personal ${domainLabels[domain] ?? domain}`;
