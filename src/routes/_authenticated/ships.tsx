@@ -862,6 +862,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources, onSav
   const [up, setUp] = useState({ t6: false, t6x: false, t6x2: false });
   const [usageMode, setUsageMode] = useState<"build_pending" | "console_trait_only" | "collection_only">("build_pending");
   const [sourceId, setSourceId] = useState("__none__");
+  const [sourceFilter, setSourceFilter] = useState("all");
 
   const results = catalog.filter((s) => `${s.name} ${s.ship_class ?? ""} ${s.faction ?? ""}`.toLowerCase().includes(search.toLowerCase()));
 
@@ -892,7 +893,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources, onSav
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["user_ships"] });
       toast.success("Ship registered");
-      setSearch(""); setShipId(null); setName(""); setUsageMode("build_pending"); setSourceId("__none__"); setUp({ t6: false, t6x: false, t6x2: false });
+      setSearch(""); setShipId(null); setName(""); setUsageMode("build_pending"); setSourceId("__none__"); setSourceFilter("all"); setUp({ t6: false, t6x: false, t6x2: false });
       onSaved(id);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -938,7 +939,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources, onSav
           </div>
           <div className="space-y-2">
             <Label>4. Acquisition source</Label>
-            <Select value={sourceId} onValueChange={setSourceId}><SelectTrigger><SelectValue placeholder="Select acquisition route" /></SelectTrigger><SelectContent><SelectItem value="__none__">Not specified</SelectItem>{sources.filter((x) => !shipId || x.sto_ship_id === shipId).map((x) => <SelectItem key={x.id} value={x.id}>{x.source_name}{x.source_type ? " · " + x.source_type : ""}</SelectItem>)}</SelectContent></Select>
+            <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setSourceId("__none__"); }}><SelectTrigger><SelectValue placeholder="Filter acquisition type" /></SelectTrigger><SelectContent><SelectItem value="all">All acquisition routes</SelectItem><SelectItem value="zen_store">Zen Store</SelectItem><SelectItem value="bundle">Bundle</SelectItem><SelectItem value="event">Event</SelectItem><SelectItem value="lockbox">Lockbox / Promo</SelectItem><SelectItem value="lobi">Lobi</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent></Select><Select value={sourceId} onValueChange={setSourceId}><SelectTrigger><SelectValue placeholder="Select acquisition route" /></SelectTrigger><SelectContent><SelectItem value="__none__">Not specified</SelectItem>{sources.filter((x) => (!shipId || x.sto_ship_id === shipId) && (sourceFilter === "all" || x.source_type === sourceFilter)).map((x) => <SelectItem key={x.id} value={x.id}>{x.source_name}{x.source_type ? " · " + x.source_type : ""}</SelectItem>)}</SelectContent></Select>
             <p className="text-xs text-muted-foreground">Track Zen Store, bundle and other acquisition routes for this ship.</p>
           </div>
           <div className="space-y-2">
