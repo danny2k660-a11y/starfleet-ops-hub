@@ -195,7 +195,7 @@ function ShipsPage() {
     return map;
   }, [activeLoadoutIds, activeLoadoutByBuild, fleetLoadoutConfig.data, ships.data]);
   const [q, setQ] = useState("");
-  const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup" | "captain" | "build" | "theme" | "loadout" | "equipment" | "traits" | "boffs">("all");
+  const [readinessFilter, setReadinessFilter] = useState<"all" | "ready" | "needs_setup" | "captain" | "build" | "loadout" | "equipment" | "traits" | "boffs">("all");
   const [charFilter, setCharFilter] = useState(ALL);
   const [factionFilter, setFactionFilter] = useState(ALL);
   const [adding, setAdding] = useState(false);
@@ -258,7 +258,6 @@ function ShipsPage() {
       needs_setup: "Needs action",
       captain: "Missing captain",
       build: "Missing build",
-      theme: "Missing theme",
       loadout: "Missing active loadout",
       equipment: "Missing equipment",
       traits: "Missing traits",
@@ -278,23 +277,21 @@ function ShipsPage() {
       readinessDataPending || readinessDataError
         ? true
         : readinessFilter === "ready"
-          ? readinessRow?.complete === 7
+          ? readinessRow?.complete === 6
           : readinessFilter === "needs_setup"
             ? !!readinessRow && readinessRow.complete < 6
             : readinessFilter === "captain"
               ? !!readinessRow && !readinessRow.checks[0]
               : readinessFilter === "build"
                 ? !!readinessRow && !readinessRow.checks[1]
-                : readinessFilter === "theme"
-                  ? !!readinessRow && !readinessRow.checks[2]
-                  : readinessFilter === "loadout"
+                : readinessFilter === "loadout"
                     ? !!readinessRow && !readinessRow.checks[3]
                     : readinessFilter === "equipment"
                       ? !!readinessRow && !readinessRow.checks[4]
                       : readinessFilter === "traits"
                         ? !!readinessRow && !readinessRow.checks[5]
                         : readinessFilter === "boffs"
-                          ? !!readinessRow && !readinessRow.checks[6]
+                          ? !!readinessRow && !readinessRow.checks[5]
                           : true;
     if (!readinessMatch) return false;
     if (q && !q.startsWith("__") && !text.includes(q.toLowerCase())) return false;
@@ -335,7 +332,7 @@ function ShipsPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="lcars-label">Fleet command readiness</p>
-            <p className="text-sm text-muted-foreground">A fleetwide operational snapshot based on captain, build and theme assignment.</p>
+            <p className="text-sm text-muted-foreground">A fleetwide operational snapshot based on captain, build and active loadout configuration.</p>
           </div>
           <Badge variant="outline">{fleetReadiness.averagePercent}% operational readiness</Badge>
         </div>
@@ -393,7 +390,6 @@ function ShipsPage() {
             const filterMap: Record<string, typeof readinessFilter> = {
               Captain: "captain",
               Build: "build",
-              Theme: "theme",
               "Active loadout": "loadout",
               Equipment: "equipment",
               Traits: "traits",
@@ -449,16 +445,15 @@ function ShipsPage() {
             {[
               { label: "Captain", index: 0, note: "Character assigned" },
               { label: "Build", index: 1, note: "Current build linked" },
-              { label: "Theme", index: 2, note: "Theme identity assigned" },
               { label: "Active loadout", index: 3, note: "Deployment loadout active" },
               { label: "Equipment", index: 4, note: "Verified fitting slots complete" },
               { label: "Traits", index: 5, note: "At least one trait configured" },
-              { label: "Bridge crew", index: 6, note: "Verified stations complete" },
+              { label: "Bridge crew", index: 5, note: "Verified stations complete" },
             ].map((item) => (
               <button
                 key={item.label}
                 onClick={() => {
-                  const filters = ["captain", "build", "theme", "loadout", "equipment", "traits", "boffs"] as const;
+                  const filters = ["captain", "build", "loadout", "equipment", "traits", "boffs"] as const;
                   setReadinessFilter(filters[item.index]);
                   setQ("");
                   setCharFilter(ALL);
@@ -493,8 +488,8 @@ function ShipsPage() {
       <div className="panel p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="lcars-label">7-point operational readiness</p>
-            <p className="text-sm text-muted-foreground">Character, build, theme, active loadout, equipment, traits and bridge crew.</p>
+            <p className="lcars-label">6-point operational readiness</p>
+            <p className="text-sm text-muted-foreground">Character, build, active loadout, equipment, traits and bridge crew.</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
@@ -515,8 +510,8 @@ function ShipsPage() {
                 <p className="truncate text-[10px] text-muted-foreground">{ship.sto_ships?.name ?? "Unknown ship"}</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{complete}/7</span>
-                <Badge variant={complete === 7 ? "default" : "outline"}>{percent}%</Badge>
+                <span className="text-xs text-muted-foreground">{complete}/6</span>
+                <Badge variant={complete === 6 ? "default" : "outline"}>{percent}%</Badge>
               </div>
             </button>
           ))}
@@ -530,13 +525,13 @@ function ShipsPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="lcars-label">Fleet readiness matrix</p>
-            <p className="text-sm text-muted-foreground">Every owned ship is measured against the same seven-point operational checklist.</p>
+            <p className="text-sm text-muted-foreground">Every owned ship with a build is measured against the same six-point operational checklist.</p>
           </div>
           <Badge variant="outline">{fleetReadiness.fullyReady}/{ownedCount} fully ready</Badge>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           {[
-            { label: "7/7 ready", count: fleetReadiness.fullyReady, note: "all operational checks passed" },
+            { label: "6/6 ready", count: fleetReadiness.fullyReady, note: "all operational checks passed" },
             { label: "Action required", count: fleetReadiness.rows.filter((row) => row.complete < 6).length, note: "one or more checks missing" },
             { label: "Registry only", count: (ships.data ?? []).filter((s) => s.ownership_status !== "owned").length, note: "wishlist / planned" },
           ].map((item) => (
@@ -552,7 +547,7 @@ function ShipsPage() {
             const s = row.ship;
             const complete = row.complete;
             const percent = row.percent;
-            const labels = ["Captain", "Build", "Theme", "Active loadout", "Equipment", "Traits", "Bridge crew"];
+            const labels = ["Captain", "Build", "Active loadout", "Equipment", "Traits", "Bridge crew"];
             const missingChecks = labels.filter((_, index) => !row.checks[index]);
             const equipmentMissing = row.coverage?.missingEquipmentSlots ?? [];
             const boffMissing = row.coverage?.missingBoffStations ?? [];
@@ -600,7 +595,7 @@ function ShipsPage() {
             <p className="lcars-label">Priority deployment queue</p>
             <p className="text-sm text-muted-foreground">Ships are ordered by the next missing command requirement.</p>
           </div>
-          <Badge variant="outline">{(ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id || !s.theme_id)).length} requiring action</Badge>
+          <Badge variant="outline">{(ships.data ?? []).filter((s) => s.ownership_status === "owned" && (!s.character_id || !s.current_build_id)).length} requiring action</Badge>
         </div>
         <div className="mt-3 space-y-2">
           {fleetReadiness.rows
@@ -680,11 +675,10 @@ function ShipsPage() {
           {[
             { label: "Assign captain", action: "captain" as const, count: fleetReadiness.rows.filter((row) => !row.checks[0]).length, note: "character assignment" },
             { label: "Assign build", action: "build" as const, count: fleetReadiness.rows.filter((row) => !row.checks[1]).length, note: "current build link" },
-            { label: "Assign theme", action: "theme" as const, count: fleetReadiness.rows.filter((row) => !row.checks[2]).length, note: "theme identity" },
-            { label: "Activate loadout", action: "loadout" as const, count: fleetReadiness.rows.filter((row) => !row.checks[3]).length, note: "active deployment loadout" },
+                        { label: "Activate loadout", action: "loadout" as const, count: fleetReadiness.rows.filter((row) => !row.checks[3]).length, note: "active deployment loadout" },
             { label: "Fit equipment", action: "equipment" as const, count: fleetReadiness.rows.filter((row) => !row.checks[4]).length, note: "expected fitting slots" },
             { label: "Configure traits", action: "traits" as const, count: fleetReadiness.rows.filter((row) => !row.checks[5]).length, note: "loadout traits" },
-            { label: "Assign bridge crew", action: "boffs" as const, count: fleetReadiness.rows.filter((row) => !row.checks[6]).length, note: "expected bridge stations" },
+            { label: "Assign bridge crew", action: "boffs" as const, count: fleetReadiness.rows.filter((row) => !row.checks[5]).length, note: "expected bridge stations" },
           ].map((item) => (
             <button
               key={item.action}
@@ -748,7 +742,7 @@ function ShipsPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="lcars-label">Fleet composition</p>
-            <p className="text-sm text-muted-foreground">Theme identity across your owned fleet.</p>
+            <p className="text-sm text-muted-foreground">Build intent across your owned fleet.</p>
           </div>
           
         </div>
@@ -767,7 +761,7 @@ function ShipsPage() {
             </div>
           </div>
           {(charFilter !== ALL || false || factionFilter !== ALL || q || readinessFilter !== "all") && (
-            <Button variant="outline" size="sm" onClick={() => { setQ(""); setReadinessFilter("all"); setCharFilter(ALL); setThemeFilter(ALL); setFactionFilter(ALL); }}>
+            <Button variant="outline" size="sm" onClick={() => { setQ(""); setReadinessFilter("all"); setCharFilter(ALL); setFactionFilter(ALL); }}>
               Clear filters
             </Button>
           )}
@@ -1152,20 +1146,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
               </Select>
             </div>
             <div className="space-y-1"><Label>Date acquired</Label><Input type="date" value={acquired} onChange={(e) => setAcquired(e.target.value)} /></div>
-            <div className="space-y-1"><Label>Theme identity</Label>
-              <Select value={themeId || NONE} onValueChange={(v) => setThemeId(v === NONE ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Select theme" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>No theme assigned</SelectItem>
-                  <SelectItem value="10000000-0000-4000-8000-000000000001">Terran Empire</SelectItem>
-                  <SelectItem value="10000000-0000-4000-8000-000000000002">Romulan</SelectItem>
-                  <SelectItem value="10000000-0000-4000-8000-000000000003">Hur'q</SelectItem>
-                  <SelectItem value="10000000-0000-4000-8000-000000000004">Discovery-era Terran</SelectItem>
-                  <SelectItem value="10000000-0000-4000-8000-000000000005">Canon / Screen Accurate</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1"><Label>Upgrade status</Label><UpgradeChecks {...up} set={setUp} /></div>
+              <div className="space-y-1"><Label>Upgrade status</Label><UpgradeChecks {...up} set={setUp} /></div>
             <div className="space-y-1 sm:col-span-2"><Label>Notes</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
           </div>
         )}
