@@ -27,33 +27,35 @@ export const Route = createFileRoute("/_authenticated/ship-database")({
 
 function seating(ship: StoShip): Array<{ slot: number; rank: string; career: string; specialization?: string | null; label: string }> {
   const raw = ship.bridge_officer_stations as any;
-  const entries = raw?.slots && Array.isArray(raw.slots)
+  const entries = Array.isArray(raw?.slots)
     ? raw.slots
-    : Array.isArray(raw) ? raw.map((label: unknown) => ({ label }))
-    : Array.isArray(raw?.stations) ? raw.stations.map((label: unknown) => ({ label }))
-    : [];
+    : Array.isArray(raw?.stations)
+      ? raw.stations
+      : Array.isArray(raw)
+        ? raw
+        : [];
 
   return entries.map((entry: any, index: number) => {
-    const text = String(entry?.label ?? "");
-    if (entry?.rank || entry?.career) {
+    if (typeof entry === "object" && entry !== null) {
       return {
-        slot: Number(entry?.slot ?? index + 1),
+        slot: Number(entry.slot ?? index + 1),
         rank: String(entry.rank ?? ""),
         career: String(entry.career ?? ""),
         specialization: entry.specialization ? String(entry.specialization) : null,
-        label: text,
+        label: [entry.rank, entry.career, entry.specialization].filter(Boolean).join(" "),
       };
     }
 
+    const text = String(entry ?? "");
     const match = text.match(/^(Commander|Lieutenant Commander|Lieutenant|Ensign)\\s+(.*)$/);
     const rank = match?.[1] ?? "";
     const remainder = match?.[2] ?? text;
-    const parts = remainder.split(/[/-]/).map((part) => part.trim()).filter(Boolean);
+    const dash = remainder.indexOf("-");
     return {
       slot: index + 1,
       rank,
-      career: parts[0] ?? "",
-      specialization: parts[1] ?? null,
+      career: dash >= 0 ? remainder.slice(0, dash).trim() : remainder.trim(),
+      specialization: dash >= 0 ? remainder.slice(dash + 1).trim() : null,
       label: text,
     };
   }).filter((entry: any) => entry.rank || entry.career || entry.label);
