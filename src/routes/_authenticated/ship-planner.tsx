@@ -44,11 +44,93 @@ function ShipPlannerPage() {
   const visibleCatalog = useMemo(() => { const q = catalogSearch.trim().toLowerCase(); return (catalog.data ?? []).filter((s) => !q || `${s.name} ${s.ship_class ?? ""} ${s.faction ?? ""}`.toLowerCase().includes(q)).slice(0, 80); }, [catalog.data, catalogSearch]);
   const visibleBuildQueue = useMemo(() => { const q = buildSearch.trim().toLowerCase(); return buildQueue.filter((s) => `${s.custom_name} ${s.sto_ships?.name ?? ""} ${s.characters?.name ?? ""}`.toLowerCase().includes(q)); }, [buildQueue, buildSearch]);
 
-  const claim = useMutation({ mutationFn: async () => { const { data: u } = await supabase.auth.getUser(); if (!u.user) throw new Error("Not signed in"); if (!claimCharacter) throw new Error("Choose the character receiving the claim."); if (!selectedCatalog.length) throw new Error("Select at least one ship."); const existingQuery = await supabase.from("user_ships").select("sto_ship_id,sto_ships(name)").eq("character_id", claimCharacter).in("sto_ship_id", selectedCatalog); if (existingQuery.error) throw existingQuery.error; const existing = (existingQuery.data ?? []) as any[]; if (existing.length) { const names = existing.map((row) => row.sto_ships?.name).filter(Boolean).join(", "); throw new Error(names ? `Already owned by this character: ${names}` : "One or more selected ships are already owned by this character."); } const rows = selectedCatalog.map((sto_ship_id) => {
-      const source = (sources.data ?? []).find((s:any) => s.sto_ship_id === sto_ship_id && String(s.source_type ?? "").toLowerCase() === claimSource.toLowerCase()) ?? (sources.data ?? []).find((s:any) => s.sto_ship_id === sto_ship_id && String(s.source_name ?? "").toLowerCase().includes(claimSource.toLowerCase()));
-      return { user_id: u.user!.id, character_id: claimCharacter, sto_ship_id, ownership_status: "owned", acquisition_source_id: source?.id ?? null, acquisition_group: claimGroup.trim() || null, usage_mode: "build_pending", custom_name: null };
-    }); const { error } = await supabase.from("user_ships").insert(rows as never[]); if (error) throw error; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); setSelectedCatalog([]); toast.success("Ships added to the character and placed in the build queue."); }, onError: (e: Error) => toast.error(e.message) });
-  const claimBundle = useMutation({ mutationFn: async () => { if (!claimCharacter) throw new Error("Choose the character receiving the bundle ships."); if (!selectedBundle) throw new Error("Choose a bundle."); const { data, error } = await supabase.rpc("claim_sto_ship_bundle" as never, { p_bundle_id: selectedBundle, p_character_id: claimCharacter } as never); if (error) throw error; const bundle = (bundles.data ?? []).find((b:any) => b.id === selectedBundle); const items = (bundle?.sto_ship_bundle_items ?? []) as any[]; const bundleName = bundle?.name ?? null; for (const item of items) { const source = (sources.data ?? []).find((s:any) => s.bundle_id === selectedBundle && s.sto_ship_id === item.sto_ship_id); const { error: ue } = await supabase.from("user_ships").update({ acquisition_source_id: source?.id ?? null, acquisition_group: bundleName } as never).eq("character_id", claimCharacter).eq("sto_ship_id", item.sto_ship_id).eq("ownership_status","owned"); if (ue) throw ue; const { error: oe } = await supabase.from("sto_ship_ownership" as never).update({ acquisition_source_id: source?.id ?? null, notes: bundleName ? `Claimed via bundle: ${bundleName}` : null } as never).eq("sto_ship_id", item.sto_ship_id); if (oe) throw oe; } return data; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["sto_ship_ownership"] }); setSelectedBundle(""); toast.success("Bundle ships claimed and added to the selected character."); }, onError: (e: Error) => toast.error(e.message) });
+  const claim = useMutation({ mutationFn: async () => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) throw new Error("Not signed in");
+    if (!claimCharacter) throw new Error("Choose the character receiving the claim.");
+    if (!selectedCatalog.length) throw new Error("Select at least one ship.");
+
+    const selectedSources = selectedCatalog.map((sto_ship_id) => ({
+      sto_ship_id,
+      source: (sources.data ?? []).find((s:any) =>
+        s.sto_ship_id === sto_ship_id &&
+        (
+          String(s.source_type ?? "").toLowerCase().replace(/[_-]/g, " ") === claimSource.toLowerCase() ||
+          String(s.source_name ?? "").toLowerCase().includes(claimSource.toLowerCase())
+        )
+      )
+    }));
+    const accountWide = selectedSources.some((x:any) => x.source?.account_unlock === true);
+    const targetCharacters = accountWide ? (characters.data ?? []).map((c) => c.id) : [claimCharacter];
+    const existingQuery = await supabase.from("user_ships").select("sto_ship_id,character_id,sto_ships(name)").eq("ownership_status","owned").in("character_id", targetCharacters).in("sto_ship_id", selectedCatalog);
+    if (existingQuery.error) throw existingQuery.error;
+    const existing = (existingQuery.data ?? []) as any[];
+    const rows = selectedSources.flatMap(({sto_ship_id, source}:any) =>
+      targetCharacters
+        .filter((character_id) => !existing.some((row) => row.character_id === character_id && row.sto_ship_id === sto_ship_id))
+        .map((character_id) => ({
+          user_id: u.user!.id,
+          character_id,
+          sto_ship_id,
+          ownership_status: "owned",
+          acquisition_source_id: source?.id ?? null,
+          acquisition_group: claimGroup.trim() || (accountWide ? source?.source_name ?? null : null),
+          usage_mode: "build_pending",
+          custom_name: null
+        }))
+    );
+    if (!rows.length) throw new Error(accountWide ? "Those account-unlocked ships are already registered on every character." : "The selected ship is already owned by this character.");
+    const { error } = await supabase.from("user_ships").insert(rows as never[]);
+    if (error) throw error;
+  }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); setSelectedCatalog([]); toast.success("Ships added to the character and placed in the build queue."); }, onError: (e: Error) => toast.error(e.message) });
+  const claimBundle = useMutation({ mutationFn: async () => {
+    if (!claimCharacter) throw new Error("Choose the character receiving the bundle ships.");
+    if (!selectedBundle) throw new Error("Choose a bundle.");
+    const bundle = (bundles.data ?? []).find((b:any) => b.id === selectedBundle);
+    if (!bundle) throw new Error("Bundle not found.");
+    const items = (bundle.sto_ship_bundle_items ?? []) as any[];
+    if (!items.length) throw new Error("This bundle has no ship items registered.");
+    const accountWide = bundle.account_unlock === true;
+    const targetCharacters = accountWide ? (characters.data ?? []).map((c) => c.id) : [claimCharacter];
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) throw new Error("Not signed in.");
+
+    const shipIds = items.map((i:any) => i.sto_ship_id);
+    const existingQuery = await supabase.from("user_ships").select("sto_ship_id,character_id").eq("ownership_status","owned").in("character_id", targetCharacters).in("sto_ship_id", shipIds);
+    if (existingQuery.error) throw existingQuery.error;
+    const existing = (existingQuery.data ?? []) as any[];
+    const rows = items.flatMap((item:any) => {
+      const source = (sources.data ?? []).find((s:any) => s.bundle_id === selectedBundle && s.sto_ship_id === item.sto_ship_id);
+      return targetCharacters
+        .filter((character_id) => !existing.some((row) => row.character_id === character_id && row.sto_ship_id === item.sto_ship_id))
+        .map((character_id) => ({
+          user_id: u.user!.id,
+          character_id,
+          sto_ship_id: item.sto_ship_id,
+          custom_name: null,
+          ownership_status: "owned",
+          acquisition_source_id: source?.id ?? null,
+          acquisition_group: bundle.name,
+          usage_mode: "build_pending"
+        }));
+    });
+    if (!rows.length) throw new Error(accountWide ? "This account-unlocked bundle is already registered on every character." : "The bundle ships are already registered on this character.");
+    const { error } = await supabase.from("user_ships").insert(rows as never[]);
+    if (error) throw error;
+
+    const { error: ownershipError } = await supabase.from("sto_ship_ownership" as never).upsert(
+      items.map((item:any) => ({
+        user_id: u.user!.id,
+        sto_ship_id: item.sto_ship_id,
+        ownership_status: "owned",
+        acquisition_source_id: (sources.data ?? []).find((s:any) => s.bundle_id === selectedBundle && s.sto_ship_id === item.sto_ship_id)?.id ?? null,
+        notes: `Claimed via bundle: ${bundle.name}`
+      })) as never[],
+      { onConflict: "user_id,sto_ship_id" }
+    );
+    if (ownershipError) throw ownershipError;
+    return rows.length;
+  }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["sto_ship_ownership"] }); setSelectedBundle(""); toast.success("Bundle ships claimed and added to the selected character."); }, onError: (e: Error) => toast.error(e.message) });
   const setUsage = useMutation({ mutationFn: async ({ id, mode }: { id: string; mode: string }) => { const { error } = await supabase.from("user_ships").update({ usage_mode: mode } as never).eq("id", id); if (error) throw error; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["build_readiness"] }); }, onError: (e: Error) => toast.error(e.message) });
   const createBuild = useMutation({ mutationFn: async (ship: FleetShip) => { const { data: u } = await supabase.auth.getUser(); if (!u.user) throw new Error("Not signed in"); const shipName = ship.custom_name || ship.sto_ships?.name || "Ship";
 if (ship.ownership_status !== "owned" || !ship.character_id) throw new Error("Only a character-owned ship can become a build.");
