@@ -1043,6 +1043,8 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
   const [status, setStatus] = useState(ship.ownership_status);
   const [acquired, setAcquired] = useState(ship.date_acquired ?? "");
   const [notes, setNotes] = useState(ship.notes ?? "");
+  const [usageMode, setUsageMode] = useState<"build_pending" | "console_trait_only" | "collection_only">((ship.usage_mode as any) ?? "build_pending");
+  const [sourceId, setSourceId] = useState(ship.acquisition_source_id ?? NONE);
   const [up, setUp] = useState({ t6: ship.t6_upgraded, t6x: ship.t6x_upgraded, t6x2: ship.t6x2_upgraded });
   const characterBuilds = useMemo(() => builds.filter((b: any) => b.user_ship_id === ship.id), [builds, ship.id]);
 
@@ -1057,7 +1059,9 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
         custom_name: name.trim(), character_id: characterId, current_build_id: buildId === NONE ? null : buildId,
         ownership_status: status, date_acquired: acquired || null, notes: notes || null,
         t6_upgraded: up.t6, t6x_upgraded: up.t6x, t6x2_upgraded: up.t6x2,
-      }).eq("id", ship.id);
+        usage_mode: usageMode,
+        acquisition_source_id: sourceId === NONE ? null : sourceId,
+      } as never).eq("id", ship.id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); setEditing(false); toast.success("Ship updated"); },
