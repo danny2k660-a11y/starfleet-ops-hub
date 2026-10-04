@@ -101,7 +101,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     if (fleetShipId === "__none__") throw new Error("Choose a ship owned by that character.");
     const chosenShip = fleetShips.find((s:any) => s.id === fleetShipId);
     if (!chosenShip || chosenShip.character_id !== characterId) throw new Error("Choose a ship owned by the selected character.");
-    if (["console_trait_only", "collection_only"].includes(chosenShip.usage_mode)) throw new Error("This ship is marked as non-build. Return it to the build queue before creating a build.");
+    // Every owned ship can have a build, including ships primarily kept for a console, trait, or collection. The build can simply document its intended use.
     const payload = { name: trimmedName, ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId, character_id: characterId, role: role || null, status, notes: notes || null, build_domain: "space", captain_setup: { primary_specialization: primarySpecialization.trim() || null, secondary_specialization: secondarySpecialization.trim() || null, ability_notes: captainAbilityNotes.trim() || null } };
     let buildId = build?.id ?? null;
     const otherBuild = fleetShips.find((s:any) => s.id === fleetShipId && s.current_build_id && s.current_build_id !== buildId);
