@@ -394,6 +394,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const [abilities, setAbilities] = useState("");
   const [officer, setOfficer] = useState("");
   const [dutyOfficerId, setDutyOfficerId] = useState("");
+  const [dutyOfficerSearch, setDutyOfficerSearch] = useState("");
   const addTrait = async () => {
     const picked:any = (traitCatalog.data as any[] || []).find((t:any) => t.id === traitId);
     const name = picked?.name || trait.trim();
@@ -489,11 +490,11 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
       </div>
       <div className="rounded-lg border border-border/70 bg-background/30 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duty Officers</p>
-        <p className="mb-2 text-xs text-muted-foreground">Duty Officers belong to the ship build, while your character roster records which officers you own. Space and ground DOffs are kept distinct.</p><Button size="sm" variant="outline" onClick={async()=>{const {error}=await supabase.functions.invoke("sync-doff-catalog",{body:{}});if(error)toast.error(error.message);else{qc.invalidateQueries({queryKey:["doff_catalog"]});toast.success("Duty Officer catalogue synced");}}}>Sync DOff catalogue</Button>
+        <p className="mb-2 text-xs text-muted-foreground">Duty Officers belong to the ship build, while your character roster records which officers you own. Space and ground DOffs are kept distinct.</p><Input value={dutyOfficerSearch} onChange={e=>setDutyOfficerSearch(e.target.value)} placeholder="Search Duty Officers…" className="mb-2 h-9" /><Button size="sm" variant="outline" onClick={async()=>{const {error}=await supabase.functions.invoke("sync-doff-catalog",{body:{}});if(error)toast.error(error.message);else{qc.invalidateQueries({queryKey:["doff_catalog"]});toast.success("Duty Officer catalogue synced");}}}>Sync DOff catalogue</Button>
         <div className="flex gap-2">
           <select value={dutyOfficerId} onChange={(e) => setDutyOfficerId(e.target.value)} className="h-9 flex-1 rounded-md border bg-background px-2 text-xs">
             <option value="">Select Duty Officer</option>
-            {((dutyOfficerCatalog.data as any[]) || []).map((d:any) => <option key={d.id} value={d.id}>{d.name}{d.department ? ` — ${d.department}` : ""}{d.rarity ? ` • ${d.rarity}` : ""}</option>)}
+            {((dutyOfficerCatalog.data as any[]) || []).filter((d:any)=>{const q=dutyOfficerSearch.trim().toLowerCase();return !q||[d.name,d.department,d.specialization,d.duty_type,d.effect_text,d.ability_text].filter(Boolean).join(" ").toLowerCase().includes(q);}).map((d:any) => <option key={d.id} value={d.id}>{d.name}{d.department ? ` — ${d.department}` : ""}{d.rarity ? ` • ${d.rarity}` : ""}</option>)}
           </select>
           <Button size="sm" onClick={saveDutyOfficer} disabled={!dutyOfficerId}>Assign</Button>
         </div>
