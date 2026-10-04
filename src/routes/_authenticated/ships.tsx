@@ -896,7 +896,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       const { data, error } = await supabase.from("user_ships").insert({
-        user_id: u.user!.id, character_id: characterId, sto_ship_id: shipId!, custom_name: name.trim(),
+        user_id: u.user!.id, character_id: characterId, sto_ship_id: shipId!, custom_name: name.trim() || null, ownership_status: "owned",
         usage_mode: usageMode,
         acquisition_source_id: sourceId === "__none__" ? null : sourceId,
         acquisition_group: sourceId !== "__none__" ? (sources.find((x) => x.id === sourceId)?.source_name ?? null) : null,
@@ -914,7 +914,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const canSave = !!shipId && !!characterId && name.trim().length > 0;
+  const canSave = !!shipId && !!characterId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
