@@ -60,13 +60,20 @@ function ShipPlannerPage() {
         )
       )
     }));
-    const accountWide = selectedSources.some((x:any) => x.source?.account_unlock === true);
-    const targetCharacters = accountWide ? (characters.data ?? []).map((c) => c.id) : [claimCharacter];
-    const existingQuery = await supabase.from("user_ships").select("sto_ship_id,character_id,sto_ships(name)").eq("ownership_status","owned").in("character_id", targetCharacters).in("sto_ship_id", selectedCatalog);
+    const allCharacterIds = (characters.data ?? []).map((c) => c.id);
+    const targetByShip = new Map<string, string[]>(
+      selectedSources.map(({ sto_ship_id, source }: any) => [
+        sto_ship_id,
+        source?.account_unlock === true ? allCharacterIds : [claimCharacter],
+      ])
+    );
+    const allTargetCharacters = Array.from(new Set(Array.from(targetByShip.values()).flat()));
+    const existingQuery = await supabase.from("user_ships").select("sto_ship_id,character_id,sto_ships(name)").eq("ownership_status","owned").in("character_id", allTargetCharacters).in("sto_ship_id", selectedCatalog);
     if (existingQuery.error) throw existingQuery.error;
     const existing = (existingQuery.data ?? []) as any[];
-    const rows = selectedSources.flatMap(({sto_ship_id, source}:any) =>
-      targetCharacters
+    const rows = selectedSources.flatMap(({sto_ship_id, source}:any) => {
+      const targetCharacters = targetByShip.get(sto_ship_id) ?? [claimCharacter];
+      return targetCharacters
         .filter((character_id) => !existing.some((row) => row.character_id === character_id && row.sto_ship_id === sto_ship_id))
         .map((character_id) => ({
           user_id: u.user!.id,
@@ -74,12 +81,12 @@ function ShipPlannerPage() {
           sto_ship_id,
           ownership_status: "owned",
           acquisition_source_id: source?.id ?? null,
-          acquisition_group: claimGroup.trim() || (accountWide ? source?.source_name ?? null : null),
+          acquisition_group: claimGroup.trim() || (source?.account_unlock === true ? source?.source_name ?? null : null),
           usage_mode: "build_pending",
           custom_name: null
-        }))
-    );
-    if (!rows.length) throw new Error(accountWide ? "Those account-unlocked ships are already registered on every character." : "The selected ship is already owned by this character.");
+        }));
+    });
+    if (!rows.length) throw new Error("The selected ships are already registered for their applicable character scope.");
     const { error } = await supabase.from("user_ships").insert(rows as never[]);
     if (error) throw error;
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); setSelectedCatalog([]); toast.success("Ships added to the character and placed in the build queue."); }, onError: (e: Error) => toast.error(e.message) });
