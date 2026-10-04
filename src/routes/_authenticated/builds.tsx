@@ -207,7 +207,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
     <LoadoutConfiguration loadoutId={loadout.id} />
     <GroundBuildSection buildId={loadout.build_id} />
     <LoadoutReadiness loadoutId={loadout.id} buildId={loadout.build_id} />
-    <ThemeCompliance loadoutId={loadout.id} buildId={build.id} />
+    <ThemeCompliance buildId={build.id} />
     <LoadoutEquipment loadoutId={loadout.id} buildId={loadout.build_id} />
     <Dialog open={editOpen} onOpenChange={setEditOpen}>
       <DialogContent className="sm:max-w-md">
@@ -275,7 +275,7 @@ const LOADOUT_THEME_PRESETS = [
   { id: "10000000-0000-4000-8000-000000000004", name: "Discovery-era Terran" },
   { id: "10000000-0000-4000-8000-000000000005", name: "Canon / Screen Accurate" },
 ];
-function ThemeCompliance({ loadoutId, buildId }: { loadoutId: string; buildId: string }) {
+function ThemeCompliance({ buildId }: { buildId: string }) {
   const ship = useQuery({
     queryKey: ["theme_compliance_ship", buildId],
     queryFn: async () => {
