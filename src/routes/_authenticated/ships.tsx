@@ -919,6 +919,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
       const { data: existing, error: existingError } = await supabase
         .from("user_ships")
         .select("id,character_id")
+        .eq("user_id", u.user.id)
         .eq("sto_ship_id", shipId)
         .in("character_id", targetCharacterIds);
       if (existingError) throw existingError;
