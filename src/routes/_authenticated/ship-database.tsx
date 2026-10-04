@@ -328,6 +328,7 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       const { data: existing, error: existingError } = await supabase
         .from("user_ships")
         .select("id,sto_ship_id,character_id,ownership_status")
+        .eq("user_id", u.user.id)
         .in("character_id", targetCharacters)
         .in("sto_ship_id", shipIds);
       if (existingError) throw existingError;
@@ -389,11 +390,10 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
         .upsert(ownershipRows as never[], { onConflict: "user_id,sto_ship_id" });
       if (ownershipError) throw ownershipError;
 
-      if (!rows.length) {
-        throw new Error(accountWide ? "This bundle is already registered on every character." : "This bundle is already registered on this character.");
-      }
-
       onClaimed();
+      if (!rows.length) {
+        window.alert(accountWide ? "This bundle is already registered on every character." : "This bundle is already registered on this character.");
+      }
     } catch (e) {
       console.error(e);
       window.alert(e instanceof Error ? e.message : "Could not claim bundle.");
