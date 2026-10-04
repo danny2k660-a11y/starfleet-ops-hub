@@ -142,14 +142,86 @@ function ShipDatabasePage() {
     const current = ownedByShip.get(ship.id);
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    if (current?.ownership_status === status) {
-      const { error } = await supabase.from("sto_ship_ownership" as never).delete().eq("user_id", u.user.id).eq("sto_ship_id", ship.id);
+
+    // "Owned" in the shared Ship Database is an account-level ownership declaration.
+    // Keep that declaration and the character-scoped fleet registry in sync so ships
+    // marked owned here actually appear on every character's command sheet.
+    if (status === "owned") {
+      const { error: ownershipError } = await supabase
+        .from("sto_ship_ownership" as never)
+        .upsert(
+          {
+            user_id: u.user.id,
+            sto_ship_id: ship.id,
+            ownership_status: "owned",
+            acquired_at: current?.ownership_status === "owned" ? undefined : new Date().toISOString(),
+          },
+          { onConflict: "user_id,sto_ship_id" },
+        );
+      if (ownershipError) return;
+
+      const targetCharacters = characters.data ?? [];
+      if (targetCharacters.length) {
+        const characterIds = targetCharacters.map((character) => character.id);
+        const { data: existingRows, error: existingError } = await supabase
+          .from("user_ships")
+          .select("id,character_id,ownership_status")
+          .eq("user_id", u.user.id)
+          .eq("sto_ship_id", ship.id)
+          .in("character_id", characterIds);
+        if (existingError) return;
+
+        const existing = new Set((existingRows ?? []).map((row: any) => row.character_id));
+        const newRows = targetCharacters
+          .filter((character) => !existing.has(character.id))
+          .map((character) => ({
+            user_id: u.user.id,
+            character_id: character.id,
+            sto_ship_id: ship.id,
+            custom_name: null,
+            ownership_status: "owned",
+            usage_mode: "build_pending",
+          }));
+
+        if (newRows.length) {
+          const { error } = await supabase.from("user_ships").insert(newRows as never[]);
+          if (error) return;
+        }
+
+        const existingIds = (existingRows ?? [])
+          .filter((row: any) => row.ownership_status !== "owned")
+          .map((row: any) => row.id);
+        if (existingIds.length) {
+          const { error } = await supabase
+            .from("user_ships")
+            .update({ ownership_status: "owned" } as never)
+            .in("id", existingIds);
+          if (error) return;
+        }
+      }
+    } else if (current?.ownership_status === status) {
+      const { error } = await supabase
+        .from("sto_ship_ownership" as never)
+        .delete()
+        .eq("user_id", u.user.id)
+        .eq("sto_ship_id", ship.id);
       if (error) return;
     } else {
-      const { error } = await supabase.from("sto_ship_ownership" as never).upsert({ user_id: u.user.id, sto_ship_id: ship.id, ownership_status: status, acquired_at: status === "owned" ? new Date().toISOString() : null }, { onConflict: "user_id,sto_ship_id" });
+      const { error } = await supabase
+        .from("sto_ship_ownership" as never)
+        .upsert(
+          {
+            user_id: u.user.id,
+            sto_ship_id: ship.id,
+            ownership_status: status,
+            acquired_at: null,
+          },
+          { onConflict: "user_id,sto_ship_id" },
+        );
       if (error) return;
     }
-    ownership.refetch();
+
+    await ownership.refetch();
   };
   const toggleOwnership = (ship: StoShip) => setOwnership(ship, "owned");
   const verifiedCount = data.filter((ship) => ship.source_key === "stowiki" && ship.verified_at).length;
