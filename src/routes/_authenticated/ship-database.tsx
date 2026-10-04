@@ -398,7 +398,9 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       }
     } catch (e) {
       console.error(e);
-      window.alert(e instanceof Error ? e.message : "Could not claim bundle.");
+      const err = e as any;
+      const detail = [err?.message, err?.details, err?.hint, err?.code ? `code ${err.code}` : null].filter(Boolean).join(" — ");
+      window.alert(detail || "Could not claim bundle.");
     } finally {
       setBusy(false);
     }
