@@ -88,6 +88,10 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
   const [role, setRole] = useState(build?.role ?? "");
   const [status, setStatus] = useState(build?.status ?? "draft");
   const [notes, setNotes] = useState(build?.notes ?? "");
+  const captainSetup:any=(build as any)?.captain_setup ?? {};
+  const [primarySpecialization, setPrimarySpecialization] = useState(captainSetup.primary_specialization ?? "");
+  const [secondarySpecialization, setSecondarySpecialization] = useState(captainSetup.secondary_specialization ?? "");
+  const [captainAbilityNotes, setCaptainAbilityNotes] = useState(captainSetup.ability_notes ?? "");
 
   const save = useMutation({ mutationFn: async () => {
     const trimmedName = name.trim();
@@ -98,7 +102,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     const chosenShip = fleetShips.find((s:any) => s.id === fleetShipId);
     if (!chosenShip || chosenShip.character_id !== characterId) throw new Error("Choose a ship owned by the selected character.");
     if (["console_trait_only", "collection_only"].includes(chosenShip.usage_mode)) throw new Error("This ship is marked as non-build. Return it to the build queue before creating a build.");
-    const payload = { name: trimmedName, ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId, character_id: characterId, role: role || null, status, notes: notes || null, build_domain: "space" };
+    const payload = { name: trimmedName, ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: fleetShipId, character_id: characterId, role: role || null, status, notes: notes || null, build_domain: "space", captain_setup: { primary_specialization: primarySpecialization.trim() || null, secondary_specialization: secondarySpecialization.trim() || null, ability_notes: captainAbilityNotes.trim() || null } };
     let buildId = build?.id ?? null;
     const otherBuild = fleetShips.find((s:any) => s.id === fleetShipId && s.current_build_id && s.current_build_id !== buildId);
     if (otherBuild) throw new Error("That ship is already assigned to another build.");
@@ -126,6 +130,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
       <div className="space-y-1"><Label>Build name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Elite CSV — Terran" /></div>
       {build?.ship_instance_id && <div className="rounded border border-amber-500/30 bg-amber-500/5 p-3"><p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Legacy ship link</p><p className="mt-1 text-xs text-muted-foreground">Retained for compatibility; the primary owned ship above is authoritative.</p><div className="mt-2"><Select value={shipId} onValueChange={setShipId}><SelectTrigger><SelectValue placeholder="Legacy ship instance" /></SelectTrigger><SelectContent><SelectItem value="__none__">Clear legacy link</SelectItem>{ships.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select></div></div>}
       <div className="space-y-1"><Label>Role</Label><Input value={role} onChange={e => setRole(e.target.value)} placeholder="CSV, BO, FAW, Science, Carrier…" /></div>
+      <div className="rounded-lg border border-border/70 bg-background/30 p-3"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">Captain setup</p><div className="grid gap-2 sm:grid-cols-2"><Input value={primarySpecialization} onChange={e=>setPrimarySpecialization(e.target.value)} placeholder="Primary specialization" /><Input value={secondarySpecialization} onChange={e=>setSecondarySpecialization(e.target.value)} placeholder="Secondary specialization" /></div><Textarea className="mt-2" value={captainAbilityNotes} onChange={e=>setCaptainAbilityNotes(e.target.value)} placeholder="Captain abilities / setup notes…" /></div>
       <div className="space-y-1"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="testing">Testing</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="retired">Retired</SelectItem></SelectContent></Select></div>
       <div className="space-y-1"><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Theme rules, target content, gear notes…" /></div>
     </div>
