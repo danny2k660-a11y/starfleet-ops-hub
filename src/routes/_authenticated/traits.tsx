@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Plus, Search, Trash2, Sparkles, UserRound, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,6 +29,40 @@ const personalCategoryLabel = (type: string, domain: string, active = false) => 
   if (type === "reputation") return `${active ? "Active " : ""}${domainLabels[domain] ?? domain} Reputation`;
   return `Personal ${domainLabels[domain] ?? domain}`;
 };
+function SearchableTraitPicker({ value, onValueChange, traits, placeholder, labelFor }: {
+  value: string;
+  onValueChange: (value: string) => void;
+  traits: any[];
+  placeholder: string;
+  labelFor?: (trait: any) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = traits.find((t:any) => t.id === value);
+  return <Popover open={open} onOpenChange={setOpen}>
+    <PopoverTrigger asChild>
+      <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between font-normal">
+        <span className={selected ? "" : "text-muted-foreground"}>{selected?.name ?? placeholder}</span>
+        <Search className="ml-2 size-4 shrink-0 opacity-50" />
+      </Button>
+    </PopoverTrigger>
+    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+      <Command shouldFilter>
+        <CommandInput placeholder="Search by trait name, type or domain…" />
+        <CommandList>
+          <CommandEmpty>No matching traits.</CommandEmpty>
+          {traits.map((t:any) => <CommandItem
+            key={t.id}
+            value={`${t.name} ${t.trait_type ?? ""} ${t.domain ?? ""}`}
+            onSelect={() => { onValueChange(t.id); setOpen(false); }}
+          >
+            <span className="truncate">{t.name}{labelFor ? ` — ${labelFor(t)}` : ""}</span>
+          </CommandItem>)}
+        </CommandList>
+      </Command>
+    </PopoverContent>
+  </Popover>;
+}
+
 const personalBuckets = [
   { key: "space", title: "Personal Space Traits", types: ["personal"], domain: "space", availability: "general" },
   { key: "ground", title: "Personal Ground Traits", types: ["personal"], domain: "ground", availability: "general" },
@@ -176,12 +212,12 @@ function Page() {
     <Dialog open={open} onOpenChange={v=>{setOpen(v);if(!v)reset()}}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle className="font-display text-primary">{mode==="personal"?"Add personal trait":"Assign starship trait"}</DialogTitle></DialogHeader><div className="grid gap-4">
       {mode==="personal" ? <>
         <div className="space-y-1"><Label>Character</Label><Select value={characterId} onValueChange={setCharacterId}><SelectTrigger><SelectValue placeholder="Choose character"/></SelectTrigger><SelectContent>{(characters.data??[]).map((c:any)=><SelectItem key={c.id} value={c.id}>{c.name}{c.level!=null?" — Lv "+c.level:""}</SelectItem>)}</SelectContent></Select></div>
-        <div className="space-y-1"><Label>Catalogue personal trait</Label><Select value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setCategory(t.trait_type??"personal");setDomain(t.domain??"space");setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose an eligible personal, species or reputation trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).filter((t:any)=>t.trait_type!=="starship" && t.availability_type!=="innate" && traitMatchesCharacter(t, selectedCharacter)).map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name} — {personalCategoryLabel(t.trait_type, t.domain, Boolean(t.is_active_ability))}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Catalogue personal trait</Label><SearchableTraitPicker value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setCategory(t.trait_type??"personal");setDomain(t.domain??"space");setNotes(t.description??"");}}} traits={(catalog.data??[]).filter((t:any)=>t.trait_type!=="starship" && t.availability_type!=="innate" && traitMatchesCharacter(t, selectedCharacter))} placeholder="Search eligible personal, species or reputation traits…" labelFor={(t:any)=>personalCategoryLabel(t.trait_type,t.domain,Boolean(t.is_active_ability)))} /></div>
         <div className="rounded border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">Personal traits are stored on the character, not on the ship. Personal trait slots are level-based: 3 Ground + 3 Space at creation, then +1 Ground and +1 Space every 10 levels through level 60, for 9 + 9 at level 65. Alien captains receive +1 Ground and +1 Space, and an Elite Captain Training Token adds +1 Ground and +1 Space. Species traits are separate from these selectable personal slots. Reputation has separate 4-slot Passive Ground, Passive Space, Active Ground and Active Space categories, with separate Fleet Research Lab expansions.</div><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Environment</Label><Select value={domain} onValueChange={setDomain}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="space">Space</SelectItem><SelectItem value="ground">Ground</SelectItem></SelectContent></Select></div><div className="space-y-1"><Label>Category</Label><Select value={category} onValueChange={setCategory}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{Object.entries(categoryLabels).filter(([k])=>k!=="starship").map(([k,v])=><SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div></div>
         <div className="space-y-1"><Label>Slot number</Label><Input type="number" min="1" value={slotIndex} onChange={e=>setSlotIndex(e.target.value)} placeholder="Optional slot"/><p className="text-xs text-muted-foreground">Personal {domain === "space" ? "Space" : "Ground"} slots: {selectedCharacter ? personalSlotLimit(selectedCharacter) : "choose a character first"}.</p></div><div className="flex items-center gap-2 rounded border p-3 text-sm"><input type="checkbox" checked={repExtra} onChange={e=>setRepExtra(e.target.checked)} disabled={category!=="reputation" && category!=="activereputation"} /><span>Fleet Research Lab +1 reputation slot for this Ground/Space category</span></div>
       </> : <>
         <div className="space-y-1"><Label>Loadout</Label><Select value={loadoutId} onValueChange={setLoadoutId}><SelectTrigger><SelectValue placeholder="Choose a ship loadout"/></SelectTrigger><SelectContent>{(loadouts.data??[]).map((l:any)=>{const b:any=buildById.get(l.build_id);const s:any=shipById.get(b?.user_ship_id);return <SelectItem key={l.id} value={l.id}>{b?.name??"Build"} — {s?.custom_name||s?.sto_ships?.name||"Ship"} — {l.name}</SelectItem>})}</SelectContent></Select></div>
-        <div className="space-y-1"><Label>Catalogue starship trait</Label><Select value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setNotes(t.description??"");}}}><SelectTrigger><SelectValue placeholder="Choose a canonical starship trait"/></SelectTrigger><SelectContent>{(catalog.data??[]).filter((t:any)=>t.trait_type==="starship").map((t:any)=><SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Catalogue starship trait</Label><SearchableTraitPicker value={catalogId} onValueChange={v=>{setCatalogId(v);const t:any=(catalog.data??[]).find((x:any)=>x.id===v);if(t){setName(t.name);setNotes(t.description??"");}}} traits={(catalog.data??[]).filter((t:any)=>t.trait_type==="starship")} placeholder="Search canonical starship traits…" /></div>
         <div className="space-y-1"><Label>Trait name</Label><Input value={name} onChange={e=>setName(e.target.value)} placeholder="Starship trait name"/></div>
         <div className="space-y-1"><Label>Trait slot</Label><Input value={slotIndex} onChange={e=>setSlotIndex(e.target.value)} placeholder="1, 2, 3, 4, extra…"/></div>
       </>}
