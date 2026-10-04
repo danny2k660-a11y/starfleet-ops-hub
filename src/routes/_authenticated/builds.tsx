@@ -372,6 +372,8 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const buildContext = useQuery({ queryKey: ["loadout_build_context", loadoutId], queryFn: async () => { const { data, error } = await supabase.from("loadouts" as never).select("build_id").eq("id", loadoutId).single(); if (error) throw error; return data as any; }});
   const dutyOfficers = useQuery({ queryKey: ["build_doffs", buildContext.data?.build_id], enabled: !!buildContext.data?.build_id, queryFn: async () => { const { data, error } = await supabase.from("build_doffs" as never).select("*").eq("build_id", buildContext.data.build_id).order("name"); if (error) throw error; return data ?? []; }});
   const dutyOfficerCatalog = useQuery({ queryKey: ["doff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("doff_catalog" as never).select("*").order("name"); if (error) throw error; return data ?? []; }});
+  const boffAbilityCatalog = useQuery({ queryKey: ["boff_ability_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_ability_catalog" as never).select("id,name,region,career,description,rank1,rank2,rank3").order("name"); if (error) throw error; return data ?? []; }});
+
   const traitCatalog = useQuery({ queryKey: ["trait_catalog"], queryFn: async () => {
     const { data, error } = await supabase.from("trait_catalog" as never).select("*").eq("trait_type","starship").eq("domain","space").order("name");
     if (error) throw error; return data ?? [];
@@ -395,6 +397,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const [officer, setOfficer] = useState("");
   const [dutyOfficerId, setDutyOfficerId] = useState("");
   const [dutyOfficerSearch, setDutyOfficerSearch] = useState("");
+  const [boffAbilitySearch, setBoffAbilitySearch] = useState("");
   const addTrait = async () => {
     const picked:any = (traitCatalog.data as any[] || []).find((t:any) => t.id === traitId);
     const name = picked?.name || trait.trim();
@@ -482,7 +485,8 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
       </div>
       <div className="rounded-lg border border-border/70 bg-background/30 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bridge Officers</p>
-        <div className="grid gap-2 sm:grid-cols-2"><Input value={station} onChange={(e) => setStation(e.target.value)} placeholder="Station" className="h-9" /><Input value={officer} onChange={(e) => setOfficer(e.target.value)} placeholder="Officer name" className="h-9" /><Input value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder="Specialization" className="h-9" /><Input value={abilities} onChange={(e) => setAbilities(e.target.value)} placeholder="Abilities, comma separated" className="h-9 sm:col-span-2" /></div>
+        <div className="grid gap-2 sm:grid-cols-2"><Input value={station} onChange={(e) => setStation(e.target.value)} placeholder="Station" className="h-9" /><Input value={officer} onChange={(e) => setOfficer(e.target.value)} placeholder="Officer name" className="h-9" /><Input value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder="Specialization" className="h-9" /><Input value={abilities} onChange={(e) => setAbilities(e.target.value)} placeholder="Abilities, comma separated" className="h-9 sm:col-span-2" />
+          <div className="sm:col-span-2"><Input value={boffAbilitySearch} onChange={e=>setBoffAbilitySearch(e.target.value)} placeholder="Search BOFF abilities…" className="h-8" /><div className="mt-1 max-h-28 overflow-y-auto rounded border border-border">{((boffAbilityCatalog.data as any[])||[]).filter((a:any)=>{const q=boffAbilitySearch.trim().toLowerCase();return q&&[a.name,a.region,a.career,a.description].filter(Boolean).join(" ").toLowerCase().includes(q);}).slice(0,15).map((a:any)=><button type="button" key={a.id} className="block w-full px-2 py-1.5 text-left text-xs hover:bg-muted" onClick={()=>{const current=abilities.split(",").map(x=>x.trim()).filter(Boolean);if(!current.includes(a.name))setAbilities([...current,a.name].join(", "));setBoffAbilitySearch("");}}>{a.name}<span className="ml-2 text-muted-foreground">{a.region}{a.career?" • "+a.career:""}</span></button>)}</div></div></div>
         <Button size="sm" className="mt-2" onClick={saveOfficer}>Save Officer</Button>
         <div className="mt-2 space-y-1">{((boffs.data as any[]) || []).map((b) => (
           <div key={b.id} className="flex items-center justify-between rounded border border-border px-2 py-1.5 text-sm"><span><span>{b.station}</span><span className="ml-2 text-primary">{b.officer_name || "Unassigned"}</span>{b.specialization && <span className="ml-2 text-xs text-muted-foreground">{b.specialization}</span>}{Array.isArray(b.abilities) && b.abilities.length > 0 && <span className="mt-1 block text-xs text-muted-foreground">{b.abilities.join(" • ")}</span>}</span><Button variant="ghost" size="icon" onClick={() => remove("loadout_boffs", b.id, "loadout_boffs")}><Trash2 className="h-3.5 w-3.5" /></Button></div>
