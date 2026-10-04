@@ -319,14 +319,34 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("You must be signed in.");
+      const isUuid = (value: unknown): value is string =>
+        typeof value === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+      if (!isUuid(bundle?.id)) throw new Error("This bundle record has no valid bundle ID. Refresh the Ship Database and try again.");
       if (!bundle.account_unlock && !characterId) throw new Error("Choose the character receiving this bundle.");
-      if (!shipItems.length) throw new Error("This bundle has no ship items registered.");
+
+      // Always reload the bundle items from their source table. This prevents a partially
+      // shaped nested Supabase response from ever sending an undefined UUID to Postgres.
+      const { data: freshItems, error: itemsError } = await supabase
+        .from("sto_ship_bundle_items" as never)
+        .select("sto_ship_id,item_type")
+        .eq("bundle_id", bundle.id);
+
+      if (itemsError) throw itemsError;
+
+      const claimItems = ((freshItems ?? []) as any[]).filter((item) => item.item_type === "ship" || !item.item_type);
+      if (!claimItems.length) throw new Error("This bundle has no ship items registered.");
+
+      const invalidItem = claimItems.find((item) => !isUuid(item.sto_ship_id));
+      if (invalidItem) throw new Error("This bundle contains a ship entry without a valid ship ID. The bundle data needs repairing.");
 
       const accountWide = bundle.account_unlock === true;
       const targetCharacters = accountWide ? characters.map((c) => c.id) : [characterId];
-      if (!targetCharacters.length) throw new Error("No characters are available on this account.");
+      const invalidCharacter = targetCharacters.find((id) => !isUuid(id));
+      if (!targetCharacters.length || invalidCharacter) throw new Error("The selected character data is missing a valid character ID. Refresh the page and try again.");
 
-      const shipIds = shipItems.map((item: any) => item.sto_ship_id);
+      const shipIds = claimItems.map((item: any) => item.sto_ship_id);
       const { data: existing, error: existingError } = await supabase
         .from("user_ships")
         .select("id,sto_ship_id,character_id,ownership_status")
@@ -336,7 +356,7 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       if (existingError) throw existingError;
 
       const existingRows = (existing ?? []) as any[];
-      const rows = shipItems.flatMap((item: any) => {
+      const rows = claimItems.flatMap((item: any) => {
         const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
         return targetCharacters
           .filter((id) => !existingRows.some((row) => row.character_id === id && row.sto_ship_id === item.sto_ship_id))
@@ -352,7 +372,7 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
           }));
       });
 
-      const updates = shipItems.flatMap((item: any) => {
+      const updates = claimItems.flatMap((item: any) => {
         const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
         return existingRows
           .filter((row) => row.sto_ship_id === item.sto_ship_id && targetCharacters.includes(row.character_id) && row.ownership_status !== "owned")
@@ -376,7 +396,7 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       const updateError = updateResults.find((result) => result.error)?.error;
       if (updateError) throw updateError;
 
-      const ownershipRows = shipItems.map((item: any) => {
+      const ownershipRows = claimItems.map((item: any) => {
         const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
         return {
           user_id: u.user.id,
