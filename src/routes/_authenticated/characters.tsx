@@ -54,7 +54,8 @@ function CharactersPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div><p className="lcars-label">Personnel registry</p><h2 className="font-display text-2xl text-primary sm:text-3xl">Characters</h2></div>
-          <div className="flex flex-wrap gap-2">\n            <Button variant="outline" onClick={() => setShowSearch(v => !v)}><Search className="mr-1 size-4" /> Search by character, species, faction and career</Button>\n            <Button onClick={() => { setSelected(null); setOpen(true); }} className="glow-primary"><Plus className="mr-1 size-4" /> Add character</Button>\n          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setShowSearch(v => !v)}><Search className="mr-1 size-4" /> Search by character, species, faction and career</Button>\n            <Button onClick={() => { setSelected(null); setOpen(true); }} className="glow-primary"><Plus className="mr-1 size-4" /> Add character</Button>\n          </div>
         </div>
         {showSearch && <div className="panel p-4"><div className="relative"><Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" /><Input autoFocus className="pl-8" placeholder="Search by character, species, faction and career" value={q} onChange={e => setQ(e.target.value)} /></div></div>}
         {characters.isError ? <div className="panel p-6 text-center text-destructive">Unable to load the personnel registry. Refresh and try again.</div> : characters.isLoading ? <p className="text-muted-foreground">Loading personnel registry…</p> :
@@ -119,6 +120,8 @@ function CharacterDialog({ open, onOpenChange, character, onDeleted }: { open: b
 function CharacterOps({ characterId, characterName }: { characterId: string; characterName: string }) {
   const ships = useQuery({
     queryKey: ["character_ops_ships", characterId],
+    refetchOnMount: "always",
+    staleTime: 0,
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
@@ -135,6 +138,8 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
 
   const equipment = useQuery({
     queryKey: ["character_ops_equipment", characterId],
+    refetchOnMount: "always",
+    staleTime: 0,
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
