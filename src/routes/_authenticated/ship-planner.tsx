@@ -89,6 +89,17 @@ function ShipPlannerPage() {
     if (!rows.length) throw new Error("The selected ships are already registered for their applicable character scope.");
     const { error } = await supabase.from("user_ships").insert(rows as never[]);
     if (error) throw error;
+    const { error: ownershipError } = await supabase.from("sto_ship_ownership" as never).upsert(
+      selectedSources.map(({ sto_ship_id, source }: any) => ({
+        user_id: u.user!.id,
+        sto_ship_id,
+        ownership_status: "owned",
+        acquisition_source_id: source?.id ?? null,
+        notes: claimGroup.trim() ? `Claimed via: ${claimGroup.trim()}` : source?.source_name ? `Claimed via: ${source.source_name}` : null,
+      })) as never[],
+      { onConflict: "user_id,sto_ship_id" }
+    );
+    if (ownershipError) throw ownershipError;
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); setSelectedCatalog([]); toast.success("Ships added to the character and placed in the build queue."); }, onError: (e: Error) => toast.error(e.message) });
   const claimBundle = useMutation({ mutationFn: async () => {
     if (!claimCharacter) throw new Error("Choose the character receiving the bundle ships.");
