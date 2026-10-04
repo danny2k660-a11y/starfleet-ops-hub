@@ -18,3 +18,11 @@ jobs:
           cache-dependency-path: package.json
       - run: npm install
       - run: npm run build
+
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: sto-command-center-web-${{ github.run_number }}
+          path: .output/public
+          if-no-files-found: error
+          retention-days: 30
