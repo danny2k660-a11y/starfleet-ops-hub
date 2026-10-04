@@ -136,7 +136,7 @@ function ShipPlannerPage() {
 if (ship.ownership_status !== "owned" || !ship.character_id) throw new Error("Only a character-owned ship can become a build.");
 const { data: existing } = await supabase.from("builds").select("id").eq("user_ship_id", ship.id).maybeSingle();
 if (existing?.id) throw new Error("This ship already has a build.");
-const { data: build, error } = await supabase.from("builds").insert({ user_id: u.user.id, name: `${shipName} — New Build`, user_ship_id: ship.id, role: null, status: "draft", notes: "Build created from the ship planner. Define the ship's role, theme and full loadout here." } as never).select("id").single();
+const { data: build, error } = await supabase.from("builds").insert({ user_id: u.user.id, name: `${shipName} — New Build`, user_ship_id: ship.id, character_id: ship.character_id, build_domain: "space", role: null, status: "draft", notes: "Build created from the ship planner. Define the ship's role, theme and full loadout here." } as never).select("id").single();
 if (error) throw error;
 const { error: linkError } = await supabase.from("user_ships").update({ current_build_id: build.id, usage_mode: "build_created" } as never).eq("id", ship.id);
 if (linkError) throw linkError; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["builds"] }); toast.success("Build shell created. Finish it in Builds."); }, onError: (e: Error) => toast.error(e.message) });
