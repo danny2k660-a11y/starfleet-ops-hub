@@ -1083,6 +1083,40 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const createBuild = useMutation({
+    mutationFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in.");
+      if (!ship.character_id) throw new Error("Assign this ship to a character first.");
+      if (ship.usage_mode === "console_trait_only" || ship.usage_mode === "collection_only") {
+        throw new Error("This ship is marked as utility/collection only and does not require a build.");
+      }
+      if (ship.current_build_id) return ship.current_build_id;
+      const { data: build, error } = await supabase.from("builds").insert({
+        user_id: u.user.id,
+        character_id: ship.character_id,
+        user_ship_id: ship.id,
+        name: `${ship.custom_name || ship.sto_ships?.name || "Ship"} Build`,
+        status: "draft",
+        notes: "",
+        build_domain: "space",
+      } as never).select("id").single();
+      if (error) throw error;
+      const { error: linkError } = await supabase.from("user_ships").update({
+        current_build_id: build.id,
+        usage_mode: "build_created",
+      } as never).eq("id", ship.id);
+      if (linkError) throw linkError;
+      return build.id;
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["user_ships"] });
+      await qc.invalidateQueries({ queryKey: ["builds"] });
+      toast.success("Build created and linked to this ship.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const remove = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("user_ships").delete().eq("id", ship.id);
@@ -1384,6 +1418,14 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
             </>
           ) : (
             <>
+              {!ship.current_build_id && ship.character_id && ship.usage_mode !== "console_trait_only" && ship.usage_mode !== "collection_only" && (
+                <Button variant="outline" disabled={createBuild.isPending} onClick={() => createBuild.mutate()}>
+                  <Rocket className="mr-1 h-4 w-4" /> {createBuild.isPending ? "Creating…" : "Create build"}
+                </Button>
+              )}
+              {!ship.character_id && ship.usage_mode !== "console_trait_only" && ship.usage_mode !== "collection_only" && (
+                <span className="text-xs text-muted-foreground">Assign a character before creating a build.</span>
+              )}
               <Button variant="ghost" className="text-destructive" onClick={() => confirm("Remove this ship from your fleet?") && remove.mutate()}>Remove</Button>
               <Button onClick={() => setEditing(true)}>Edit</Button>
             </>
