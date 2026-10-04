@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export const Route=createFileRoute("/_authenticated/resources")({head:()=>({meta:[{title:"Resources — STO Command Center"}]}),component:Page});
 const RESOURCE_TYPES=["Zen","Dilithium","Energy Credits","Lobi","Fleet Credits","Reputation Marks","Phoenix Tokens","Experimental Tokens","T6 Ship Coupons","Event Campaign Progress","Upgrade Tokens","Other"];
 function Page(){
- const qc=useQueryClient(); const [character,setCharacter]=useStateValue("account"); const [type,setType]=useState("Zen"); const [amount,setAmount]=useState("");
+ const qc=useQueryClient(); const [character,setCharacter]=useState("account"); const [type,setType]=useState("Zen"); const [amount,setAmount]=useState("");
  const chars=useQuery({queryKey:["characters"],queryFn:async()=>{const {data,error}=await supabase.from("characters").select("id,name").order("name");if(error)throw error;return data??[]}});
  const resources=useQuery({queryKey:["sto_resources"],queryFn:async()=>{const {data,error}=await supabase.from("sto_resource_balances").select("*,characters(name)").order("resource_type");if(error)throw error;return data??[]}});
  const save=useMutation({mutationFn:async()=>{const {data:u}=await supabase.auth.getUser();if(!u.user)throw new Error("Not signed in");const cid=character==="account"?null:character;const {error}=await supabase.from("sto_resource_balances").upsert({user_id:u.user.id,character_id:cid,resource_type:type,amount:Number(amount)||0},{onConflict:"user_id,character_id,resource_type"} as any);if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["sto_resources"]});toast.success("Resource balance saved");}});
@@ -20,5 +21,3 @@ function Page(){
  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{(resources.data??[]).map((r:any)=><div key={r.id} className="rounded-lg border border-border bg-card/70 p-4"><p className="lcars-label">{r.characters?.name??"Account-wide"}</p><p className="font-display text-lg text-primary">{r.resource_type}</p><p className="mt-1 text-2xl">{Number(r.amount).toLocaleString()}</p></div>)}</div>
  </div></AppShell>;
 }
-function useStateValue(initial:string){const [v,setV]=requireState(initial);return [v,setV] as const}
-function requireState(initial:string){return [initial,(_v:string)=>{}] as const}
