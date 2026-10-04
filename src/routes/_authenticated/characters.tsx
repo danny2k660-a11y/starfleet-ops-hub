@@ -133,10 +133,13 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
   const equipment = useQuery({
     queryKey: ["character_ops_equipment", characterId],
     queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in");
       const { data, error } = await supabase
         .from("equipment_items" as never)
-        .select("id,name,category,slot,mark,rarity,mark_level,upgrade_level,catalog_item_id")
-        .eq("character_id", characterId)
+        .select("id,name,category,slot,mark,rarity,mark_level,upgrade_level,catalog_item_id,character_id")
+        .eq("user_id", u.user.id)
+        .or(`character_id.eq.${characterId},character_id.is.null`)
         .order("name");
       if (error) throw error;
       return data as any[];
