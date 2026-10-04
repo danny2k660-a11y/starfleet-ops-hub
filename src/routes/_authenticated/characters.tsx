@@ -120,9 +120,12 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
   const ships = useQuery({
     queryKey: ["character_ops_ships", characterId],
     queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in");
       const { data, error } = await supabase
         .from("user_ships")
-        .select("id,custom_name,ownership_status,sto_ships(name,ship_class),builds(name,status)")
+        .select("id,custom_name,ownership_status,sto_ship_id,character_id,sto_ships(name,ship_class),builds(name,status)")
+        .eq("user_id", u.user.id)
         .eq("character_id", characterId)
         .order("created_at", { ascending: false });
       if (error) throw error;
