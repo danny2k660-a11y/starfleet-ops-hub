@@ -1,11 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PlaceholderPage } from "@/components/app-shell";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, CheckCircle2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { AppShell } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
-export const Route = createFileRoute("/_authenticated/projects")({
-  head: () => ({ meta: [{ title: "Projects — STO Command Center" }] }),
-  component: Page,
-});
-
-function Page() {
-  return <PlaceholderPage title="Projects" subtitle="Long-term fleet operations" description="Project tracking is reserved for a future data module. Build status and ship planning now live in the build and ship-planner workflows." planned={["Build goals","Upgrade plans","Reputation and campaign goals","Task tracking"]} />;
+export const Route=createFileRoute("/_authenticated/projects")({head:()=>({meta:[{title:"Projects — STO Command Center"}]}),component:Page});
+function Page(){
+ const qc=useQueryClient(); const [open,setOpen]=useState(false); const [name,setName]=useState(""); const [type,setType]=useState("build"); const [priority,setPriority]=useState("normal"); const [description,setDescription]=useState("");
+ const projects=useQuery({queryKey:["sto_projects"],queryFn:async()=>{const {data,error}=await supabase.from("sto_projects").select("*,characters(name)").order("created_at",{ascending:false});if(error)throw error;return data??[];}});
+ const tasks=useQuery({queryKey:["sto_project_tasks"],queryFn:async()=>{const {data,error}=await supabase.from("sto_project_tasks").select("*").order("created_at");if(error)throw error;return data??[];}});
+ const create=useMutation({mutationFn:async()=>{const {data:u}=await supabase.auth.getUser();if(!u.user||!name.trim())throw new Error("Project name is required");const {error}=await supabase.from("sto_projects").insert({user_id:u.user.id,name:name.trim(),project_type:type,priority,description:description.trim()||null});if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["sto_projects"]});setOpen(false);setName("");setDescription("");toast.success("Project created");},onError:(e:Error)=>toast.error(e.message)});
+ const addTask=useMutation({mutationFn:async(projectId:string)=>{const {data:u}=await supabase.auth.getUser();if(!u.user)throw new Error("Not signed in");const title=prompt("Task name");if(!title?.trim())return;const {error}=await supabase.from("sto_project_tasks").insert({user_id:u.user.id,project_id:projectId,title:title.trim()});if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["sto_project_tasks"]}),onError:(e:Error)=>toast.error(e.message)});
+ const toggle=useMutation({mutationFn:async(t:any)=>{const done=t.status==="complete";const {error}=await supabase.from("sto_project_tasks").update({status:done?"pending":"complete",completed_quantity:done?0:t.quantity}).eq("id",t.id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["sto_project_tasks"]})});
+ const remove=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("sto_projects").delete().eq("id",id);if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["sto_projects"]});qc.invalidateQueries({queryKey:["sto_project_tasks"]});}});
+ const rows=useMemo(()=>projects.data??[],[projects.data]);
+ return <AppShell title="Projects" subtitle="Fleet goals, acquisition plans and long-term operations"><div className="space-y-5">
+ <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="lcars-label">Operations planning</p><h1 className="font-display text-2xl text-primary">Projects</h1><p className="text-sm text-muted-foreground">Track ship builds, purchases, upgrades, reputation, campaigns and anything else you are working toward.</p></div><Button onClick={()=>setOpen(!open)}><Plus className="mr-1 size-4"/> New project</Button></div>
+ {open&&<div className="panel p-4 space-y-3"><Input placeholder="Project name" value={name} onChange={e=>setName(e.target.value)}/><div className="grid gap-3 sm:grid-cols-2"><Select value={type} onValueChange={setType}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{["build","ship acquisition","upgrade","reputation","campaign","collection","other"].map(x=><SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select><Select value={priority} onValueChange={setPriority}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{["low","normal","high","critical"].map(x=><SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></div><Textarea placeholder="Notes / target outcome" value={description} onChange={e=>setDescription(e.target.value)}/><Button onClick={()=>create.mutate()} disabled={create.isPending}>Create project</Button></div>}
+ {rows.length===0?<div className="panel p-10 text-center text-muted-foreground">No projects yet. Create your first build or acquisition plan.</div>:<div className="grid gap-4 lg:grid-cols-2">{rows.map((p:any)=>{const ts=(tasks.data??[]).filter((t:any)=>t.project_id===p.id);const done=ts.filter((t:any)=>t.status==="complete").length;return <div key={p.id} className="panel p-4"><div className="flex items-start justify-between gap-3"><div><p className="lcars-label">{p.project_type} • {p.priority}</p><h2 className="font-display text-lg text-primary">{p.name}</h2>{p.description&&<p className="mt-1 text-sm text-muted-foreground">{p.description}</p>}</div><Button size="icon" variant="ghost" onClick={()=>remove.mutate(p.id)}><Trash2 className="size-4 text-destructive"/></Button></div><div className="mt-4 space-y-2">{ts.map((t:any)=><button key={t.id} className="flex w-full items-center gap-2 text-left text-sm" onClick={()=>toggle.mutate(t)}><CheckCircle2 className={t.status==="complete"?"size-4 text-primary":"size-4 text-muted-foreground"}/><span className={t.status==="complete"?"line-through text-muted-foreground":""}>{t.title}</span></button>)}<Button variant="outline" size="sm" onClick={()=>addTask.mutate(p.id)}><Plus className="mr-1 size-3"/> Add task</Button></div><p className="mt-3 text-xs text-muted-foreground">{done}/{ts.length} tasks complete</p></div>})}</div>}
+ </div></AppShell>;
 }
