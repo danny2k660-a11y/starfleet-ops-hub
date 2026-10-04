@@ -872,6 +872,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
   const [search, setSearch] = useState("");
   const [shipId, setShipId] = useState<string | null>(null);
   const [characterId, setCharacterId] = useState("");
+  const [addToAllCharacters, setAddToAllCharacters] = useState(false);
   const [newChar, setNewChar] = useState("");
   const [name, setName] = useState("");
   const [up, setUp] = useState({ t6: false, t6x: false, t6x2: false });
@@ -895,26 +896,68 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
   const save = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
-      const { data, error } = await supabase.from("user_ships").insert({
-        user_id: u.user!.id, character_id: characterId, sto_ship_id: shipId!, custom_name: name.trim() || null, ownership_status: "owned",
-        usage_mode: usageMode,
-        acquisition_source_id: sourceId === "__none__" ? null : sourceId,
-        acquisition_group: sourceId !== "__none__" ? (sources.find((x) => x.id === sourceId)?.source_name ?? null) : null,
-        t6_upgraded: up.t6, t6x_upgraded: up.t6x, t6x2_upgraded: up.t6x2,
-      }).select("id").single();
+      if (!u.user) throw new Error("Not signed in.");
+      if (!shipId) throw new Error("Select a ship first.");
+
+      const targetCharacterIds = addToAllCharacters
+        ? characters.map((c) => c.id)
+        : characterId
+          ? [characterId]
+          : [];
+
+      if (targetCharacterIds.length === 0) {
+        throw new Error("Select a character or choose Add to all characters.");
+      }
+
+      const { data: existing, error: existingError } = await supabase
+        .from("user_ships")
+        .select("id,character_id")
+        .eq("sto_ship_id", shipId)
+        .in("character_id", targetCharacterIds);
+      if (existingError) throw existingError;
+
+      const existingCharacterIds = new Set((existing ?? []).map((row: any) => row.character_id));
+      const rows = targetCharacterIds
+        .filter((id) => !existingCharacterIds.has(id))
+        .map((id) => ({
+          user_id: u.user.id,
+          character_id: id,
+          sto_ship_id: shipId,
+          custom_name: name.trim() || null,
+          ownership_status: "owned",
+          usage_mode: usageMode,
+          acquisition_source_id: sourceId === "__none__" ? null : sourceId,
+          acquisition_group: sourceId !== "__none__" ? (sources.find((x) => x.id === sourceId)?.source_name ?? null) : null,
+          t6_upgraded: up.t6,
+          t6x_upgraded: up.t6x,
+          t6x2_upgraded: up.t6x2,
+        }));
+
+      if (rows.length === 0) {
+        throw new Error("This ship is already registered to all selected characters.");
+      }
+
+      const { data, error } = await supabase
+        .from("user_ships")
+        .insert(rows)
+        .select("id");
       if (error) throw error;
-      return data.id;
+
+      return { ids: (data ?? []).map((row: any) => row.id), added: rows.length, total: targetCharacterIds.length };
     },
-    onSuccess: (id) => {
+    onSuccess: ({ ids, added, total }) => {
       qc.invalidateQueries({ queryKey: ["user_ships"] });
-      toast.success("Ship registered");
-      setSearch(""); setShipId(null); setName(""); setUsageMode("build_pending"); setSourceId("__none__"); setSourceFilter("all"); setUp({ t6: false, t6x: false, t6x2: false });
-      onSaved(id);
+      toast.success(addToAllCharacters
+        ? added + " ship registration" + (added === 1 ? "" : "s") + " added across your " + total + " character" + (total === 1 ? "" : "s") + "."
+        : "Ship registered");
+      setSearch(""); setShipId(null); setName(""); setCharacterId(""); setAddToAllCharacters(false);
+      setUsageMode("build_pending"); setSourceId("__none__"); setSourceFilter("all"); setUp({ t6: false, t6x: false, t6x2: false });
+      onSaved(ids[0]);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const canSave = !!shipId && !!characterId;
+  const canSave = !!shipId && (addToAllCharacters ? characters.length > 0 : !!characterId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -936,12 +979,26 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
             </div>
           </div>
           <div className="space-y-2">
-            <Label>2. Character that owns this ship</Label>
+            <Label>2. Character ownership</Label>
             {characters.length > 0 && (
-              <Select value={characterId} onValueChange={setCharacterId}>
-                <SelectTrigger><SelectValue placeholder="Select character" /></SelectTrigger>
-                <SelectContent>{characters.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <>
+                <label className="flex cursor-pointer items-center gap-2 rounded border border-primary/20 bg-primary/5 p-3">
+                  <Checkbox checked={addToAllCharacters} onCheckedChange={(checked) => {
+                    setAddToAllCharacters(checked === true);
+                    if (checked === true) setCharacterId("");
+                  }} />
+                  <span>
+                    <span className="block text-sm font-medium text-primary">Add to all my characters</span>
+                    <span className="block text-xs text-muted-foreground">Register this ship to every character in your roster at once.</span>
+                  </span>
+                </label>
+                {!addToAllCharacters && (
+                  <Select value={characterId} onValueChange={setCharacterId}>
+                    <SelectTrigger><SelectValue placeholder="Select character" /></SelectTrigger>
+                    <SelectContent>{characters.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                )}
+              </>
             )}
             <div className="flex gap-2">
               <Input placeholder={characters.length ? "Or create a new character" : "Create your first character"} value={newChar} onChange={(e) => setNewChar(e.target.value)} />
