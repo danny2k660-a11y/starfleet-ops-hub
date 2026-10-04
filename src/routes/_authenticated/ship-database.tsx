@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type StoShip = Tables<"sto_ships">;
 type StoShipReference = Tables<"sto_ship_reference_data">;
@@ -82,6 +83,10 @@ function ShipDatabasePage() {
   const imports = useQuery({
     queryKey: ["sto_ship_catalog_imports"],
     queryFn: async () => { const { data, error } = await supabase.from("sto_ship_catalog_imports" as never).select("*").order("created_at", { ascending: false }).limit(10); if (error) throw error; return (data ?? []) as any[]; },
+  });
+  const characters = useQuery({
+    queryKey: ["characters"],
+    queryFn: async () => { const { data, error } = await supabase.from("characters").select("id,name").order("name"); if (error) throw error; return (data ?? []) as Array<{ id: string; name: string }>; },
   });
   const ownership = useQuery({
     queryKey: ["sto_ship_ownership"],
@@ -194,7 +199,7 @@ function ShipDatabasePage() {
               <Package className="size-4 shrink-0 text-primary" />
             </div>
             {bundles.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading verified bundles…</p> : bundles.data?.length ? <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {bundles.data.map((bundle: any) => <BundleClaim key={bundle.id} bundle={bundle} onClaimed={() => ownership.refetch()} />)}
+              {bundles.data.map((bundle: any) => <BundleClaim key={bundle.id} bundle={bundle} characters={characters.data ?? []} sources={sources.data ?? []} onClaimed={() => { ownership.refetch(); }} />)}
             </div> : <p className="mt-2 text-xs text-muted-foreground">No verified bundle records have been added yet. Bundle claims will appear here as acquisition data is verified.</p>}
           </div>
           <div className="mt-4 rounded border border-border bg-muted/10 p-3">
@@ -302,42 +307,96 @@ function CoverageStat({ label, value }: { label: string; value: number }) {
   return <div className="rounded border border-border p-2"><p className="text-[10px] text-muted-foreground">{label}</p><p className="mt-1 font-display text-sm text-primary">{value}</p></div>;
 }
 
-function BundleClaim({ bundle, onClaimed }: { bundle: any; onClaimed: () => void }) {
+function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; characters: Array<{ id: string; name: string }>; sources: any[]; onClaimed: () => void }) {
   const [busy, setBusy] = useState(false);
-  const shipNames = (bundle.sto_ship_bundle_items ?? []).map((x: any) => x.sto_ships?.name).filter(Boolean);
+  const [characterId, setCharacterId] = useState("");
+  const shipItems = (bundle.sto_ship_bundle_items ?? []) as any[];
+  const shipNames = shipItems.map((x: any) => x.sto_ships?.name).filter(Boolean);
   const claim = async () => {
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("claim_sto_ship_bundle" as never, { p_bundle_id: bundle.id, p_acquired_at: new Date().toISOString() } as never);
-      if (error) throw error;
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("You must be signed in.");
+      if (!characterId) throw new Error("Choose the character receiving this bundle.");
+      if (!shipItems.length) throw new Error("This bundle has no ship items registered.");
+
+      const accountWide = bundle.account_unlock === true;
+      const targetCharacters = accountWide ? characters.map((c) => c.id) : [characterId];
+      if (!targetCharacters.length) throw new Error("No characters are available on this account.");
+
+      const shipIds = shipItems.map((item: any) => item.sto_ship_id);
+      const { data: existing, error: existingError } = await supabase
+        .from("user_ships")
+        .select("sto_ship_id,character_id")
+        .eq("ownership_status", "owned")
+        .in("character_id", targetCharacters)
+        .in("sto_ship_id", shipIds);
+      if (existingError) throw existingError;
+
+      const existingRows = (existing ?? []) as any[];
+      const rows = shipItems.flatMap((item: any) => {
+        const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
+        return targetCharacters
+          .filter((id) => !existingRows.some((row) => row.character_id === id && row.sto_ship_id === item.sto_ship_id))
+          .map((id) => ({
+            user_id: u.user.id,
+            character_id: id,
+            sto_ship_id: item.sto_ship_id,
+            custom_name: null,
+            ownership_status: "owned",
+            acquisition_source_id: source?.id ?? null,
+            acquisition_group: bundle.name,
+            usage_mode: "build_pending",
+          }));
+      });
+
+      if (rows.length) {
+        const { error } = await supabase.from("user_ships").insert(rows as never[]);
+        if (error) throw error;
+      }
+
+      const ownershipRows = shipItems.map((item: any) => {
+        const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
+        return {
+          user_id: u.user.id,
+          sto_ship_id: item.sto_ship_id,
+          ownership_status: "owned",
+          acquired_at: new Date().toISOString(),
+          acquisition_source_id: source?.id ?? null,
+          notes: `Claimed via bundle: ${bundle.name}`,
+        };
+      });
+      const { error: ownershipError } = await supabase
+        .from("sto_ship_ownership" as never)
+        .upsert(ownershipRows as never[], { onConflict: "user_id,sto_ship_id" });
+      if (ownershipError) throw ownershipError;
+
+      if (!rows.length) {
+        throw new Error(accountWide ? "This bundle is already registered on every character." : "This bundle is already registered on this character.");
+      }
+
       onClaimed();
     } catch (e) {
       console.error(e);
+      window.alert(e instanceof Error ? e.message : "Could not claim bundle.");
     } finally {
       setBusy(false);
     }
   };
+
   return <div className="rounded border border-border bg-background/40 p-2">
-    <div className="flex items-center justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-medium">{bundle.name}</p><p className="text-[10px] text-muted-foreground">{shipNames.length} ship{shipNames.length === 1 ? "" : "s"} · {bundle.availability_status}</p></div><Button size="sm" variant="outline" disabled={busy || !shipNames.length} onClick={claim}>{busy ? "Claiming…" : "Claim bundle"}</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{bundle.name}</p>
+        <p className="text-[10px] text-muted-foreground">{shipNames.length} ship{shipNames.length === 1 ? "" : "s"} · {bundle.availability_status}{bundle.account_unlock ? " · Account unlock" : ""}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={characterId} onValueChange={setCharacterId}>
+          <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Character" /></SelectTrigger>
+          <SelectContent>{characters.map((character) => <SelectItem key={character.id} value={character.id}>{character.name}</SelectItem>)}</SelectContent>
+        </Select>
+        <Button size="sm" variant="outline" disabled={busy || !shipNames.length || !characterId} onClick={claim}>{busy ? "Claiming…" : "Claim bundle"}</Button>
+      </div>
+    </div>
   </div>;
-}
-
-function Info({ label, value }: { label: string; value: unknown }) {
-  const empty = value === null || value === undefined || value === "";
-  return <div className="rounded border border-border bg-muted/20 p-2"><p className="lcars-label text-[10px]">{label}</p><p className={empty ? "text-xs italic text-muted-foreground" : "text-sm text-foreground"}>{empty ? "Not populated" : String(value)}</p></div>;
-}
-
-function ImportRow({ item, onChanged }: { item: any; onChanged: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const run = async (action: "validate" | "apply") => {
-    setBusy(true);
-    try {
-      const fn = action === "validate" ? "validate_sto_ship_catalog_import" : "apply_sto_ship_catalog_import";
-      const { error } = await supabase.rpc(fn as never, { p_import_id: item.id } as never);
-      if (error) throw error;
-      onChanged();
-    } catch (e) { console.error(e); } finally { setBusy(false); }
-  };
-  const count = Array.isArray(item.payload) ? item.payload.length : 0;
-  return <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-border bg-background/40 px-2 py-2 text-xs"><div className="min-w-0"><p className="font-medium">{item.source_key} · {count} records</p><p className="text-[10px] text-muted-foreground">{item.status} · {new Date(item.created_at).toLocaleString()}</p>{item.error_message && <p className="mt-1 text-[10px] text-destructive">{item.error_message}</p>}</div><div className="flex gap-1">{item.status === "pending" && <Button size="sm" variant="outline" disabled={busy} onClick={() => run("validate")}>{busy ? "Checking…" : "Validate"}</Button>}{item.status === "validated" && <Button size="sm" variant="outline" disabled={busy} onClick={() => run("apply")}>{busy ? "Applying…" : "Apply"}</Button>}</div></div>;
 }
