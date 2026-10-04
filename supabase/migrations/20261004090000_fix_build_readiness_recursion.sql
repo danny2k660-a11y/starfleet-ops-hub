@@ -1,4 +1,4 @@
--- Prevent build-readiness trigger recursion during build creation/updates.
+-- Prevent build-readiness trigger recursion and make ground builds compatible with space readiness checks.
 CREATE OR REPLACE FUNCTION public.refresh_operational_build_readiness(p_build_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -17,11 +17,15 @@ DECLARE
   v_passed integer := 0;
 BEGIN
   IF pg_trigger_depth() > 1 THEN RETURN; END IF;
-
   SELECT * INTO v_build FROM public.builds WHERE id=p_build_id;
   IF NOT FOUND THEN RETURN; END IF;
-  SELECT * INTO v_ship FROM public.user_ships WHERE id=v_build.user_ship_id;
 
+  IF v_build.build_domain = 'ground' THEN
+    UPDATE public.builds SET completion_percent=0,is_complete=false,last_validated_at=now(),updated_at=now() WHERE id=p_build_id;
+    RETURN;
+  END IF;
+
+  SELECT * INTO v_ship FROM public.user_ships WHERE id=v_build.user_ship_id;
   IF v_ship.id IS NOT NULL THEN
     SELECT * INTO v_catalog FROM public.sto_ships WHERE id=v_ship.sto_ship_id;
     IF coalesce(v_ship.t6x2_upgraded,false) THEN v_expected_traits := 6;
@@ -46,12 +50,12 @@ BEGIN
 
   INSERT INTO public.build_readiness_checks(build_id,check_key,passed,detail,checked_at)
   VALUES
-    (p_build_id,'captain',v_build.character_id is not null and v_ship.character_id=v_build.character_id,case when v_build.character_id is not null and v_ship.character_id=v_build.character_id then 'Character is linked to the same owned ship.' else 'Build must be linked to the character that owns the ship.' end,now()),
-    (p_build_id,'build',v_ship.id is not null and coalesce(v_ship.usage_mode,'')='build_created',case when v_ship.id is not null and coalesce(v_ship.usage_mode,'')='build_created' then 'Owned ship is explicitly in build mode.' else 'Owned ship is not in build mode.' end,now()),
+    (p_build_id,'captain',coalesce(v_build.character_id is not null and v_ship.character_id=v_build.character_id,false),case when coalesce(v_build.character_id is not null and v_ship.character_id=v_build.character_id,false) then 'Character is linked to the same owned ship.' else 'Build must be linked to the character that owns the ship.' end,now()),
+    (p_build_id,'build',coalesce(v_ship.id is not null and coalesce(v_ship.usage_mode,'')='build_created',false),case when coalesce(v_ship.id is not null and coalesce(v_ship.usage_mode,'')='build_created',false) then 'Owned ship is explicitly in build mode.' else 'Owned ship is not in build mode.' end,now()),
     (p_build_id,'active_loadout',v_active_loadout.id is not null,case when v_active_loadout.id is not null then 'An active loadout exists.' else 'Create and activate a loadout.' end,now()),
-    (p_build_id,'equipment',v_expected_equipment>0 and v_equipment_count>=v_expected_equipment,case when v_expected_equipment=0 then 'Ship catalogue equipment slots are not populated, so equipment readiness cannot be verified.' else format('%s of %s catalogue equipment slots recorded.',v_equipment_count,v_expected_equipment) end,now()),
-    (p_build_id,'traits',v_trait_count>=v_expected_traits,format('%s of %s available starship trait slots recorded.',v_trait_count,v_expected_traits),now()),
-    (p_build_id,'bridge_crew',v_expected_stations>0 and v_boff_count>=v_expected_stations,case when v_expected_stations=0 then 'Ship catalogue bridge seating is not populated, so crew readiness cannot be verified.' else format('%s of %s catalogue bridge stations configured.',v_boff_count,v_expected_stations) end,now())
+    (p_build_id,'equipment',coalesce(v_expected_equipment>0 and v_equipment_count>=v_expected_equipment,false),case when v_expected_equipment=0 then 'Ship catalogue equipment slots are not populated, so equipment readiness cannot be verified.' else format('%s of %s catalogue equipment slots recorded.',v_equipment_count,v_expected_equipment) end,now()),
+    (p_build_id,'traits',coalesce(v_trait_count>=v_expected_traits,false),format('%s of %s available starship trait slots recorded.',v_trait_count,v_expected_traits),now()),
+    (p_build_id,'bridge_crew',coalesce(v_expected_stations>0 and v_boff_count>=v_expected_stations,false),case when v_expected_stations=0 then 'Ship catalogue bridge seating is not populated, so crew readiness cannot be verified.' else format('%s of %s catalogue bridge stations configured.',v_boff_count,v_expected_stations) end,now())
   ON CONFLICT(build_id,check_key) DO UPDATE SET passed=excluded.passed,detail=excluded.detail,checked_at=excluded.checked_at;
 
   SELECT count(*) INTO v_passed FROM public.build_readiness_checks WHERE build_id=p_build_id AND passed=true;
@@ -59,5 +63,4 @@ BEGIN
 END;
 $function$;
 
--- Two identical build triggers existed; keep the operational trigger and remove the duplicate.
 DROP TRIGGER IF EXISTS trg_build_readiness_builds ON public.builds;
