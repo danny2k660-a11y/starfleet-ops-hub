@@ -305,7 +305,16 @@ function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const equipment = useQuery({ queryKey: ["readiness_equipment", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_equipment" as never).select("slot").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
   const traits = useQuery({ queryKey: ["readiness_traits", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_traits" as never).select("id,trait_id,trait_type").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
   const boffs = useQuery({ queryKey: ["readiness_boffs", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_boffs" as never).select("id,station").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
-  const ship = useQuery({ queryKey: ["readiness_ship", buildId], queryFn: async () => { const {data,error}=await supabase.from("user_ships" as never).select("character_id,sto_ships(*)").eq("current_build_id",buildId).maybeSingle(); if(error) throw error; return data as any; }});
+  const ship = useQuery({ queryKey: ["readiness_ship", buildId], queryFn: async () => {
+    // Use the authoritative Build → User Ship relationship. Older builds may have
+    // user_ship_id populated even when current_build_id was never backfilled.
+    const { data: build, error: be } = await supabase.from("builds" as never).select("user_ship_id").eq("id", buildId).maybeSingle();
+    if (be) throw be;
+    if (!build?.user_ship_id) return null;
+    const { data, error } = await supabase.from("user_ships" as never).select("character_id,sto_ships(*)").eq("id", build.user_ship_id).maybeSingle();
+    if (error) throw error;
+    return data as any;
+  }});
   const characterTraits = useQuery({ queryKey: ["readiness_character_traits", buildId, ship.data?.character_id], enabled: !!ship.data?.character_id, queryFn: async () => {
     const {data,error}=await supabase.from("character_traits" as never).select("id,trait_id,domain,trait_category,active").eq("character_id",ship.data.character_id).eq("active",true);
     if(error) throw error; return data ?? [];
@@ -372,6 +381,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     if (error) throw error; return (data ?? []) as any[];
   }});
   const [trait, setTrait] = useState("");
+  const [traitSearch, setTraitSearch] = useState("");
   const [traitType, setTraitType] = useState("starship");
   const [traitId, setTraitId] = useState("");
   const [station, setStation] = useState("");
@@ -436,6 +446,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Traits</p>
         {shipContext.data?.unlocks.filter((u:any)=>u.type==="trait").length ? <div className="mb-3 rounded border border-primary/20 bg-primary/5 p-2"><p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-primary">Starship traits unlocked by {shipContext.data.characterName}</p><div className="flex flex-wrap gap-1">{shipContext.data.unlocks.filter((u:any)=>u.type==="trait").map((u:any,i:number)=><button type="button" key={i} onClick={()=>{setTrait(u.name);setTraitType("starship");}} className="rounded border border-border px-2 py-1 text-xs hover:border-primary">{u.name} <span className="text-muted-foreground">({u.ship})</span></button>)}</div></div> : null}
         {shipContext.data?.unlocks.filter((u:any)=>u.type==="console").length ? <div className="mb-3 rounded border border-accent/20 bg-accent/5 p-2"><p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent">Ship consoles unlocked by {shipContext.data.characterName}</p><div className="space-y-1">{shipContext.data.unlocks.filter((u:any)=>u.type==="console").map((u:any,i:number)=><div key={i} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1.5 text-xs"><span><span className="text-primary">{u.name}</span> <span className="text-muted-foreground">from {u.ship}</span></span><Button type="button" size="sm" variant="outline" onClick={() => addConsole(u.name, u.ship)}>Add to character</Button></div>)}</div></div> : null}
+        <Input value={traitSearch} onChange={(e) => setTraitSearch(e.target.value)} placeholder="Search starship traits…" className="mb-2 h-9" />
         <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
           <select value={traitId} onChange={(e) => {
             const id=e.target.value; setTraitId(id);
@@ -443,7 +454,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
             if(picked){setTrait(picked.name);setTraitType(picked.trait_type || "other");}
           }} className="h-9 rounded-md border bg-background px-2 text-xs">
             <option value="">Select catalogue trait</option>
-            {((traitCatalog.data as any[]) || []).map((t:any) => <option key={t.id} value={t.id}>[{t.trait_type}] {t.name}</option>)}
+            {((traitCatalog.data as any[]) || []).filter((t:any) => !traitSearch.trim() || t.name.toLowerCase().includes(traitSearch.trim().toLowerCase()) || String(t.description ?? "").toLowerCase().includes(traitSearch.trim().toLowerCase())).map((t:any) => <option key={t.id} value={t.id}>[{t.trait_type}] {t.name}</option>)}
           </select>
           <select value="starship" onChange={() => setTraitType("starship")} className="h-9 rounded-md border bg-background px-2 text-xs" aria-label="Trait type">
             <option value="starship">Starship trait only</option>
