@@ -209,7 +209,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
     queryFn: async () => {
       const { data, error } = await supabase
         .from("character_boffs" as never)
-        .select("id,boff_id,active,notes,boff_catalog(name,career,specialization,rank)")
+        .select("id,name,species,career,rank,specialization,traits,abilities,notes,active")
         .eq("character_id", characterId)
         .order("created_at");
       if (error) throw error;
@@ -218,7 +218,6 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
   });
 
   const [traitSearch,setTraitSearch]=useState("");
-  const traitDomain=useState<"space"|"ground">("space");
   const characterTraitCatalog=useQuery({queryKey:["character_ops_trait_catalog"],queryFn:async()=>{const {data,error}=await supabase.from("trait_catalog" as never).select("id,name,trait_type,domain,trait_category,description").in("domain",["space","ground"]).order("name");if(error)throw error;return data as any[];}});
   const addCharacterTrait=useMutation({mutationFn:async(trait:any)=>{const {data:u}=await supabase.auth.getUser();if(!u.user)throw new Error("Not signed in");const {data:existing}=await supabase.from("character_traits" as never).select("id").eq("character_id",characterId).eq("trait_id",trait.id).maybeSingle();if(existing)throw new Error("That trait is already assigned");const {data:maxRow}=await supabase.from("character_traits" as never).select("slot_index").eq("character_id",characterId).eq("domain",trait.domain).order("slot_index",{ascending:false}).limit(1).maybeSingle();const {error}=await supabase.from("character_traits" as never).insert({user_id:u.user.id,character_id:characterId,trait_id:trait.id,active:true,slot_index:Number(maxRow?.slot_index||0)+1,domain:trait.domain,trait_category:trait.trait_category||trait.trait_type||"personal",slot_group:trait.domain,source_type:"catalog",source_name:trait.name});if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["character_ops_traits",characterId]});toast.success("Trait added to character");},onError:(e:any)=>toast.error(e?.message||"Could not add trait")});
   const removeCharacterTrait=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("character_traits" as never).update({active:false}).eq("id",id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["character_ops_traits",characterId]})});
@@ -246,7 +245,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         <OpsCard icon={<Rocket className="size-4" />} label="Ships" value={shipCount} detail={(ships.data ?? []).filter((s: any) => s.ownership_status === "owned").slice(0, 3).map((s: any) => s.custom_name || s.sto_ships?.name).join(" · ") || "None registered"} />
         <OpsCard icon={<Package className="size-4" />} label="Equipment" value={equipment.data?.length ?? 0} detail={(equipment.data ?? []).slice(0, 3).map((e: any) => [e.name, e.mark_level ? `Mk${e.mark_level}` : e.mark, e.rarity].filter(Boolean).join(" ")).join(" · ") || "None assigned"} />
         <OpsCard icon={<UserRound className="size-4" />} label="Personal traits" value={activeTraits} detail={(personalTraits.data ?? []).slice(0, 4).map((t: any) => t.trait_catalog?.name).filter(Boolean).join(" · ") || "No personal traits assigned"} />
-        <OpsCard icon={<UserRound className="size-4" />} label="Bridge officers" value={activeBoffs} detail={(bridgeOfficers.data ?? []).slice(0, 4).map((b: any) => b.boff_catalog?.name).filter(Boolean).join(" · ") || "No bridge officers assigned"} />
+        <OpsCard icon={<UserRound className="size-4" />} label="Bridge officers" value={activeBoffs} detail={(bridgeOfficers.data ?? []).slice(0, 4).map((b: any) => b.name).filter(Boolean).join(" · ") || "No bridge officers assigned"} />
         <OpsCard icon={<Package className="size-4" />} label="Duty officers" value={doffs.data?.length ?? 0} detail={(doffs.data ?? []).slice(0, 4).map((d:any)=>d.doff_catalog?.name).filter(Boolean).join(" · ") || "No Duty Officers assigned"} />
       <div className="rounded-lg border border-border bg-muted/10 p-3">
         <div className="flex items-center justify-between gap-2"><div><p className="text-xs uppercase tracking-wider text-accent">Personal trait roster</p><p className="text-[11px] text-muted-foreground">Search Space and Ground personal traits and assign them to this captain.</p></div><span className="text-[11px] text-muted-foreground">{activeTraits} assigned</span></div>
