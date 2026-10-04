@@ -43,9 +43,12 @@ function useData() {
   const ships = useQuery({
     queryKey: ["user_ships"],
     queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in.");
       const { data, error } = await supabase
         .from("user_ships")
         .select("*, sto_ships(*), characters(*), builds(*)")
+        .eq("user_id", u.user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as unknown as UserShip[];
@@ -64,7 +67,9 @@ function useData() {
   const characters = useQuery({
     queryKey: ["characters"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("characters").select("*").order("name");
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in.");
+      const { data, error } = await supabase.from("characters").select("*").eq("user_id", u.user.id).order("name");
       if (error) throw error;
       return data;
     },
@@ -72,7 +77,9 @@ function useData() {
   const builds = useQuery({
     queryKey: ["builds"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("builds").select("*").order("name");
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in.");
+      const { data, error } = await supabase.from("builds").select("*").eq("user_id", u.user.id).order("name");
       if (error) throw error;
       return data;
     },
@@ -522,7 +529,7 @@ function ShipsPage() {
           {fleetReadiness.rows.slice(0, 12).map(({ ship, complete, percent }) => (
             <button key={ship.id} onClick={() => setSelectedId(ship.id)} className="flex w-full items-center justify-between gap-3 rounded border border-border bg-muted/20 p-2.5 text-left transition hover:border-primary">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-primary">{ship.custom_name}</p>
+                <p className="truncate text-sm font-medium text-primary">{ship.custom_name || ship.sto_ships?.name || "Unnamed ship"}</p>
                 <p className="truncate text-[10px] text-muted-foreground">{ship.sto_ships?.name ?? "Unknown ship"}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -816,7 +823,7 @@ function ShipsPage() {
           {filtered.map((s) => (
             <button key={s.id} onClick={() => setSelectedId(s.id)} className="panel p-4 text-left transition hover:border-primary">
               <p className="lcars-label">{s.sto_ships?.name ?? "Unknown ship"}</p>
-              <h3 className="font-display text-lg text-primary">{s.custom_name}</h3>
+              <h3 className="font-display text-lg text-primary">{s.custom_name || s.sto_ships?.name || "Unnamed ship"}</h3>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 <Badge variant="outline">{s.characters?.name ?? "No character"}</Badge>
                 {s.sto_ships?.faction && <Badge variant="outline">{s.sto_ships.faction}</Badge>}
@@ -1239,7 +1246,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <p className="lcars-label">{ship.sto_ships?.name}{ship.sto_ships?.ship_class ? ` · ${ship.sto_ships.ship_class}` : ""}</p>
-          <DialogTitle className="font-display text-2xl text-primary">{ship.custom_name}</DialogTitle>
+          <DialogTitle className="font-display text-2xl text-primary">{ship.custom_name || ship.sto_ships?.name || "Unnamed ship"}</DialogTitle>
         </DialogHeader>
 
         {!editing ? (
