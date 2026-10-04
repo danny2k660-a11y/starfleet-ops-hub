@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,7 @@ export function GroundBuildSection({ buildId }: { buildId: string }) {
   const build=useQuery({queryKey:["ground_build_character",buildId],queryFn:async()=>{const {data,error}=await supabase.from("builds").select("character_id").eq("id",buildId).single();if(error)throw error;return data as any;}});
   const items=useQuery({queryKey:["ground_equipment",build.data?.character_id],enabled:!!build.data?.character_id,queryFn:async()=>{const {data,error}=await supabase.from("equipment_items" as never).select("*").eq("character_id",build.data.character_id).order("name");if(error)throw error;return data??[];}});
   const active:any=(ground.data as any[]||[])[0];
-  useMemo(()=>{if(active){setGroundSpecializations(Array.isArray(active.specializations)?active.specializations:[]);}},[active?.id,active?.specializations]);
+  useEffect(()=>{if(active){setGroundSpecializations(Array.isArray(active.specializations)?active.specializations:[]);}},[active?.id,active?.specializations]);
   const [traitSearch,setTraitSearch]=useState("");
   const [groundSpecializations,setGroundSpecializations]=useState<string[]>([]);
   const groundTraits=useQuery({queryKey:["ground_trait_catalog"],queryFn:async()=>{const {data,error}=await supabase.from("trait_catalog" as never).select("id,name,trait_type,domain,trait_category,description").eq("domain","ground").order("name");if(error)throw error;return data??[];}});
