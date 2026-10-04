@@ -86,6 +86,8 @@ function ShipDatabasePage() {
   });
   const characters = useQuery({
     queryKey: ["characters"],
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => { const { data, error } = await supabase.from("characters").select("id,name").order("name"); if (error) throw error; return (data ?? []) as Array<{ id: string; name: string }>; },
   });
   const ownership = useQuery({
