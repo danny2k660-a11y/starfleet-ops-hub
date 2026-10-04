@@ -125,6 +125,42 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
+      // Repair the character registry from ships marked Owned in the shared Ship Database.
+      // Older database registrations were account-level only; character sheets must have
+      // real user_ships rows so builds/loadouts can attach to them.
+      const [{ data: accountOwned, error: accountOwnedError }, { data: existingShips, error: existingError }] = await Promise.all([
+        supabase
+          .from("sto_ship_ownership" as never)
+          .select("sto_ship_id")
+          .eq("user_id", u.user.id)
+          .eq("ownership_status", "owned"),
+        supabase
+          .from("user_ships")
+          .select("id,custom_name,ownership_status,sto_ship_id,character_id,sto_ships(name,ship_class),builds(name,status)")
+          .eq("user_id", u.user.id)
+          .eq("character_id", characterId)
+          .order("created_at", { ascending: false }),
+      ]);
+      if (accountOwnedError) throw accountOwnedError;
+      if (existingError) throw existingError;
+
+      const existingIds = new Set((existingShips ?? []).map((ship: any) => ship.sto_ship_id));
+      const missingRows = ((accountOwned ?? []) as any[])
+        .filter((row) => row.sto_ship_id && !existingIds.has(row.sto_ship_id))
+        .map((row) => ({
+          user_id: u.user.id,
+          character_id: characterId,
+          sto_ship_id: row.sto_ship_id,
+          custom_name: null,
+          ownership_status: "owned",
+          usage_mode: "build_pending",
+        }));
+
+      if (missingRows.length) {
+        const { error: insertError } = await supabase.from("user_ships").insert(missingRows as never[]);
+        if (insertError) throw insertError;
+      }
+
       const { data, error } = await supabase
         .from("user_ships")
         .select("id,custom_name,ownership_status,sto_ship_id,character_id,sto_ships(name,ship_class),builds(name,status)")
