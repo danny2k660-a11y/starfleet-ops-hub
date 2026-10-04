@@ -317,7 +317,7 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("You must be signed in.");
-      if (!characterId) throw new Error("Choose the character receiving this bundle.");
+      if (!bundle.account_unlock && !characterId) throw new Error("Choose the character receiving this bundle.");
       if (!shipItems.length) throw new Error("This bundle has no ship items registered.");
 
       const accountWide = bundle.account_unlock === true;
@@ -391,11 +391,13 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
         <p className="text-[10px] text-muted-foreground">{shipNames.length} ship{shipNames.length === 1 ? "" : "s"} · {bundle.availability_status}{bundle.account_unlock ? " · Account unlock" : ""}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={characterId} onValueChange={setCharacterId}>
-          <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Character" /></SelectTrigger>
-          <SelectContent>{characters.map((character) => <SelectItem key={character.id} value={character.id}>{character.name}</SelectItem>)}</SelectContent>
-        </Select>
-        <Button size="sm" variant="outline" disabled={busy || !shipNames.length || !characterId} onClick={claim}>{busy ? "Claiming…" : "Claim bundle"}</Button>
+        {!bundle.account_unlock && (
+          <Select value={characterId} onValueChange={setCharacterId}>
+            <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Character" /></SelectTrigger>
+            <SelectContent>{characters.map((character) => <SelectItem key={character.id} value={character.id}>{character.name}</SelectItem>)}</SelectContent>
+          </Select>
+        )}
+        <Button size="sm" variant="outline" disabled={busy || !shipNames.length || (!bundle.account_unlock && !characterId)} onClick={claim}>{busy ? "Claiming…" : bundle.account_unlock ? "Claim for all characters" : "Claim bundle"}</Button>
       </div>
     </div>
   </div>;
