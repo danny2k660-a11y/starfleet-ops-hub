@@ -327,8 +327,7 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       const shipIds = shipItems.map((item: any) => item.sto_ship_id);
       const { data: existing, error: existingError } = await supabase
         .from("user_ships")
-        .select("sto_ship_id,character_id")
-        .eq("ownership_status", "owned")
+        .select("id,sto_ship_id,character_id,ownership_status")
         .in("character_id", targetCharacters)
         .in("sto_ship_id", shipIds);
       if (existingError) throw existingError;
@@ -350,10 +349,29 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
           }));
       });
 
+      const updates = shipItems.flatMap((item: any) => {
+        const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
+        return existingRows
+          .filter((row) => row.sto_ship_id === item.sto_ship_id && targetCharacters.includes(row.character_id) && row.ownership_status !== "owned")
+          .map((row) => supabase
+            .from("user_ships")
+            .update({
+              ownership_status: "owned",
+              acquisition_source_id: source?.id ?? null,
+              acquisition_group: bundle.name,
+              usage_mode: "build_pending",
+            } as never)
+            .eq("id", row.id)
+          );
+      });
+
       if (rows.length) {
         const { error } = await supabase.from("user_ships").insert(rows as never[]);
         if (error) throw error;
       }
+      const updateResults = await Promise.all(updates);
+      const updateError = updateResults.find((result) => result.error)?.error;
+      if (updateError) throw updateError;
 
       const ownershipRows = shipItems.map((item: any) => {
         const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
