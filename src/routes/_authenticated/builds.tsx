@@ -1,3 +1,4 @@
+import { THEME_PRESETS, getThemePreset } from "@/lib/theme-presets";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -206,7 +207,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
     <LoadoutConfiguration loadoutId={loadout.id} />
     <GroundBuildSection buildId={loadout.build_id} />
     <LoadoutReadiness loadoutId={loadout.id} buildId={loadout.build_id} />
-    <ThemeCompliance loadoutId={loadout.id} />
+    <ThemeCompliance loadoutId={loadout.id} buildId={build.id} />
     <LoadoutEquipment loadoutId={loadout.id} buildId={loadout.build_id} />
     <Dialog open={editOpen} onOpenChange={setEditOpen}>
       <DialogContent className="sm:max-w-md">
@@ -274,8 +275,30 @@ const LOADOUT_THEME_PRESETS = [
   { id: "10000000-0000-4000-8000-000000000004", name: "Discovery-era Terran" },
   { id: "10000000-0000-4000-8000-000000000005", name: "Canon / Screen Accurate" },
 ];
-function ThemeCompliance({ loadoutId }: { loadoutId: string }) {
-  return <div className="mt-3 rounded-lg border border-border/70 bg-background/30 p-3"><p className="lcars-label">Theme compliance</p><p className="text-xs text-muted-foreground">Theme rules are not configured yet. Loadout readiness below checks actual configured equipment, traits and bridge officers.</p></div>;
+function ThemeCompliance({ loadoutId, buildId }: { loadoutId: string; buildId: string }) {
+  const ship = useQuery({
+    queryKey: ["theme_compliance_ship", buildId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_ships" as never).select("theme_id,sto_ships(name,faction,ship_class)").eq("current_build_id", buildId).maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+  const theme = getThemePreset(ship.data?.theme_id);
+  if (!theme) {
+    return <div className="mt-3 rounded-lg border border-border/70 bg-background/30 p-3">
+      <p className="lcars-label">Theme compliance</p>
+      <p className="text-xs text-muted-foreground">No theme is assigned to this ship. Use Themes to establish the identity before judging a build against it.</p>
+    </div>;
+  }
+  const faction = String(ship.data?.sto_ships?.faction ?? "");
+  const factionMatch = theme.preferredFactions.some((value) => faction.toLowerCase().includes(value.toLowerCase()));
+  return <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+    <div className="flex items-center justify-between gap-3"><p className="lcars-label">Theme compliance · {theme.name}</p><span className={factionMatch ? "text-xs text-accent" : "text-xs text-primary"}>{factionMatch ? "IDENTITY MATCH" : "REVIEW IDENTITY"}</span></div>
+    <p className="mt-1 text-xs text-muted-foreground">{theme.identity}</p>
+    <ul className="mt-2 space-y-1 text-xs text-muted-foreground">{theme.guidance.map((rule) => <li key={rule}>• {rule}</li>)}</ul>
+    <p className="mt-2 text-[10px] text-muted-foreground">{faction ? `Ship faction: ${faction}. This is an identity signal only; individual item compliance requires structured catalogue evidence.` : "Ship faction is not recorded."}</p>
+  </div>;
 }
 
 function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: string }) {
