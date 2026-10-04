@@ -948,17 +948,16 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
               <Button type="button" variant="outline" disabled={!newChar.trim() || createChar.isPending} onClick={() => createChar.mutate()}>Create</Button>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>3. Custom ship name</Label>
-            <Input placeholder="e.g. I.S.S. Predator" value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="rounded border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+            <span className="font-medium text-primary">Ship name:</span> optional. The database ship name is used automatically; you can give the ship a custom name later from its detail page.
           </div>
           <div className="space-y-2">
-            <Label>4. Acquisition source</Label>
+            <Label>3. Acquisition source</Label>
             <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setSourceId("__none__"); }}><SelectTrigger><SelectValue placeholder="Filter acquisition type" /></SelectTrigger><SelectContent><SelectItem value="all">All acquisition routes</SelectItem><SelectItem value="zen_store">Zen Store</SelectItem><SelectItem value="bundle">Bundle</SelectItem><SelectItem value="event">Event</SelectItem><SelectItem value="lockbox">Lockbox / Promo</SelectItem><SelectItem value="lobi">Lobi</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent></Select><Select value={sourceId} onValueChange={setSourceId}><SelectTrigger><SelectValue placeholder="Select acquisition route" /></SelectTrigger><SelectContent><SelectItem value="__none__">Not specified</SelectItem>{(sources ?? []).filter((x) => (!shipId || x.sto_ship_id === shipId) && (sourceFilter === "all" || x.source_type === sourceFilter)).map((x) => <SelectItem key={x.id} value={x.id}>{x.source_name}{x.source_type ? " · " + x.source_type : ""}</SelectItem>)}</SelectContent></Select>
             <p className="text-xs text-muted-foreground">Track Zen Store, bundle and other acquisition routes for this ship.</p>
           </div>
           <div className="space-y-2">
-            <Label>5. What are you using this ship for?</Label>
+            <Label>4. What are you using this ship for?</Label>
             <Select value={usageMode} onValueChange={(v) => setUsageMode(v as typeof usageMode)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -970,7 +969,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
             <p className="text-xs text-muted-foreground">Console/trait and collection ships remain owned but do not need a build.</p>
           </div>
           <div className="space-y-2">
-            <Label>6. Upgrade status</Label>
+            <Label>5. Upgrade status</Label>
             <UpgradeChecks {...up} set={setUp} />
           </div>
         </div>
