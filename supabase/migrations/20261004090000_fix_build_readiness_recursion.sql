@@ -64,3 +64,4 @@ END;
 $function$;
 
 DROP TRIGGER IF EXISTS trg_build_readiness_builds ON public.builds;
+DROP TRIGGER IF EXISTS trg_build_operational_readiness ON public.builds;
