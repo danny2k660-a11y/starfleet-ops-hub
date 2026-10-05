@@ -30,7 +30,7 @@ function Page() {
     try{
       const userId=account.data.id;
       const result:Record<string,unknown>={exported_at:new Date().toISOString(),schema_version:2};
-      const accountTables=["characters","user_ships","ship_instances","builds","loadouts","equipment_items","inventory_items","loadout_equipment","loadout_traits","loadout_boffs","sto_projects","sto_project_tasks","sto_resource_balances","character_boffs"] as const;
+      const accountTables=["characters","user_ships","ship_instances","builds","loadouts","equipment_items","inventory_items","loadout_equipment","loadout_traits","loadout_boffs","sto_projects","sto_project_tasks","sto_resource_balances","character_boffs","character_ship_unlocks"] as const;
       const {data:profileRow,error:profileError}=await supabase.from("profiles").select("*").eq("id",userId).maybeSingle();
       if(profileError) throw new Error(`profiles: ${profileError.message}`);
       result.profiles=profileRow ? [profileRow] : [];
