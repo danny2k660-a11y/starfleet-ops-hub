@@ -1122,6 +1122,10 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
   const [status, setStatus] = useState(ship.ownership_status);
   const [acquired, setAcquired] = useState(ship.date_acquired ?? "");
   const [notes, setNotes] = useState(ship.notes ?? "");
+  const [prefix, setPrefix] = useState((ship as any).prefix ?? "");
+  const [vanityShield, setVanityShield] = useState((ship as any).vanity_shield ?? "");
+  const [hullMaterial, setHullMaterial] = useState((ship as any).hull_material ?? "");
+  const [visualNotes, setVisualNotes] = useState((ship as any).visual_notes ?? "");
   const [usageMode, setUsageMode] = useState<"build_pending" | "console_trait_only" | "collection_only">((ship.usage_mode as any) ?? "build_pending");
   const [sourceId, setSourceId] = useState(ship.acquisition_source_id ?? NONE);
   const [up, setUp] = useState({ t6: ship.t6_upgraded, t6x: ship.t6x_upgraded, t6x2: ship.t6x2_upgraded });
@@ -1140,6 +1144,11 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
         t6_upgraded: up.t6, t6x_upgraded: up.t6x, t6x2_upgraded: up.t6x2,
         usage_mode: usageMode,
         acquisition_source_id: sourceId === NONE ? null : sourceId,
+        prefix: prefix.trim() || null,
+        vanity_shield: vanityShield.trim() || null,
+        hull_material: hullMaterial.trim() || null,
+        visual_notes: visualNotes.trim() || null,
+        visual_config: { prefix: prefix.trim() || null, vanity_shield: vanityShield.trim() || null, hull_material: hullMaterial.trim() || null },
       } as never).eq("id", ship.id);
       if (error) throw error;
     },
@@ -1259,6 +1268,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
             <div><p className="lcars-label text-[10px]">Status</p>{ship.ownership_status}</div>
             {ship.date_acquired && <div><p className="lcars-label text-[10px]">Acquired</p>{ship.date_acquired}</div>}
             {ship.notes && <div className="col-span-full"><p className="lcars-label text-[10px]">Notes</p>{ship.notes}</div>}
+            {((ship as any).prefix || (ship as any).vanity_shield || (ship as any).hull_material || (ship as any).visual_notes) && <div className="col-span-full"><p className="lcars-label text-[10px]">Visual configuration</p><p className="text-sm text-primary">{[(ship as any).prefix,(ship as any).vanity_shield,(ship as any).hull_material].filter(Boolean).join(" • ") || "Custom visual identity"}</p>{(ship as any).visual_notes && <p className="text-xs text-muted-foreground">{(ship as any).visual_notes}</p>}</div>}
           </div>
           </div>
         ) : (
@@ -1293,6 +1303,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
             <div className="space-y-1"><Label>Date acquired</Label><Input type="date" value={acquired} onChange={(e) => setAcquired(e.target.value)} /></div>
               <div className="space-y-1"><Label>Upgrade status</Label><UpgradeChecks {...up} set={setUp} /></div>
             <div className="space-y-1 sm:col-span-2"><Label>Notes</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+            <div className="sm:col-span-2 rounded-lg border border-accent/20 bg-accent/5 p-3"><p className="lcars-label text-[10px]">Visual configuration</p><p className="mb-2 text-xs text-muted-foreground">Track the exact visual identity you use in STO without changing the shared ship definition.</p><div className="grid gap-3 sm:grid-cols-3"><div className="space-y-1"><Label>Registry prefix</Label><Input value={prefix} onChange={(e) => setPrefix(e.target.value)} placeholder="I.S.S." /></div><div className="space-y-1"><Label>Vanity shield</Label><Input value={vanityShield} onChange={(e) => setVanityShield(e.target.value)} placeholder="Terran Task Force" /></div><div className="space-y-1"><Label>Hull material</Label><Input value={hullMaterial} onChange={(e) => setHullMaterial(e.target.value)} placeholder="Mirror / Terran / Standard" /></div></div><div className="mt-3 space-y-1"><Label>Visual notes</Label><Textarea value={visualNotes} onChange={(e) => setVisualNotes(e.target.value)} placeholder="Registry styling, nacelle/deflector choices, visual restrictions…" /></div></div>
           </div>
         )}
 
