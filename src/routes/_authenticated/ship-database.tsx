@@ -160,7 +160,10 @@ function ShipDatabasePage() {
         );
       if (ownershipError) return;
 
-      const targetCharacters = characters.data ?? [];
+      const shipSources = sourcesByShip.get(ship.id) ?? [];
+      const isZenShip = shipSources.some((source: any) => String(source.price_currency ?? "").toLowerCase() === "zen" || /zen|c-store|cstore|zen store/i.test(String(source.source_name ?? "")));
+      const isAccountWide = isZenShip || shipSources.some((source: any) => source.account_unlock === true);
+      const targetCharacters = isAccountWide ? (characters.data ?? []) : [];
       if (targetCharacters.length) {
         const characterIds = targetCharacters.map((character) => character.id);
         const { data: existingRows, error: existingError } = await supabase
@@ -197,6 +200,30 @@ function ShipDatabasePage() {
             .update({ ownership_status: "owned" } as never)
             .in("id", existingIds);
           if (error) return;
+        }
+        const unlockRows = targetCharacters.flatMap((character) => {
+          const rows: any[] = [];
+          if (ship.ship_trait) rows.push({ user_id: u.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "ship_trait", name: ship.ship_trait, source_name: shipSources[0]?.source_name ?? "Ship ownership" });
+          if (ship.special_console) rows.push({ user_id: u.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "console", name: ship.special_console, source_name: shipSources[0]?.source_name ?? "Ship ownership" });
+          if (ship.special_weapons) rows.push({ user_id: u.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "special_weapon", name: ship.special_weapons, source_name: shipSources[0]?.source_name ?? "Ship ownership" });
+          return rows;
+        });
+        if (unlockRows.length) {
+          const { error } = await supabase.from("character_ship_unlocks" as never).upsert(unlockRows as never[], { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name" });
+          if (error) throw error;
+        }
+        if (ship.ship_trait) {
+          const { data: matchingTrait } = await supabase.from("trait_catalog" as never).select("id").ilike("name", ship.ship_trait).maybeSingle();
+          if (matchingTrait) {
+            const traitRows = targetCharacters.map((character) => ({ user_id: u.user.id, character_id: character.id, trait_id: (matchingTrait as any).id, active: true, slot_index: 0, domain: "space", trait_category: "starship", slot_group: "space", source_type: "ship_unlock", source_name: ship.name }));
+            await supabase.from("character_traits" as never).upsert(traitRows as never[], { onConflict: "character_id,trait_id" });
+          }
+        }
+        if (ship.special_console) {
+          for (const character of targetCharacters) {
+            const { data: existingConsole } = await supabase.from("equipment_items" as never).select("id").eq("user_id", u.user.id).eq("character_id", character.id).eq("name", ship.special_console).eq("category", "console").maybeSingle();
+            if (!existingConsole) await supabase.from("equipment_items" as never).insert({ user_id: u.user.id, character_id: character.id, name: ship.special_console, category: "console", quantity: 1, source: "Ship unlock", notes: ship.name } as never);
+          }
         }
       }
     } else if (current?.ownership_status === status) {
