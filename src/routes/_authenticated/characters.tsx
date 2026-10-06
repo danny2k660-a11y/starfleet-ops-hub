@@ -117,7 +117,7 @@ function CharacterDialog({ open, onOpenChange, character, onDeleted }: { open: b
 }
 
 
-function CharacterOps({ characterId, characterName }: { characterId: string; characterName: string }) {
+function CharacterOps({ characterId, characterName }: { characterId: string; characterName: string }) {\n  const qc = useQueryClient();
   const ships = useQuery({
     queryKey: ["character_ops_ships", characterId],
     refetchOnMount: "always",
