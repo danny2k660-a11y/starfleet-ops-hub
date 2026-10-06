@@ -162,22 +162,12 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         return existingRows.filter((row) => row.character_id === characterId);
       }
 
-      const [{ data: sources, error: sourcesError }, { data: catalogue, error: catalogueError }] = await Promise.all([
-        supabase
-          .from("sto_ship_sources" as never)
-          .select("sto_ship_id,source_name,source_type,account_unlock")
-          .in("sto_ship_id", candidateShipIds),
-        supabase
-          .from("sto_ships")
-          .select("id,name,ship_trait,special_console,special_weapons")
-          .in("id", candidateShipIds),
-      ]);
-      if (sourcesError) throw sourcesError;
+      const { data: catalogue, error: catalogueError } = await supabase
+        .from("sto_ships")
+        .select("id,name,ship_trait,special_console,special_weapons")
+        .in("id", candidateShipIds);
       if (catalogueError) throw catalogueError;
 
-      // An entry in sto_ship_ownership means the account owns the ship, but it
-      // does NOT by itself mean every captain should receive a personal ship row.
-      // Explicit one-character assignments must remain character-scoped.
       const accountOwnedIds = new Set(accountRows.map((row) => row.sto_ship_id).filter(Boolean));
       const accountLevelUserShipIds = new Set(
         existingRows.filter((row) => row.character_id == null).map((row) => row.sto_ship_id).filter(Boolean),
