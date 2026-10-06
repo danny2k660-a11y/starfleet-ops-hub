@@ -162,7 +162,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         return existingRows.filter((row) => row.character_id === characterId);
       }
 
-      const [{ data: catalogue, error: catalogueError }, { data: shipSources, error: shipSourcesError }] = await Promise.all([
+      const [{ data: catalogue, error: catalogueError }, { data: shipSources, error: shipSourcesError }, { data: shipReference }] = await Promise.all([
         supabase
           .from("sto_ships")
           .select("id,name,ship_trait,special_console,special_weapons")
@@ -170,6 +170,10 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         supabase
           .from("sto_ship_sources" as never)
           .select("sto_ship_id,source_type,account_unlock")
+          .in("sto_ship_id", candidateShipIds),
+        supabase
+          .from("sto_ship_reference_data" as never)
+          .select("sto_ship_id,trait_name,console_name")
           .in("sto_ship_id", candidateShipIds),
       ]);
       if (catalogueError) throw catalogueError;
@@ -242,7 +246,15 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
 
       // Every account-wide ship's unique trait/console/special weapon must be
       // visible on every captain, not just on the ship that was originally claimed.
-      const catalogueById = new Map(((catalogue ?? []) as any[]).map((ship) => [ship.id, ship]));
+      const referenceById = new Map(((shipReference ?? []) as any[]).map((row) => [row.sto_ship_id, row]));
+      const catalogueById = new Map(((catalogue ?? []) as any[]).map((ship) => {
+        const ref = referenceById.get(ship.id);
+        return [ship.id, {
+          ...ship,
+          ship_trait: ship.ship_trait || ref?.trait_name || null,
+          special_console: ship.special_console || ref?.console_name || null,
+        }];
+      }));
       const existingUnlocks = new Set<string>();
       const { data: unlockRows, error: unlockReadError } = await supabase
         .from("character_ship_unlocks" as never)
