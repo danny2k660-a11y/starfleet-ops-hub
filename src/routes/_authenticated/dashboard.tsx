@@ -29,6 +29,15 @@ function useCount(table: "characters" | "user_ships" | "builds") {
   return useQuery({
     queryKey: ["dashboard-count", table],
     queryFn: async () => {
+      if (table === "user_ships") {
+        const { data, error } = await supabase
+          .from("user_ships")
+          .select("sto_ship_id")
+          .eq("ownership_status", "owned")
+          .not("character_id", "is", null);
+        if (error) throw error;
+        return new Set((data ?? []).map((row: any) => row.sto_ship_id).filter(Boolean)).size;
+      }
       const { count, error } = await supabase.from(table).select("id", { count: "exact", head: true });
       if (error) throw error;
       return count ?? 0;
@@ -48,9 +57,17 @@ function Dashboard() {
   });
   const ships = useCount("user_ships");
   const builds = useCount("builds");
-  const plannerShips = useQuery({ queryKey: ["dashboard-planner-ships"], queryFn: async () => { const { count, error } = await supabase.from("user_ships").select("id",{count:"exact",head:true}).eq("ownership_status","owned").is("current_build_id",null); if(error) throw error; return count ?? 0; }});
+  const plannerShips = useQuery({ queryKey: ["dashboard-planner-ships"], queryFn: async () => {
+    const { data, error } = await supabase.from("user_ships").select("sto_ship_id").eq("ownership_status","owned").not("character_id","is",null).is("current_build_id",null);
+    if(error) throw error;
+    return new Set((data ?? []).map((row: any) => row.sto_ship_id).filter(Boolean)).size;
+  }});
   const recentShips = useQuery({ queryKey: ["dashboard-recent-ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,characters(name),sto_ships(name),builds(name,status)").order("created_at",{ascending:false}).limit(5); if(error) throw error; return data as any[]; }});
-  const attentionShips = useQuery({ queryKey: ["dashboard-attention-ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,sto_ships(name)").eq("ownership_status","owned").is("current_build_id",null); if(error) throw error; return data ?? []; } });
+  const attentionShips = useQuery({ queryKey: ["dashboard-attention-ships"], queryFn: async () => {
+    const { data, error } = await supabase.from("user_ships").select("sto_ship_id,custom_name,sto_ships(name)").eq("ownership_status","owned").not("character_id","is",null).is("current_build_id",null);
+    if(error) throw error;
+    return Array.from(new Map((data ?? []).map((row: any) => [row.sto_ship_id, row])).values());
+  } });
   const attentionBuilds = useQuery({ queryKey: ["dashboard-attention-builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("id,name,status").in("status",["draft","testing"]); if(error) throw error; return data ?? []; } });
   const attentionProjects = useQuery({ queryKey: ["dashboard-attention-projects"], queryFn: async () => { const { data, error } = await supabase.from("sto_projects").select("id,name,status").in("status",["planned","active","in_progress"]); if(error) throw error; return data ?? []; } });
   const attention = { data: { shipsWithoutBuild: attentionShips.data ?? [], draftBuilds: attentionBuilds.data ?? [], activeProjects: attentionProjects.data ?? [], resourcesNearTarget: [] }, isLoading: attentionShips.isLoading || attentionBuilds.isLoading || attentionProjects.isLoading, isError: !!(attentionShips.error || attentionBuilds.error || attentionProjects.error) };
@@ -147,7 +164,7 @@ function Dashboard() {
     const passed = rows.reduce((sum, row) => sum + row.complete, 0);
     const total = rows.length * 6;
     return {
-      shipCount: rows.length,
+      shipCount: new Set((readinessShips.data ?? []).map((ship: any) => ship.sto_ship_id).filter(Boolean)).size,
       ready: rows.filter((row) => row.complete === 6).length,
       action: rows.filter((row) => row.complete < 6).length,
       percent: total ? Math.round((passed / total) * 100) : 0,
