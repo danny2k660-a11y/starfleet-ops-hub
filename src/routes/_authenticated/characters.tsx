@@ -162,11 +162,18 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         return existingRows.filter((row) => row.character_id === characterId);
       }
 
-      const { data: catalogue, error: catalogueError } = await supabase
-        .from("sto_ships")
-        .select("id,name,ship_trait,special_console,special_weapons")
-        .in("id", candidateShipIds);
+      const [{ data: catalogue, error: catalogueError }, { data: shipSources, error: shipSourcesError }] = await Promise.all([
+        supabase
+          .from("sto_ships")
+          .select("id,name,ship_trait,special_console,special_weapons")
+          .in("id", candidateShipIds),
+        supabase
+          .from("sto_ship_sources" as never)
+          .select("sto_ship_id,source_type,account_unlock")
+          .in("sto_ship_id", candidateShipIds),
+      ]);
       if (catalogueError) throw catalogueError;
+      if (shipSourcesError) throw shipSourcesError;
 
       const accountOwnedIds = new Set(accountRows.map((row) => row.sto_ship_id).filter(Boolean));
       const accountLevelUserShipIds = new Set(
@@ -175,8 +182,15 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       // Source metadata can describe how a ship was acquired, but it must not
       // override the captain scope chosen by the user. A ship becomes account-wide
       // here only when it was explicitly stored as a character_id-null user_ship.
+      const accountUnlockIds = new Set(
+        ((shipSources ?? []) as any[])
+          .filter((source) => source.account_unlock === true || source.source_type === "zen_store")
+          .map((source) => source.sto_ship_id)
+          .filter(Boolean),
+      );
       const accountWideIds = new Set([
         ...accountLevelUserShipIds,
+        ...Array.from(accountUnlockIds).filter((id) => accountOwnedIds.has(id)),
       ]);
 
       const allCharacters = (charactersForAccount ?? []) as any[];
@@ -268,7 +282,10 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       if (unlocksToInsert.length) {
         const { error: unlockInsertError } = await supabase
           .from("character_ship_unlocks" as never)
-          .insert(unlocksToInsert as never[]);
+          .upsert(unlocksToInsert as never[], {
+            onConflict: "user_id,character_id,sto_ship_id,unlock_type,name",
+            ignoreDuplicates: true,
+          });
         if (unlockInsertError) console.warn("Ship unlock propagation skipped:", unlockInsertError);
       }
 
