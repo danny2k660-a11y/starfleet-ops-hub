@@ -50,6 +50,7 @@ function useData() {
         .select("*, sto_ships(*), characters(*), builds(*)")
         .eq("user_id", u.user.id)
         .not("character_id", "is", null)
+        .neq("ownership_status", "retired")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as unknown as UserShip[];
@@ -860,6 +861,7 @@ function ShipsPage() {
         catalog={catalog.data ?? []}
         characters={characters.data ?? []}
         sources={sources.data ?? []}
+        referenceData={referenceData.data ?? []}
         onSaved={(id) => { setAdding(false); setSelectedId(id); }}
       />
       {selected && (
@@ -881,7 +883,7 @@ function UpgradeChecks({ t6, t6x, t6x2, set }: { t6: boolean; t6x: boolean; t6x2
 }
 
 function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], onSaved }: {
-  open: boolean; onOpenChange: (o: boolean) => void; catalog: StoShip[]; characters: Character[]; sources?: any[]; onSaved: (id: string) => void;
+  open: boolean; onOpenChange: (o: boolean) => void; catalog: StoShip[]; characters: Character[]; sources?: any[]; referenceData?: any[]; onSaved: (id: string) => void;
 }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -916,6 +918,10 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
 
       const selectedCatalogShip = (catalog ?? []).find((s) => s.id === shipId);
       if (!selectedCatalogShip) throw new Error("Selected ship is no longer present in the ship database.");
+      const referenceShip = (referenceData ?? []).find((r: any) => r.sto_ship_id === shipId);
+      const shipTrait = selectedCatalogShip.ship_trait || referenceShip?.trait_name || null;
+      const specialConsole = selectedCatalogShip.special_console || referenceShip?.console_name || null;
+      const specialWeapon = selectedCatalogShip.special_weapons || null;
 
       const targetCharacterIds = addToAllCharacters
         ? characters.map((c) => c.id)
@@ -963,9 +969,9 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
       if (error) throw error;
 
       const unlockRows = rows.flatMap((row: any) => ([
-        ["ship_trait", selectedCatalogShip.ship_trait],
-        ["console", selectedCatalogShip.special_console],
-        ["special_weapon", selectedCatalogShip.special_weapons],
+        ["ship_trait", shipTrait],
+        ["console", specialConsole],
+        ["special_weapon", specialWeapon],
       ].filter(([, name]) => name).map(([unlock_type, name]) => ({
         user_id: u.user.id, character_id: row.character_id, sto_ship_id: shipId,
         unlock_type, name, source_name: "Ship assignment",
