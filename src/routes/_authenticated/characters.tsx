@@ -240,7 +240,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         const { error: ownershipError } = await supabase
           .from("sto_ship_ownership" as never)
           .upsert(ownershipRows as never[], { onConflict: "user_id,sto_ship_id", ignoreDuplicates: true });
-        if (ownershipError) throw ownershipError;
+        if (ownershipError) console.warn("Account ownership registry reconciliation skipped:", ownershipError);
       }
 
       // Every account-wide ship's unique trait/console/special weapon must be
@@ -253,7 +253,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         .eq("user_id", u.user.id)
         .in("character_id", allCharacters.map((c) => c.id))
         .in("sto_ship_id", Array.from(accountWideIds));
-      if (unlockReadError) throw unlockReadError;
+      if (unlockReadError) console.warn("Ship unlock registry read skipped:", unlockReadError);
       for (const row of (unlockRows ?? []) as any[]) {
         existingUnlocks.add([row.character_id, row.sto_ship_id, row.unlock_type, row.name].join("|"));
       }
@@ -286,7 +286,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         const { error: unlockInsertError } = await supabase
           .from("character_ship_unlocks" as never)
           .insert(unlocksToInsert as never[]);
-        if (unlockInsertError) throw unlockInsertError;
+        if (unlockInsertError) console.warn("Ship unlock propagation skipped:", unlockInsertError);
       }
 
       const { data, error } = await supabase
