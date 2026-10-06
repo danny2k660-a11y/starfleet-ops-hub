@@ -175,6 +175,9 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       if (sourcesError) throw sourcesError;
       if (catalogueError) throw catalogueError;
 
+      // An entry in sto_ship_ownership means the account owns the ship, but it
+      // does NOT by itself mean every captain should receive a personal ship row.
+      // Explicit one-character assignments must remain character-scoped.
       const accountOwnedIds = new Set(accountRows.map((row) => row.sto_ship_id).filter(Boolean));
       const accountLevelUserShipIds = new Set(
         existingRows.filter((row) => row.character_id == null).map((row) => row.sto_ship_id).filter(Boolean),
@@ -191,7 +194,6 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       );
 
       const accountWideIds = new Set([
-        ...accountOwnedIds,
         ...accountLevelUserShipIds,
         ...accountWideSourceIds,
       ]);
