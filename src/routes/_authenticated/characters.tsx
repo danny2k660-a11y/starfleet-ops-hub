@@ -179,49 +179,16 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       if (catalogueError) throw catalogueError;
       if (shipSourcesError) throw shipSourcesError;
 
-      const accountOwnedIds = new Set(accountRows.map((row) => row.sto_ship_id).filter(Boolean));
-      const accountLevelUserShipIds = new Set(
-        existingRows.filter((row) => row.character_id == null).map((row) => row.sto_ship_id).filter(Boolean),
-      );
-      // Source metadata can describe how a ship was acquired, but it must not
-      // override the captain scope chosen by the user. A ship becomes account-wide
-      // here only when it was explicitly stored as a character_id-null user_ship.
-      const accountUnlockIds = new Set(
-        ((shipSources ?? []) as any[])
-          .filter((source) => source.account_unlock === true || source.source_type === "zen_store")
-          .map((source) => source.sto_ship_id)
-          .filter(Boolean),
-      );
-      const accountWideIds = new Set([
-        ...accountLevelUserShipIds,
-        ...Array.from(accountUnlockIds).filter((id) => accountOwnedIds.has(id)),
-      ]);
+      // IMPORTANT: ownership is explicit. Ship catalogue/source metadata must never
+      // grant ownership or silently copy ships to characters. Account-wide ships are
+      // propagated only by the explicit claim/assignment flow.
+      const accountWideIds = new Set<string>();
 
       const allCharacters = (charactersForAccount ?? []) as any[];
       const rowsToInsert: any[] = [];
-      for (const stoShipId of accountWideIds) {
-        for (const character of allCharacters) {
-          const alreadyExists = existingRows.some(
-            (row) => row.character_id === character.id && row.sto_ship_id === stoShipId,
-          );
-          if (alreadyExists) continue;
 
-          const sourceRow = existingRows.find((row) => row.sto_ship_id === stoShipId);
-          const ownershipRow = accountRows.find((row) => row.sto_ship_id === stoShipId);
-          rowsToInsert.push({
-            user_id: u.user.id,
-            character_id: character.id,
-            sto_ship_id: stoShipId,
-            custom_name: null,
-            ownership_status: "owned",
-            date_acquired: sourceRow?.date_acquired ?? ownershipRow?.acquired_at?.slice?.(0, 10) ?? null,
-            acquisition_source: sourceRow?.acquisition_source ?? "Account unlock",
-            acquisition_group: sourceRow?.acquisition_group ?? null,
-            usage_mode: sourceRow?.usage_mode ?? "build_pending",
-          });
-        }
-      }
-
+      // No automatic ship insertion here. A character only receives a ship when
+      // the user explicitly claims/assigns that ship.
       if (rowsToInsert.length) {
         const { error: insertError } = await supabase
           .from("user_ships")
@@ -229,21 +196,8 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         if (insertError) throw insertError;
       }
 
-      // Keep the account ownership registry populated for older character-level claims.
-      const ownershipRows = Array.from(accountWideIds).map((stoShipId) => ({
-        user_id: u.user.id,
-        sto_ship_id: stoShipId,
-        ownership_status: "owned",
-        acquired_at: new Date().toISOString(),
-        notes: "Reconciled from character fleet ownership",
-      }));
-      if (ownershipRows.length) {
-        const { error: ownershipError } = await supabase
-          .from("sto_ship_ownership" as never)
-          .upsert(ownershipRows as never[], { onConflict: "user_id,sto_ship_id", ignoreDuplicates: true });
-        if (ownershipError) console.warn("Account ownership registry reconciliation skipped:", ownershipError);
-      }
-
+      // Do not manufacture account ownership from source metadata or old registry
+      // rows. The explicit claim flow is the source of truth for ownership.
       // Every account-wide ship's unique trait/console/special weapon must be
       // visible on every captain, not just on the ship that was originally claimed.
       const referenceById = new Map(((shipReference ?? []) as any[]).map((row) => [row.sto_ship_id, row]));
