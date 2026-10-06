@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Database, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Check, Package } from "lucide-react";
 
@@ -127,6 +127,39 @@ function ShipDatabasePage() {
   const factions = useMemo(() => Array.from(new Set(data.map((ship) => ship.faction).filter(Boolean))) as string[], [data]);
   const ownedByShip = useMemo(() => new Map((ownership.data ?? []).map((row: any) => [row.sto_ship_id, row])), [ownership.data]);
   const sourcesByShip = useMemo(() => { const map = new Map<string, any[]>(); for (const row of sources.data ?? []) { const list = map.get(row.sto_ship_id) ?? []; list.push(row); map.set(row.sto_ship_id, list); } return map; }, [sources.data]);
+  // Reconcile account-wide Zen/C-Store ownership for existing accounts. This is intentionally
+  // client-side so Supabase RLS sees the signed-in user's auth context.
+  useEffect(() => {
+    let cancelled = false;
+    const reconcile = async () => {
+      if (!characters.data?.length || !data.length || !sources.data) return;
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user || cancelled) return;
+      const zenShips = data.filter((ship) => {
+        const rows = sourcesByShip.get(ship.id) ?? [];
+        return rows.some((source: any) => String(source.price_currency ?? "").toLowerCase() === "zen" || /zen|c-store|cstore|zen store/i.test(String(source.source_name ?? "")) || source.account_unlock === true);
+      });
+      if (!zenShips.length) return;
+      const { data: existing } = await supabase.from("user_ships").select("id,character_id,sto_ship_id,ownership_status").eq("user_id", auth.user.id).in("sto_ship_id", zenShips.map((s) => s.id));
+      const existingRows = existing ?? [];
+      const shipRows: any[] = [];
+      const unlockRows: any[] = [];
+      for (const ship of zenShips) {
+        for (const character of characters.data) {
+          if (!existingRows.some((row: any) => row.character_id === character.id && row.sto_ship_id === ship.id)) {
+            shipRows.push({ user_id: auth.user.id, character_id: character.id, sto_ship_id: ship.id, ownership_status: "owned", usage_mode: "build_pending" });
+          }
+          if (ship.ship_trait) unlockRows.push({ user_id: auth.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "ship_trait", name: ship.ship_trait, source_name: "Account ship unlock" });
+          if (ship.special_console) unlockRows.push({ user_id: auth.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "console", name: ship.special_console, source_name: "Account ship unlock" });
+          if (ship.special_weapons) unlockRows.push({ user_id: auth.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "special_weapon", name: ship.special_weapons, source_name: "Account ship unlock" });
+        }
+      }
+      if (shipRows.length && !cancelled) await supabase.from("user_ships").insert(shipRows as never[]);
+      if (unlockRows.length && !cancelled) await supabase.from("character_ship_unlocks" as never).upsert(unlockRows as never[], { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name" });
+    };
+    void reconcile();
+    return () => { cancelled = true; };
+  }, [characters.data, data, sources.data, sourcesByShip]);
   const filtered = useMemo(() => data.filter((ship) => {
     const haystack = `${ship.name} ${ship.ship_class ?? ""} ${ship.faction ?? ""} ${ship.tier ?? ""}`.toLowerCase();
     const status = ownedByShip.get(ship.id)?.ownership_status;
