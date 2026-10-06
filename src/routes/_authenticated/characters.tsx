@@ -293,6 +293,22 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
     },
   });
 
+  const shipUnlocks = useQuery({
+    queryKey: ["character_ops_ship_unlocks", characterId],
+    refetchOnMount: "always",
+    staleTime: 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("character_ship_unlocks" as never)
+        .select("id,sto_ship_id,unlock_type,name,source_name,sto_ships(name)")
+        .eq("character_id", characterId)
+        .order("unlock_type")
+        .order("name");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const equipment = useQuery({
     queryKey: ["character_ops_equipment", characterId],
     refetchOnMount: "always",
@@ -351,6 +367,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
   const removeDoff=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("character_doffs" as never).update({active:false}).eq("id",id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["character_ops_doffs",characterId]})});
   const filteredDoffs=useMemo(()=>((doffCatalog.data as any[])||[]).filter((d:any)=>{const q=doffSearch.trim().toLowerCase();return !q||[d.name,d.department,d.specialization,d.domain].filter(Boolean).join(" ").toLowerCase().includes(q);}),[doffCatalog.data,doffSearch]);
   const shipCount = ships.data?.filter((ship: any) => ship.ownership_status === "owned").length ?? 0;
+  const shipUnlockCount = shipUnlocks.data?.length ?? 0;
   const activeTraits = personalTraits.data?.filter((t: any) => t.active !== false).length ?? 0;
   const activeBoffs = bridgeOfficers.data?.filter((b: any) => b.active !== false).length ?? 0;
 
@@ -367,6 +384,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       <div className="grid gap-3 sm:grid-cols-2">
         <OpsCard icon={<Rocket className="size-4" />} label="Ships" value={shipCount} detail={(ships.data ?? []).filter((s: any) => s.ownership_status === "owned").slice(0, 3).map((s: any) => s.custom_name || s.sto_ships?.name).join(" · ") || "None registered"} />
         <OpsCard icon={<Package className="size-4" />} label="Equipment" value={equipment.data?.length ?? 0} detail={(equipment.data ?? []).slice(0, 3).map((e: any) => [e.name, e.mark_level ? `Mk${e.mark_level}` : e.mark, e.rarity].filter(Boolean).join(" ")).join(" · ") || "None assigned"} />
+        <OpsCard icon={<Rocket className="size-4" />} label="Ship unlocks" value={shipUnlockCount} detail={(shipUnlocks.data ?? []).slice(0, 3).map((u: any) => u.name).filter(Boolean).join(" · ") || "No ship-derived unlocks"} />
         <OpsCard icon={<UserRound className="size-4" />} label="Personal traits" value={activeTraits} detail={(personalTraits.data ?? []).slice(0, 4).map((t: any) => t.trait_catalog?.name).filter(Boolean).join(" · ") || "No personal traits assigned"} />
         <OpsCard icon={<UserRound className="size-4" />} label="Bridge officers" value={activeBoffs} detail={(bridgeOfficers.data ?? []).slice(0, 4).map((b: any) => b.name).filter(Boolean).join(" · ") || "No bridge officers assigned"} />
         <OpsCard icon={<Package className="size-4" />} label="Duty officers" value={doffs.data?.length ?? 0} detail={(doffs.data ?? []).slice(0, 4).map((d:any)=>d.doff_catalog?.name).filter(Boolean).join(" · ") || "No Duty Officers assigned"} />
