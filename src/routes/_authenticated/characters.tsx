@@ -55,7 +55,9 @@ function CharactersPage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div><p className="lcars-label">Personnel registry</p><h2 className="font-display text-2xl text-primary sm:text-3xl">Characters</h2></div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setShowSearch(v => !v)}><Search className="mr-1 size-4" /> Search by character, species, faction and career</Button>\n            <Button onClick={() => { setSelected(null); setOpen(true); }} className="glow-primary"><Plus className="mr-1 size-4" /> Add character</Button>\n          </div>
+            <Button variant="outline" onClick={() => setShowSearch(v => !v)}><Search className="mr-1 size-4" /> Search by character, species, faction and career</Button>
+            <Button onClick={() => { setSelected(null); setOpen(true); }} className="glow-primary"><Plus className="mr-1 size-4" /> Add character</Button>
+          </div>
         </div>
         {showSearch && <div className="panel p-4"><div className="relative"><Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" /><Input autoFocus className="pl-8" placeholder="Search by character, species, faction and career" value={q} onChange={e => setQ(e.target.value)} /></div></div>}
         {characters.isError ? <div className="panel p-6 text-center text-destructive">Unable to load the personnel registry. Refresh and try again.</div> : characters.isLoading ? <p className="text-muted-foreground">Loading personnel registry…</p> :
@@ -66,7 +68,18 @@ function CharactersPage() {
               <div className="mt-3 flex flex-wrap gap-2">{c.career && <Badge variant="outline">{c.career}</Badge>}{c.species && <Badge variant="outline">{c.species}</Badge>}{c.level != null && <Badge variant="secondary">Lv {c.level}</Badge>}</div>
             </button>
           )}</div>}
-        <CharacterDialog\n          key={selected?.id ?? "new"}\n          open={open}\n          onOpenChange={(value) => {\n            setOpen(value);\n            // Closing a character must only close the UI. It must never trigger\n            // character/ship registry writes or leave a stale ops panel mounted.\n            if (!value) setSelected(null);\n          }}\n          character={selected}\n          onDeleted={() => remove.mutate(selected!.id)}\n        />
+        <CharacterDialog
+          key={selected?.id ?? "new"}
+          open={open}
+          onOpenChange={(value) => {
+            setOpen(value);
+            // Closing a character must only close the UI. It must never trigger
+            // character/ship registry writes or leave a stale ops panel mounted.
+            if (!value) setSelected(null);
+          }}
+          character={selected}
+          onDeleted={() => remove.mutate(selected!.id)}
+        />
         {selected && <CharacterOps characterId={selected.id} characterName={selected.name} />}
       </div>
     </AppShell>
@@ -117,7 +130,8 @@ function CharacterDialog({ open, onOpenChange, character, onDeleted }: { open: b
 }
 
 
-function CharacterOps({ characterId, characterName }: { characterId: string; characterName: string }) {\n  const qc = useQueryClient();
+function CharacterOps({ characterId, characterName }: { characterId: string; characterName: string }) {
+  const qc = useQueryClient();
   const ships = useQuery({
     queryKey: ["character_ops_ships", characterId],
     refetchOnMount: "always",
