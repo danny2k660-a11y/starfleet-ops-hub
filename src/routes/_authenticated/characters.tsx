@@ -124,41 +124,169 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
     staleTime: 0,
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not signed in");
-      // Repair the character registry from ships marked Owned in the shared Ship Database.
-      // Older database registrations were account-level only; character sheets must have
-      // real user_ships rows so builds/loadouts can attach to them.
+      if (!u.user) throw new Error("Not signed in.");
+
+      // Build the character fleet from every account-level ownership source.
+      // Do not depend on sto_ship_ownership alone: older claims can exist only
+      // as user_ships rows (including character_id = null).
+      const { data: charactersForAccount, error: charactersError } = await supabase
+        .from("characters")
+        .select("id")
+        .eq("user_id", u.user.id);
+      if (charactersError) throw charactersError;
+
       const [{ data: accountOwned, error: accountOwnedError }, { data: existingShips, error: existingError }] = await Promise.all([
         supabase
           .from("sto_ship_ownership" as never)
-          .select("sto_ship_id")
+          .select("sto_ship_id,ownership_status,acquired_at")
           .eq("user_id", u.user.id)
           .eq("ownership_status", "owned"),
         supabase
           .from("user_ships")
-          .select("id,custom_name,ownership_status,sto_ship_id,character_id,sto_ships(name,ship_class),builds(name,status)")
+          .select("id,custom_name,ownership_status,sto_ship_id,character_id,date_acquired,acquisition_source,acquisition_group,usage_mode")
           .eq("user_id", u.user.id)
-          .eq("character_id", characterId)
+          .eq("ownership_status", "owned")
           .order("created_at", { ascending: false }),
       ]);
       if (accountOwnedError) throw accountOwnedError;
       if (existingError) throw existingError;
 
-      const existingIds = new Set((existingShips ?? []).map((ship: any) => ship.sto_ship_id));
-      const missingRows = ((accountOwned ?? []) as any[])
-        .filter((row) => row.sto_ship_id && !existingIds.has(row.sto_ship_id))
-        .map((row) => ({
-          user_id: u.user.id,
-          character_id: characterId,
-          sto_ship_id: row.sto_ship_id,
-          custom_name: null,
-          ownership_status: "owned",
-          usage_mode: "build_pending",
-        }));
+      const existingRows = (existingShips ?? []) as any[];
+      const accountRows = (accountOwned ?? []) as any[];
+      const candidateShipIds = Array.from(new Set([
+        ...accountRows.map((row) => row.sto_ship_id),
+        ...existingRows.map((row) => row.sto_ship_id),
+      ].filter(Boolean)));
 
-      if (missingRows.length) {
-        const { error: insertError } = await supabase.from("user_ships").insert(missingRows as never[]);
+      if (!candidateShipIds.length || !charactersForAccount?.length) {
+        return existingRows.filter((row) => row.character_id === characterId);
+      }
+
+      const [{ data: sources, error: sourcesError }, { data: catalogue, error: catalogueError }] = await Promise.all([
+        supabase
+          .from("sto_ship_sources" as never)
+          .select("sto_ship_id,source_name,source_type,account_unlock")
+          .in("sto_ship_id", candidateShipIds),
+        supabase
+          .from("sto_ships")
+          .select("id,name,ship_trait,special_console,special_weapons")
+          .in("id", candidateShipIds),
+      ]);
+      if (sourcesError) throw sourcesError;
+      if (catalogueError) throw catalogueError;
+
+      const accountOwnedIds = new Set(accountRows.map((row) => row.sto_ship_id).filter(Boolean));
+      const accountLevelUserShipIds = new Set(
+        existingRows.filter((row) => row.character_id == null).map((row) => row.sto_ship_id).filter(Boolean),
+      );
+      const accountWideSourceIds = new Set(
+        ((sources ?? []) as any[])
+          .filter((source) =>
+            source.account_unlock === true ||
+            /zen|c[ -]?store|mudd/i.test(String(source.source_name ?? "")) ||
+            /zen|c[ -]?store|mudd/i.test(String(source.source_type ?? "")),
+          )
+          .map((source) => source.sto_ship_id)
+          .filter(Boolean),
+      );
+
+      const accountWideIds = new Set([
+        ...accountOwnedIds,
+        ...accountLevelUserShipIds,
+        ...accountWideSourceIds,
+      ]);
+
+      const allCharacters = (charactersForAccount ?? []) as any[];
+      const rowsToInsert: any[] = [];
+      for (const stoShipId of accountWideIds) {
+        for (const character of allCharacters) {
+          const alreadyExists = existingRows.some(
+            (row) => row.character_id === character.id && row.sto_ship_id === stoShipId,
+          );
+          if (alreadyExists) continue;
+
+          const sourceRow = existingRows.find((row) => row.sto_ship_id === stoShipId);
+          const ownershipRow = accountRows.find((row) => row.sto_ship_id === stoShipId);
+          rowsToInsert.push({
+            user_id: u.user.id,
+            character_id: character.id,
+            sto_ship_id: stoShipId,
+            custom_name: null,
+            ownership_status: "owned",
+            date_acquired: sourceRow?.date_acquired ?? ownershipRow?.acquired_at?.slice?.(0, 10) ?? null,
+            acquisition_source: sourceRow?.acquisition_source ?? "Account unlock",
+            acquisition_group: sourceRow?.acquisition_group ?? null,
+            usage_mode: sourceRow?.usage_mode ?? "build_pending",
+          });
+        }
+      }
+
+      if (rowsToInsert.length) {
+        const { error: insertError } = await supabase
+          .from("user_ships")
+          .insert(rowsToInsert as never[]);
         if (insertError) throw insertError;
+      }
+
+      // Keep the account ownership registry populated for older character-level claims.
+      const ownershipRows = Array.from(accountWideIds).map((stoShipId) => ({
+        user_id: u.user.id,
+        sto_ship_id: stoShipId,
+        ownership_status: "owned",
+        acquired_at: new Date().toISOString(),
+        notes: "Reconciled from character fleet ownership",
+      }));
+      if (ownershipRows.length) {
+        const { error: ownershipError } = await supabase
+          .from("sto_ship_ownership" as never)
+          .upsert(ownershipRows as never[], { onConflict: "user_id,sto_ship_id", ignoreDuplicates: true });
+        if (ownershipError) throw ownershipError;
+      }
+
+      // Every account-wide ship's unique trait/console/special weapon must be
+      // visible on every captain, not just on the ship that was originally claimed.
+      const catalogueById = new Map(((catalogue ?? []) as any[]).map((ship) => [ship.id, ship]));
+      const existingUnlocks = new Set<string>();
+      const { data: unlockRows, error: unlockReadError } = await supabase
+        .from("character_ship_unlocks" as never)
+        .select("character_id,sto_ship_id,unlock_type,name")
+        .eq("user_id", u.user.id)
+        .in("character_id", allCharacters.map((c) => c.id))
+        .in("sto_ship_id", Array.from(accountWideIds));
+      if (unlockReadError) throw unlockReadError;
+      for (const row of (unlockRows ?? []) as any[]) {
+        existingUnlocks.add([row.character_id, row.sto_ship_id, row.unlock_type, row.name].join("|"));
+      }
+
+      const unlocksToInsert: any[] = [];
+      for (const stoShipId of accountWideIds) {
+        const ship = catalogueById.get(stoShipId);
+        if (!ship) continue;
+        const unlocks = [
+          ["ship_trait", ship.ship_trait],
+          ["console", ship.special_console],
+          ["special_weapon", ship.special_weapons],
+        ].filter(([, name]) => name);
+        for (const character of allCharacters) {
+          for (const [unlockType, name] of unlocks) {
+            const key = [character.id, stoShipId, unlockType, name].join("|");
+            if (existingUnlocks.has(key)) continue;
+            unlocksToInsert.push({
+              user_id: u.user.id,
+              character_id: character.id,
+              sto_ship_id: stoShipId,
+              unlock_type: unlockType,
+              name,
+              source_name: "Account ship unlock",
+            });
+          }
+        }
+      }
+      if (unlocksToInsert.length) {
+        const { error: unlockInsertError } = await supabase
+          .from("character_ship_unlocks" as never)
+          .insert(unlocksToInsert as never[]);
+        if (unlockInsertError) throw unlockInsertError;
       }
 
       const { data, error } = await supabase
@@ -166,6 +294,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         .select("id,custom_name,ownership_status,sto_ship_id,character_id,sto_ships(name,ship_class),builds(name,status)")
         .eq("user_id", u.user.id)
         .eq("character_id", characterId)
+        .eq("ownership_status", "owned")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
