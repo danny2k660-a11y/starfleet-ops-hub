@@ -6,6 +6,8 @@ import type { LucideIcon } from "lucide-react";
 import type { LinkProps } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
+
+// Fleet totals are distinct STO ships, not character assignment rows.
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
