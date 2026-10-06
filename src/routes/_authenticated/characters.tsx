@@ -182,20 +182,11 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       const accountLevelUserShipIds = new Set(
         existingRows.filter((row) => row.character_id == null).map((row) => row.sto_ship_id).filter(Boolean),
       );
-      const accountWideSourceIds = new Set(
-        ((sources ?? []) as any[])
-          .filter((source) =>
-            source.account_unlock === true ||
-            /zen|c[ -]?store|mudd/i.test(String(source.source_name ?? "")) ||
-            /zen|c[ -]?store|mudd/i.test(String(source.source_type ?? "")),
-          )
-          .map((source) => source.sto_ship_id)
-          .filter(Boolean),
-      );
-
+      // Source metadata can describe how a ship was acquired, but it must not
+      // override the captain scope chosen by the user. A ship becomes account-wide
+      // here only when it was explicitly stored as a character_id-null user_ship.
       const accountWideIds = new Set([
         ...accountLevelUserShipIds,
-        ...accountWideSourceIds,
       ]);
 
       const allCharacters = (charactersForAccount ?? []) as any[];
