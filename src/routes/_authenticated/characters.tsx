@@ -135,125 +135,15 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         .eq("user_id", u.user.id);
       if (charactersError) throw charactersError;
 
-      const [{ data: accountOwned, error: accountOwnedError }, { data: existingShips, error: existingError }] = await Promise.all([
-        supabase
-          .from("sto_ship_ownership" as never)
-          .select("sto_ship_id,ownership_status,acquired_at")
-          .eq("user_id", u.user.id)
-          .eq("ownership_status", "owned"),
-        supabase
-          .from("user_ships")
-          .select("id,custom_name,ownership_status,sto_ship_id,character_id,date_acquired,acquisition_source,acquisition_group,usage_mode")
-          .eq("user_id", u.user.id)
-          .eq("ownership_status", "owned")
-          .order("created_at", { ascending: false }),
-      ]);
-      if (accountOwnedError) throw accountOwnedError;
-      if (existingError) throw existingError;
-
-      const existingRows = (existingShips ?? []) as any[];
-      const accountRows = (accountOwned ?? []) as any[];
-      const candidateShipIds = Array.from(new Set([
-        ...accountRows.map((row) => row.sto_ship_id),
-        ...existingRows.map((row) => row.sto_ship_id),
-      ].filter(Boolean)));
-
-      if (!candidateShipIds.length || !charactersForAccount?.length) {
-        return existingRows.filter((row) => row.character_id === characterId);
-      }
-
-      const [{ data: catalogue, error: catalogueError }, { data: shipSources, error: shipSourcesError }, { data: shipReference }] = await Promise.all([
-        supabase
-          .from("sto_ships")
-          .select("id,name,ship_trait,special_console,special_weapons")
-          .in("id", candidateShipIds),
-        supabase
-          .from("sto_ship_sources" as never)
-          .select("sto_ship_id,source_type,account_unlock")
-          .in("sto_ship_id", candidateShipIds),
-        supabase
-          .from("sto_ship_reference_data" as never)
-          .select("sto_ship_id,trait_name,console_name")
-          .in("sto_ship_id", candidateShipIds),
-      ]);
-      if (catalogueError) throw catalogueError;
-      if (shipSourcesError) throw shipSourcesError;
-
-      // IMPORTANT: ownership is explicit. Ship catalogue/source metadata must never
-      // grant ownership or silently copy ships to characters. Account-wide ships are
-      // propagated only by the explicit claim/assignment flow.
-      const accountWideIds = new Set<string>();
-
-      const allCharacters = (charactersForAccount ?? []) as any[];
-      const rowsToInsert: any[] = [];
-
-      // No automatic ship insertion here. A character only receives a ship when
-      // the user explicitly claims/assigns that ship.
-      if (rowsToInsert.length) {
-        const { error: insertError } = await supabase
-          .from("user_ships")
-          .insert(rowsToInsert as never[]);
-        if (insertError) throw insertError;
-      }
-
-      // Do not manufacture account ownership from source metadata or old registry
-      // rows. The explicit claim flow is the source of truth for ownership.
-      // Every account-wide ship's unique trait/console/special weapon must be
-      // visible on every captain, not just on the ship that was originally claimed.
-      const referenceById = new Map(((shipReference ?? []) as any[]).map((row) => [row.sto_ship_id, row]));
-      const catalogueById = new Map(((catalogue ?? []) as any[]).map((ship) => {
-        const ref = referenceById.get(ship.id);
-        return [ship.id, {
-          ...ship,
-          ship_trait: ship.ship_trait || ref?.trait_name || null,
-          special_console: ship.special_console || ref?.console_name || null,
-        }];
-      }));
-      const existingUnlocks = new Set<string>();
-      const { data: unlockRows, error: unlockReadError } = await supabase
-        .from("character_ship_unlocks" as never)
-        .select("character_id,sto_ship_id,unlock_type,name")
+      // Ownership is explicit: this query only reads existing character assignments.
+      // Never infer ownership from ship catalogue/source metadata.
+      const { data: existingShips, error: existingError } = await supabase
+        .from("user_ships")
+        .select("id,custom_name,ownership_status,sto_ship_id,character_id,date_acquired,acquisition_source,acquisition_group,usage_mode")
         .eq("user_id", u.user.id)
-        .in("character_id", allCharacters.map((c) => c.id))
-        .in("sto_ship_id", Array.from(accountWideIds));
-      if (unlockReadError) console.warn("Ship unlock registry read skipped:", unlockReadError);
-      for (const row of (unlockRows ?? []) as any[]) {
-        existingUnlocks.add([row.character_id, row.sto_ship_id, row.unlock_type, row.name].join("|"));
-      }
-
-      const unlocksToInsert: any[] = [];
-      for (const stoShipId of accountWideIds) {
-        const ship = catalogueById.get(stoShipId);
-        if (!ship) continue;
-        const unlocks = [
-          ["ship_trait", ship.ship_trait],
-          ["console", ship.special_console],
-          ["special_weapon", ship.special_weapons],
-        ].filter(([, name]) => name);
-        for (const character of allCharacters) {
-          for (const [unlockType, name] of unlocks) {
-            const key = [character.id, stoShipId, unlockType, name].join("|");
-            if (existingUnlocks.has(key)) continue;
-            unlocksToInsert.push({
-              user_id: u.user.id,
-              character_id: character.id,
-              sto_ship_id: stoShipId,
-              unlock_type: unlockType,
-              name,
-              source_name: "Account ship unlock",
-            });
-          }
-        }
-      }
-      if (unlocksToInsert.length) {
-        const { error: unlockInsertError } = await supabase
-          .from("character_ship_unlocks" as never)
-          .upsert(unlocksToInsert as never[], {
-            onConflict: "user_id,character_id,sto_ship_id,unlock_type,name",
-            ignoreDuplicates: true,
-          });
-        if (unlockInsertError) console.warn("Ship unlock propagation skipped:", unlockInsertError);
-      }
+        .eq("ownership_status", "owned")
+        .order("created_at", { ascending: false });
+      if (existingError) throw existingError;
 
       const { data, error } = await supabase
         .from("user_ships")
