@@ -72,6 +72,9 @@ function ShipDatabasePage() {
   const [importUrl, setImportUrl] = useState("https://stowiki.net/wiki/Category:Playable_starships");
   const [importJson, setImportJson] = useState("");
   const [importBusy, setImportBusy] = useState(false);
+  const [assignmentShip, setAssignmentShip] = useState<StoShip | null>(null);
+  const [assignmentCharacter, setAssignmentCharacter] = useState("");
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
   const coverage = useQuery({
     queryKey: ["sto_ship_catalogue_coverage"],
     queryFn: async () => {
@@ -171,117 +174,200 @@ function ShipDatabasePage() {
   const ownedCount = data.filter((ship) => ownedByShip.get(ship.id)?.ownership_status === "owned").length;
   const wishlistCount = data.filter((ship) => ownedByShip.get(ship.id)?.ownership_status === "wishlist").length;
   const missingCount = Math.max(0, data.length - ownedCount);
-  const setOwnership = async (ship: StoShip, status: "owned" | "wishlist") => {
-    const current = ownedByShip.get(ship.id);
+  const assignShip = async (ship: StoShip, mode: "one" | "all") => {
     const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return;
+    if (!u.user) throw new Error("You must be signed in.");
+    const targetCharacters = mode === "all"
+      ? (characters.data ?? [])
+      : (characters.data ?? []).filter((c) => c.id === assignmentCharacter);
+    if (!targetCharacters.length) throw new Error("Choose a character.");
 
-    // "Owned" in the shared Ship Database is an account-level ownership declaration.
-    // Keep that declaration and the character-scoped fleet registry in sync so ships
-    // marked owned here actually appear on every character's command sheet.
-    if (status === "owned") {
+    setAssignmentBusy(true);
+    try {
+      const shipSources = sourcesByShip.get(ship.id) ?? [];
+      const sourceName = shipSources[0]?.source_name ?? "Ship assignment";
+      const now = new Date().toISOString();
+
+      // The shared ownership registry records that the account owns the ship.
+      // Character scope is controlled separately by user_ships below.
       const { error: ownershipError } = await supabase
         .from("sto_ship_ownership" as never)
-        .upsert(
-          {
-            user_id: u.user.id,
-            sto_ship_id: ship.id,
-            ownership_status: "owned",
-            acquired_at: current?.ownership_status === "owned" ? undefined : new Date().toISOString(),
-          },
-          { onConflict: "user_id,sto_ship_id" },
-        );
-      if (ownershipError) return;
+        .upsert({
+          user_id: u.user.id,
+          sto_ship_id: ship.id,
+          ownership_status: "owned",
+          acquired_at: now,
+        } as never, { onConflict: "user_id,sto_ship_id" });
+      if (ownershipError) throw ownershipError;
 
-      const shipSources = sourcesByShip.get(ship.id) ?? [];
-      const isZenShip = shipSources.some((source: any) => String(source.price_currency ?? "").toLowerCase() === "zen" || /zen|c-store|cstore|zen store/i.test(String(source.source_name ?? "")));
-      const isAccountWide = isZenShip || shipSources.some((source: any) => source.account_unlock === true);
-      const targetCharacters = isAccountWide ? (characters.data ?? []) : [];
-      if (targetCharacters.length) {
-        const characterIds = targetCharacters.map((character) => character.id);
-        const { data: existingRows, error: existingError } = await supabase
-          .from("user_ships")
-          .select("id,character_id,ownership_status")
-          .eq("user_id", u.user.id)
-          .eq("sto_ship_id", ship.id)
-          .in("character_id", characterIds);
-        if (existingError) return;
+      const characterIds = targetCharacters.map((c) => c.id);
+      const { data: existingRows, error: existingError } = await supabase
+        .from("user_ships")
+        .select("id,character_id,ownership_status")
+        .eq("user_id", u.user.id)
+        .eq("sto_ship_id", ship.id)
+        .in("character_id", characterIds);
+      if (existingError) throw existingError;
 
-        const existing = new Set((existingRows ?? []).map((row: any) => row.character_id));
-        const newRows = targetCharacters
-          .filter((character) => !existing.has(character.id))
-          .map((character) => ({
+      const existingByCharacter = new Map((existingRows ?? []).map((row: any) => [row.character_id, row]));
+      const newRows = targetCharacters
+        .filter((character) => !existingByCharacter.has(character.id))
+        .map((character) => ({
+          user_id: u.user.id,
+          character_id: character.id,
+          sto_ship_id: ship.id,
+          custom_name: null,
+          ownership_status: "owned",
+          usage_mode: "build_pending",
+          date_acquired: now.slice(0, 10),
+          acquisition_source: sourceName,
+        }));
+
+      if (newRows.length) {
+        const { error } = await supabase.from("user_ships").insert(newRows as never[]);
+        if (error) throw error;
+      }
+
+      const existingIds = (existingRows ?? [])
+        .filter((row: any) => row.ownership_status !== "owned")
+        .map((row: any) => row.id);
+      if (existingIds.length) {
+        const { error } = await supabase.from("user_ships").update({ ownership_status: "owned" } as never).in("id", existingIds);
+        if (error) throw error;
+      }
+
+      // Every assigned captain receives the ship's actual unlockables as character inventory:
+      // starship trait, unique console, and special/experimental weapon when the catalogue has one.
+      const unlockRows: any[] = [];
+      const equipmentRows: any[] = [];
+      for (const character of targetCharacters) {
+        if (ship.ship_trait) {
+          unlockRows.push({
             user_id: u.user.id,
             character_id: character.id,
             sto_ship_id: ship.id,
-            custom_name: null,
-            ownership_status: "owned",
-            usage_mode: "build_pending",
-          }));
-
-        if (newRows.length) {
-          const { error } = await supabase.from("user_ships").insert(newRows as never[]);
-          if (error) return;
-        }
-
-        const existingIds = (existingRows ?? [])
-          .filter((row: any) => row.ownership_status !== "owned")
-          .map((row: any) => row.id);
-        if (existingIds.length) {
-          const { error } = await supabase
-            .from("user_ships")
-            .update({ ownership_status: "owned" } as never)
-            .in("id", existingIds);
-          if (error) return;
-        }
-        const unlockRows = targetCharacters.flatMap((character) => {
-          const rows: any[] = [];
-          if (ship.ship_trait) rows.push({ user_id: u.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "ship_trait", name: ship.ship_trait, source_name: shipSources[0]?.source_name ?? "Ship ownership" });
-          if (ship.special_console) rows.push({ user_id: u.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "console", name: ship.special_console, source_name: shipSources[0]?.source_name ?? "Ship ownership" });
-          if (ship.special_weapons) rows.push({ user_id: u.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "special_weapon", name: ship.special_weapons, source_name: shipSources[0]?.source_name ?? "Ship ownership" });
-          return rows;
-        });
-        if (unlockRows.length) {
-          const { error } = await supabase.from("character_ship_unlocks" as never).upsert(unlockRows as never[], { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name" });
-          if (error) throw error;
-        }
-        if (ship.ship_trait) {
-          const { data: matchingTrait } = await supabase.from("trait_catalog" as never).select("id").ilike("name", ship.ship_trait).maybeSingle();
-          if (matchingTrait) {
-            const traitRows = targetCharacters.map((character) => ({ user_id: u.user.id, character_id: character.id, trait_id: (matchingTrait as any).id, active: true, slot_index: 0, domain: "space", trait_category: "starship", slot_group: "space", source_type: "ship_unlock", source_name: ship.name }));
-            await supabase.from("character_traits" as never).upsert(traitRows as never[], { onConflict: "character_id,trait_id" });
-          }
+            unlock_type: "ship_trait",
+            name: ship.ship_trait,
+            source_name: sourceName,
+          });
         }
         if (ship.special_console) {
-          for (const character of targetCharacters) {
-            const { data: existingConsole } = await supabase.from("equipment_items" as never).select("id").eq("user_id", u.user.id).eq("character_id", character.id).eq("name", ship.special_console).eq("category", "console").maybeSingle();
-            if (!existingConsole) await supabase.from("equipment_items" as never).insert({ user_id: u.user.id, character_id: character.id, name: ship.special_console, category: "console", quantity: 1, source: "Ship unlock", notes: ship.name } as never);
-          }
+          unlockRows.push({
+            user_id: u.user.id,
+            character_id: character.id,
+            sto_ship_id: ship.id,
+            unlock_type: "console",
+            name: ship.special_console,
+            source_name: sourceName,
+          });
+          equipmentRows.push({
+            user_id: u.user.id,
+            character_id: character.id,
+            name: ship.special_console,
+            category: "console",
+            quantity: 1,
+            source: "Ship unlock",
+            notes: ship.name,
+          });
+        }
+        if (ship.special_weapons) {
+          unlockRows.push({
+            user_id: u.user.id,
+            character_id: character.id,
+            sto_ship_id: ship.id,
+            unlock_type: "special_weapon",
+            name: ship.special_weapons,
+            source_name: sourceName,
+          });
+          equipmentRows.push({
+            user_id: u.user.id,
+            character_id: character.id,
+            name: ship.special_weapons,
+            category: "experimental weapon",
+            quantity: 1,
+            source: "Ship unlock",
+            notes: ship.name,
+          });
         }
       }
-    } else if (current?.ownership_status === status) {
-      const { error } = await supabase
-        .from("sto_ship_ownership" as never)
-        .delete()
-        .eq("user_id", u.user.id)
-        .eq("sto_ship_id", ship.id);
+
+      if (unlockRows.length) {
+        const { error } = await supabase
+          .from("character_ship_unlocks" as never)
+          .upsert(unlockRows as never[], { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name" });
+        if (error) throw error;
+      }
+
+      if (ship.ship_trait) {
+        const { data: matchingTrait, error: traitLookupError } = await supabase
+          .from("trait_catalog" as never)
+          .select("id")
+          .ilike("name", ship.ship_trait)
+          .maybeSingle();
+        if (traitLookupError) throw traitLookupError;
+        if (matchingTrait) {
+          const traitRows = targetCharacters.map((character) => ({
+            user_id: u.user.id,
+            character_id: character.id,
+            trait_id: (matchingTrait as any).id,
+            active: true,
+            slot_index: 0,
+            domain: "space",
+            trait_category: "starship",
+            slot_group: "space",
+            source_type: "ship_unlock",
+            source_name: ship.name,
+          }));
+          const { error } = await supabase
+            .from("character_traits" as never)
+            .upsert(traitRows as never[], { onConflict: "character_id,trait_id" });
+          if (error) throw error;
+        }
+      }
+
+      for (const equipment of equipmentRows) {
+        const { data: existingEquipment, error: equipmentLookupError } = await supabase
+          .from("equipment_items" as never)
+          .select("id")
+          .eq("user_id", u.user.id)
+          .eq("character_id", equipment.character_id)
+          .eq("name", equipment.name)
+          .eq("category", equipment.category)
+          .maybeSingle();
+        if (equipmentLookupError) throw equipmentLookupError;
+        if (!existingEquipment) {
+          const { error } = await supabase.from("equipment_items" as never).insert(equipment as never);
+          if (error) throw error;
+        }
+      }
+
+      setAssignmentShip(null);
+      setAssignmentCharacter("");
+      window.alert(mode === "all"
+        ? `${ship.name} assigned to every character. Ship trait, unique console and special/experimental weapon were added where available.`
+        : `${ship.name} assigned to the selected character. Ship trait, unique console and special/experimental weapon were added where available.`);
+    } finally {
+      setAssignmentBusy(false);
+    }
+  };
+
+  const setOwnership = async (ship: StoShip, status: "owned" | "wishlist") => {
+    const current = ownedByShip.get(ship.id);
+    if (status === "owned") {
+      setAssignmentShip(ship);
+      setAssignmentCharacter(characters.data?.[0]?.id ?? "");
+      return;
+    }
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    if (current?.ownership_status === status) {
+      const { error } = await supabase.from("sto_ship_ownership" as never).delete().eq("user_id", u.user.id).eq("sto_ship_id", ship.id);
       if (error) return;
     } else {
-      const { error } = await supabase
-        .from("sto_ship_ownership" as never)
-        .upsert(
-          {
-            user_id: u.user.id,
-            sto_ship_id: ship.id,
-            ownership_status: status,
-            acquired_at: null,
-          },
-          { onConflict: "user_id,sto_ship_id" },
-        );
+      const { error } = await supabase.from("sto_ship_ownership" as never).upsert({ user_id: u.user.id, sto_ship_id: ship.id, ownership_status: status, acquired_at: new Date().toISOString() }, { onConflict: "user_id,sto_ship_id" });
       if (error) return;
     }
-
-    await ownership.refetch();
+    ownership.refetch();
   };
   const toggleOwnership = (ship: StoShip) => setOwnership(ship, "owned");
   const verifiedCount = data.filter((ship) => ship.source_key === "stowiki" && ship.verified_at).length;
@@ -340,6 +426,28 @@ function ShipDatabasePage() {
             <div className="flex items-center justify-between gap-2"><div><p className="lcars-label text-[10px]">Catalogue import pipeline</p><p className="mt-1 text-xs text-muted-foreground">Only validated source payloads can be applied. Missing fields stay empty rather than being guessed.</p></div><div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>Stage JSON</Button><Database className="size-4 text-primary" /></div></div>
             {imports.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading import status…</p> : imports.data?.length ? <div className="mt-2 space-y-1.5">{imports.data.map((item: any) => <ImportRow key={item.id} item={item} onChanged={() => imports.refetch()} />)}</div> : <p className="mt-2 text-xs text-muted-foreground">No catalogue imports have been staged yet.</p>}
           </div>
+          <Dialog open={!!assignmentShip} onOpenChange={(open) => { if (!open && !assignmentBusy) { setAssignmentShip(null); setAssignmentCharacter(""); } }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Assign {assignmentShip?.name ?? "ship"}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Choose one captain or give the ship to every captain. The selected characters will also receive the ship trait, unique console, and special/experimental weapon recorded for this ship.</p>
+                <div className="space-y-1">
+                  <label className="lcars-label text-[10px]">Character</label>
+                  <Select value={assignmentCharacter} onValueChange={setAssignmentCharacter}>
+                    <SelectTrigger><SelectValue placeholder="Choose character" /></SelectTrigger>
+                    <SelectContent>{(characters.data ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button disabled={assignmentBusy || !assignmentCharacter} onClick={() => assignmentShip && assignShip(assignmentShip, "one")}>{assignmentBusy ? "Assigning…" : "Assign to this character"}</Button>
+                  <Button variant="outline" disabled={assignmentBusy || !(characters.data ?? []).length} onClick={() => assignmentShip && assignShip(assignmentShip, "all")}>{assignmentBusy ? "Assigning…" : "Assign to all characters"}</Button>
+                </div>
+              </div>
+              <DialogFooter><Button variant="ghost" disabled={assignmentBusy} onClick={() => setAssignmentShip(null)}>Cancel</Button></DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Dialog open={importOpen} onOpenChange={setImportOpen}>
             <DialogContent>
               <DialogHeader><DialogTitle>Stage verified ship catalogue JSON</DialogTitle></DialogHeader>
@@ -386,7 +494,7 @@ function ShipDatabasePage() {
               : "Not populated";
             return (
               <div key={ship.id} className="panel overflow-hidden">
-                <div className="flex items-center gap-2 p-4"><button className="min-w-0 flex-1 text-left" onClick={() => setExpanded(isOpen ? null : ship.id)}><div className="min-w-0"><p className="font-display text-base text-primary">{ship.name}</p><p className="truncate text-xs text-muted-foreground">{[ship.ship_class, ship.faction, ship.tier].filter(Boolean).join(" · ") || "Classification not populated"}</p></div></button><div className="flex shrink-0 gap-1"><Button size="sm" variant={ownedByShip.get(ship.id)?.ownership_status === "owned" ? "default" : "outline"} onClick={() => setOwnership(ship, "owned")}>{ownedByShip.get(ship.id)?.ownership_status === "owned" ? <><Check className="mr-1 size-3.5" /> Owned</> : "Own"}</Button><Button size="sm" variant={ownedByShip.get(ship.id)?.ownership_status === "wishlist" ? "default" : "outline"} onClick={() => setOwnership(ship, "wishlist")}>{ownedByShip.get(ship.id)?.ownership_status === "wishlist" ? "Wishlist" : "Want"}</Button></div><button className="shrink-0 p-1" onClick={() => setExpanded(isOpen ? null : ship.id)}>{isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</button></div>
+                <div className="flex items-center gap-2 p-4"><button className="min-w-0 flex-1 text-left" onClick={() => setExpanded(isOpen ? null : ship.id)}><div className="min-w-0"><p className="font-display text-base text-primary">{ship.name}</p><p className="truncate text-xs text-muted-foreground">{[ship.ship_class, ship.faction, ship.tier].filter(Boolean).join(" · ") || "Classification not populated"}</p></div></button><div className="flex shrink-0 gap-1"><Button size="sm" variant={ownedByShip.get(ship.id)?.ownership_status === "owned" ? "default" : "outline"} onClick={() => setOwnership(ship, "owned")}>{ownedByShip.get(ship.id)?.ownership_status === "owned" ? <><Check className="mr-1 size-3.5" /> Assign / Reassign</> : "Assign"}</Button><Button size="sm" variant={ownedByShip.get(ship.id)?.ownership_status === "wishlist" ? "default" : "outline"} onClick={() => setOwnership(ship, "wishlist")}>{ownedByShip.get(ship.id)?.ownership_status === "wishlist" ? "Wishlist" : "Want"}</Button></div><button className="shrink-0 p-1" onClick={() => setExpanded(isOpen ? null : ship.id)}>{isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</button></div>
                 {isOpen && <div className="border-t border-border p-4">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <Info label="Hull modifier" value={ship.hull_modifier} /><Info label="Shield modifier" value={ship.shield_modifier} /><Info label="Turn rate" value={ship.turn_rate} /><Info label="Inertia" value={ship.inertia} />
