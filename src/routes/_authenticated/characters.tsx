@@ -66,7 +66,7 @@ function CharactersPage() {
               <div className="mt-3 flex flex-wrap gap-2">{c.career && <Badge variant="outline">{c.career}</Badge>}{c.species && <Badge variant="outline">{c.species}</Badge>}{c.level != null && <Badge variant="secondary">Lv {c.level}</Badge>}</div>
             </button>
           )}</div>}
-        <CharacterDialog key={selected?.id ?? "new"} open={open} onOpenChange={setOpen} character={selected} onDeleted={() => remove.mutate(selected!.id)} />
+        <CharacterDialog\n          key={selected?.id ?? "new"}\n          open={open}\n          onOpenChange={(value) => {\n            setOpen(value);\n            // Closing a character must only close the UI. It must never trigger\n            // character/ship registry writes or leave a stale ops panel mounted.\n            if (!value) setSelected(null);\n          }}\n          character={selected}\n          onDeleted={() => remove.mutate(selected!.id)}\n        />
         {selected && <CharacterOps characterId={selected.id} characterName={selected.name} />}
       </div>
     </AppShell>
@@ -234,7 +234,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
   const [doffSearch,setDoffSearch]=useState("");
   const [boffName,setBoffName]=useState("");
   const [boffCareer,setBoffCareer]=useState("");
-  const doffs=useQuery({queryKey:["character_ops_doffs",characterId],queryFn:async()=>{const {data,error}=await supabase.from("character_doffs" as never).select("id,doff_id,active,notes,doff_catalog(id,name,department,specialization,domain,ability_data)").eq("character_id",characterId).eq("active",true).order("created_at");if(error)throw error;return data as any[];}});
+  const doffs=useQuery({enabled:Boolean(characterId),queryKey:["character_ops_doffs",characterId],queryFn:async()=>{const {data,error}=await supabase.from("character_doffs" as never).select("id,doff_id,active,notes,doff_catalog(id,name,department,specialization,domain,ability_data)").eq("character_id",characterId).eq("active",true).order("created_at");if(error)throw error;return data as any[];}});
   const doffCatalog=useQuery({queryKey:["character_ops_doff_catalog"],queryFn:async()=>{const {data,error}=await supabase.from("doff_catalog" as never).select("id,name,department,specialization,domain,ability_data").order("name");if(error)throw error;return data as any[];}});
   const addDoff=useMutation({mutationFn:async(id:string)=>{const {data:u}=await supabase.auth.getUser();if(!u.user)throw new Error("Not signed in");const {data:existing}=await supabase.from("character_doffs" as never).select("id").eq("character_id",characterId).eq("doff_id",id).maybeSingle();if(existing)throw new Error("That Duty Officer is already assigned");const {error}=await supabase.from("character_doffs" as never).insert({user_id:u.user.id,character_id:characterId,doff_id:id,active:true});if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["character_ops_doffs",characterId]});toast.success("Duty Officer added to character");},onError:(e:any)=>toast.error(e?.message||"Could not add Duty Officer")});
   const removeDoff=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("character_doffs" as never).update({active:false}).eq("id",id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["character_ops_doffs",characterId]})});
