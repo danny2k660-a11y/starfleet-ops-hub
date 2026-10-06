@@ -274,13 +274,22 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
 
       const { data, error } = await supabase
         .from("user_ships")
-        .select("id,custom_name,ownership_status,sto_ship_id,character_id,sto_ships(name,ship_class),builds(name,status)")
+        .select("id,custom_name,ownership_status,sto_ship_id,character_id,date_acquired,acquisition_source,acquisition_group,usage_mode,sto_ships(name,ship_class),builds(name,status)")
         .eq("user_id", u.user.id)
         .eq("character_id", characterId)
         .eq("ownership_status", "owned")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as any[];
+
+      // Older versions of the app incorrectly copied the entire account ownership
+      // catalogue onto every captain and labelled those rows "Account unlock".
+      // They are not explicit character assignments and must not count as registered
+      // ships. New assignments use the real acquisition source instead.
+      const registeredShips = (data ?? []).filter((row: any) =>
+        String(row.acquisition_source ?? "") !== "Account unlock"
+      );
+
+      return registeredShips as any[];
     },
   });
 
