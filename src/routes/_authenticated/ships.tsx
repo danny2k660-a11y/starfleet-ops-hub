@@ -855,7 +855,7 @@ function ShipsPage() {
         onSaved={(id) => { setAdding(false); setSelectedId(id); }}
       />
       {selected && (
-        <ShipDetailDialog ship={selected} characters={characters.data ?? []} builds={builds.data ?? []} onClose={() => setSelectedId(null)} />
+        <ShipDetailDialog ship={selected} characters={characters.data ?? []} builds={builds.data ?? []} referenceData={referenceData.data ?? []} onClose={() => setSelectedId(null)} />
       )}
       </div>
     </AppShell>
@@ -1113,7 +1113,7 @@ function BaseStats({ s }: { s: StoShip | null }) {
   );
 }
 
-function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShip; characters: Character[]; builds: Build[]; onClose: () => void }) {
+function ShipDetailDialog({ ship, characters, builds, referenceData, onClose }: { ship: UserShip; characters: Character[]; builds: Build[]; referenceData: any[]; onClose: () => void }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(ship.custom_name);
@@ -1330,7 +1330,7 @@ function ShipDetailDialog({ ship, characters, builds, onClose }: { ship: UserShi
         <div className="mt-4">
           <p className="lcars-label mb-2">Verified ship specifications</p>
           <p className="mb-2 text-xs text-muted-foreground">Catalogue values are shown only when populated from a recorded source; unverified scaling base values are intentionally left blank.</p>
-          <BaseStats s={ship.sto_ships} />
+          <BaseStats s={shipDataWithReference(ship.sto_ships, referenceData) as StoShip | null} />
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded border border-border bg-muted/20 p-3">
