@@ -49,6 +49,7 @@ function useData() {
         .from("user_ships")
         .select("*, sto_ships(*), characters(*), builds(*)")
         .eq("user_id", u.user.id)
+        .not("character_id", "is", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as unknown as UserShip[];
@@ -293,7 +294,11 @@ function ShipsPage() {
     [catalog.data],
   );
 
-  const filtered = (ships.data ?? []).filter((s) => {
+  const filtered = Array.from(
+    new Map(
+      (ships.data ?? []).filter((s) => s.character_id !== null).map((s) => [s.character_id + ":" + s.sto_ship_id, s]),
+    ).values(),
+  ).filter((s) => {
     const text = `${s.custom_name} ${s.sto_ships?.name ?? ""} ${s.sto_ships?.ship_class ?? ""}`.toLowerCase();
     const readinessRow = fleetReadiness.rows.find((row) => row.ship.id === s.id);
     const readinessMatch =
@@ -324,7 +329,9 @@ function ShipsPage() {
   });
 
   const selected = ships.data?.find((s) => s.id === selectedId) ?? null;
-  const ownedCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned").length;
+  const ownedCount = new Set(
+    (ships.data ?? []).filter((s) => s.ownership_status === "owned").map((s) => s.sto_ship_id).filter(Boolean),
+  ).size;
   const wishlistCount = (ships.data ?? []).filter((s) => s.ownership_status === "wishlist").length;
   const readyCount = fleetReadiness.fullyReady;
   const [fleetConfigOpen, setFleetConfigOpen] = useState(false);
@@ -906,6 +913,9 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
       if (!u.user) throw new Error("Not signed in.");
       if (!shipId) throw new Error("Select a ship first.");
 
+      const selectedCatalogShip = (catalog ?? []).find((s) => s.id === shipId);
+      if (!selectedCatalogShip) throw new Error("Selected ship is no longer present in the ship database.");
+
       const targetCharacterIds = addToAllCharacters
         ? characters.map((c) => c.id)
         : characterId
@@ -950,6 +960,20 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
         .insert(rows)
         .select("id");
       if (error) throw error;
+
+      const unlockRows = rows.flatMap((row: any) => ([
+        ["ship_trait", selectedCatalogShip.ship_trait],
+        ["console", selectedCatalogShip.special_console],
+        ["special_weapon", selectedCatalogShip.special_weapons],
+      ].filter(([, name]) => name).map(([unlock_type, name]) => ({
+        user_id: u.user.id, character_id: row.character_id, sto_ship_id: shipId,
+        unlock_type, name, source_name: "Ship assignment",
+      }))));
+      if (unlockRows.length) {
+        const { error: unlockError } = await supabase.from("character_ship_unlocks" as never)
+          .upsert(unlockRows as never[], { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name", ignoreDuplicates: true });
+        if (unlockError) throw unlockError;
+      }
 
       return { ids: (data ?? []).map((row: any) => row.id), added: rows.length, total: targetCharacterIds.length };
     },
