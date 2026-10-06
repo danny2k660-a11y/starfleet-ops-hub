@@ -406,6 +406,21 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         <OpsCard icon={<UserRound className="size-4" />} label="Bridge officers" value={activeBoffs} detail={(bridgeOfficers.data ?? []).slice(0, 4).map((b: any) => b.name).filter(Boolean).join(" · ") || "No bridge officers assigned"} />
         <OpsCard icon={<Package className="size-4" />} label="Duty officers" value={doffs.data?.length ?? 0} detail={(doffs.data ?? []).slice(0, 4).map((d:any)=>d.doff_catalog?.name).filter(Boolean).join(" · ") || "No Duty Officers assigned"} />
       </div>
+      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div><p className="text-xs uppercase tracking-wider text-accent">Ship-derived unlocks</p><p className="text-[11px] text-muted-foreground">Traits, unique consoles and special/experimental weapons provided by ships assigned to this captain.</p></div>
+          <span className="text-[11px] text-muted-foreground">{shipUnlockCount} recorded</span>
+        </div>
+        <div className="mt-2 space-y-1.5">
+          {(shipUnlocks.data ?? []).map((unlock: any) => (
+            <div key={unlock.id} className="flex items-center justify-between gap-2 rounded border border-border bg-background/30 px-2 py-1.5 text-xs">
+              <span className="min-w-0 truncate">{unlock.name}<span className="ml-2 text-muted-foreground">{unlock.sto_ships?.name ?? "Ship"}</span></span>
+              <Badge variant="outline">{unlock.unlock_type === "ship_trait" ? "Trait" : unlock.unlock_type === "console" ? "Console" : "Special weapon"}</Badge>
+            </div>
+          ))}
+          {!shipUnlocks.isLoading && (shipUnlocks.data ?? []).length === 0 && <p className="text-xs text-muted-foreground">No ship-derived unlocks recorded yet.</p>}
+        </div>
+      </div>
       <div className="rounded-lg border border-border bg-muted/10 p-3">
         <div className="flex items-center justify-between gap-2"><div><p className="text-xs uppercase tracking-wider text-accent">Bridge Officer roster</p><p className="text-[11px] text-muted-foreground">Record the actual BOFFs assigned to this captain.</p></div><span className="text-[11px] text-muted-foreground">{activeBoffs} assigned</span></div>
         <div className="mt-2 grid gap-2 sm:grid-cols-2"><Input placeholder="BOFF name" value={boffName} onChange={e=>setBoffName(e.target.value)}/><Input placeholder="Career / specialization" value={boffCareer} onChange={e=>setBoffCareer(e.target.value)}/></div>
