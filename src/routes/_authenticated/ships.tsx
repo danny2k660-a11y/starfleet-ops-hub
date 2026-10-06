@@ -64,7 +64,7 @@ function useData() {
     },
   });
   const sources = useQuery({ queryKey: ["ship_sources"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources" as never).select("id,sto_ship_id,source_type,source_name,bundle_id,character_restriction,account_unlock").order("source_name"); if (error) throw error; return (data ?? []) as any[]; } });
-  const referenceData = useQuery({ queryKey: ["sto_ship_reference_data"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_reference_data" as never).select("sto_ship_id,seats_text,total_boff_stations,total_boff_abilities,max_engineering_seat,max_science_seat,max_tactical_seat,max_universal_seat,fore_weapon_slots,aft_weapon_slots,experimental_weapon_slot,engineering_console_slots,science_console_slots,tactical_console_slots,universal_console_slots,hangar_bays").order("sto_ship_id"); if (error) throw error; return (data ?? []) as any[]; } });
+  const referenceData = useQuery({ queryKey: ["sto_ship_reference_data"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_reference_data" as never).select("sto_ship_id,seats_text,total_boff_stations,total_boff_abilities,max_engineering_seat,max_science_seat,max_tactical_seat,max_universal_seat,fore_weapon_slots,aft_weapon_slots,experimental_weapon_slot,engineering_console_slots,science_console_slots,tactical_console_slots,universal_console_slots,hangar_bays,trait_name,trait_description,console_name,console_description").order("sto_ship_id"); if (error) throw error; return (data ?? []) as any[]; } });
   const characters = useQuery({
     queryKey: ["characters"],
     queryFn: async () => {
@@ -92,11 +92,12 @@ function shipDataWithReference(ship: any, referenceRows: any[]) {
   const ref = referenceRows.find((r) => r.sto_ship_id === ship?.id);
   if (!ref) return ship;
   const merged = { ...ship };
-  const fields = ["fore_weapon_slots","aft_weapon_slots","experimental_weapon_slot","engineering_console_slots","science_console_slots","tactical_console_slots","universal_console_slots","hangar_bays","seats_text","total_boff_stations","total_boff_abilities","max_engineering_seat","max_science_seat","max_tactical_seat","max_universal_seat"];
+  const fields = ["fore_weapon_slots","aft_weapon_slots","experimental_weapon_slot","engineering_console_slots","science_console_slots","tactical_console_slots","universal_console_slots","hangar_bays","seats_text","total_boff_stations","total_boff_abilities","max_engineering_seat","max_science_seat","max_tactical_seat","max_universal_seat","ship_trait","special_console"];
   for (const field of fields) {
     const value = merged[field];
     const missing = value === null || value === undefined || value === "" || (typeof value === "number" && value === 0);
-    if (missing && ref[field] !== null && ref[field] !== undefined && ref[field] !== "") merged[field] = ref[field];
+    const fallback = field === "ship_trait" ? ref.trait_name : field === "special_console" ? ref.console_name : ref[field];
+    if (missing && fallback !== null && fallback !== undefined && fallback !== "") merged[field] = fallback;
   }
   return merged;
 }
