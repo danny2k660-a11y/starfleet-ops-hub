@@ -1121,7 +1121,7 @@ function BaseStats({ s }: { s: StoShip | null }) {
         <Stat label="Inertia" value={n(s.inertia)} />
         <Stat label="Impulse modifier" value={n(s.impulse_modifier)} />
         <Stat label="Base hull (scaling)" value={n(s.base_hull)} />
-        <Stat label="Base shields (scaling)" value={n(s.base_shields)} />
+        <Stat label="Shield capacity" value={s.base_shields != null ? n(s.base_shields) : "Use shield modifier"} />
         <Stat label="Weapon layout" value={weapons} />
         <Stat label="Experimental weapon" value={s.experimental_weapon_slot === null ? null : s.experimental_weapon_slot ? "Yes" : "No"} />
         <Stat label="Hangar bays" value={n(s.hangar_bays)} />
