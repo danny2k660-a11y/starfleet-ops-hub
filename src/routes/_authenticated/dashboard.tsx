@@ -50,7 +50,10 @@ function Dashboard() {
   const builds = useCount("builds");
   const plannerShips = useQuery({ queryKey: ["dashboard-planner-ships"], queryFn: async () => { const { count, error } = await supabase.from("user_ships").select("id",{count:"exact",head:true}).eq("ownership_status","owned").is("current_build_id",null); if(error) throw error; return count ?? 0; }});
   const recentShips = useQuery({ queryKey: ["dashboard-recent-ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,characters(name),sto_ships(name),builds(name,status)").order("created_at",{ascending:false}).limit(5); if(error) throw error; return data as any[]; }});
-  const attention = { data: { shipsWithoutBuild: [], draftBuilds: [], activeProjects: [], resourcesNearTarget: [] }, isLoading: false, isError: false };
+  const attentionShips = useQuery({ queryKey: ["dashboard-attention-ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,sto_ships(name)").eq("ownership_status","owned").is("current_build_id",null); if(error) throw error; return data ?? []; } });
+  const attentionBuilds = useQuery({ queryKey: ["dashboard-attention-builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("id,name,status").in("status",["draft","testing"]); if(error) throw error; return data ?? []; } });
+  const attentionProjects = useQuery({ queryKey: ["dashboard-attention-projects"], queryFn: async () => { const { data, error } = await supabase.from("sto_projects").select("id,name,status").in("status",["planned","active","in_progress"]); if(error) throw error; return data ?? []; } });
+  const attention = { data: { shipsWithoutBuild: attentionShips.data ?? [], draftBuilds: attentionBuilds.data ?? [], activeProjects: attentionProjects.data ?? [], resourcesNearTarget: [] }, isLoading: attentionShips.isLoading || attentionBuilds.isLoading || attentionProjects.isLoading, isError: !!(attentionShips.error || attentionBuilds.error || attentionProjects.error) };
 
 
   const readinessShips = useQuery({
