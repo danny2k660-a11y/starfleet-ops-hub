@@ -395,7 +395,9 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
   const addDoff=useMutation({mutationFn:async(id:string)=>{const {data:u}=await supabase.auth.getUser();if(!u.user)throw new Error("Not signed in");const {data:existing}=await supabase.from("character_doffs" as never).select("id").eq("character_id",characterId).eq("doff_id",id).maybeSingle();if(existing)throw new Error("That Duty Officer is already assigned");const {error}=await supabase.from("character_doffs" as never).insert({user_id:u.user.id,character_id:characterId,doff_id:id,active:true});if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["character_ops_doffs",characterId]});toast.success("Duty Officer added to character");},onError:(e:any)=>toast.error(e?.message||"Could not add Duty Officer")});
   const removeDoff=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("character_doffs" as never).update({active:false}).eq("id",id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["character_ops_doffs",characterId]})});
   const filteredDoffs=useMemo(()=>((doffCatalog.data as any[])||[]).filter((d:any)=>{const q=doffSearch.trim().toLowerCase();return !q||[d.name,d.department,d.specialization,d.domain].filter(Boolean).join(" ").toLowerCase().includes(q);}),[doffCatalog.data,doffSearch]);
-  const shipCount = ships.data?.filter((ship: any) => ship.ownership_status === "owned").length ?? 0;
+  const shipCount = new Set(
+    (ships.data ?? []).filter((ship: any) => ship.ownership_status === "owned").map((ship: any) => ship.sto_ship_id).filter(Boolean),
+  ).size;
   const shipUnlockCount = shipUnlocks.data?.length ?? 0;
   const activeTraits = personalTraits.data?.filter((t: any) => t.active !== false).length ?? 0;
   const activeBoffs = bridgeOfficers.data?.filter((b: any) => b.active !== false).length ?? 0;
