@@ -4,12 +4,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/*
- * STO Command Center design system.
- * Dark LCARS-inspired starship console: deep space navy surfaces,
- * cyan primary, amber alert accents, thin glowing borders.
- */
-
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -61,7 +55,6 @@
 
 :root {
   --radius: 0.5rem;
-
   --background: oklch(0.17 0.035 255);
   --foreground: oklch(0.94 0.02 220);
   --surface: oklch(0.22 0.04 256);
@@ -98,28 +91,14 @@
   --sidebar-accent-foreground: oklch(0.95 0.02 220);
   --sidebar-border: oklch(0.34 0.05 245 / 60%);
   --sidebar-ring: oklch(0.79 0.14 205);
-
   --glow-primary: 0 0 0 1px oklch(0.79 0.14 205 / 35%), 0 0 24px -6px oklch(0.79 0.14 205 / 45%);
   --glow-accent: 0 0 0 1px oklch(0.72 0.16 55 / 35%), 0 0 24px -6px oklch(0.72 0.16 55 / 45%);
-  --gradient-panel: linear-gradient(
-    145deg,
-    oklch(0.24 0.045 257) 0%,
-    oklch(0.2 0.04 256) 100%
-  );
-  --gradient-space: radial-gradient(
-      1200px 600px at 15% -10%,
-      oklch(0.35 0.09 215 / 45%),
-      transparent 60%
-    ),
-    radial-gradient(900px 500px at 95% 0%, oklch(0.32 0.1 300 / 35%), transparent 60%),
-    linear-gradient(180deg, oklch(0.17 0.035 255) 0%, oklch(0.14 0.03 258) 100%);
+  --gradient-panel: linear-gradient(145deg, oklch(0.24 0.045 257) 0%, oklch(0.2 0.04 256) 100%);
+  --gradient-space: radial-gradient(1200px 600px at 15% -10%, oklch(0.35 0.09 215 / 45%), transparent 60%), radial-gradient(900px 500px at 95% 0%, oklch(0.32 0.1 300 / 35%), transparent 60%), linear-gradient(180deg, oklch(0.17 0.035 255) 0%, oklch(0.14 0.03 258) 100%);
 }
 
 @layer base {
-  * {
-    border-color: var(--color-border);
-  }
-
+  * { border-color: var(--color-border); }
   body {
     background: var(--gradient-space);
     background-attachment: fixed;
@@ -127,13 +106,16 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
-
-  h1,
-  h2,
-  h3,
-  h4 {
+  h1, h2, h3, h4 {
     font-family: var(--font-display);
     letter-spacing: 0.02em;
+  }
+  /* Android WebView zooms the page when focusing controls below 16px.
+     Keep controls at the accessibility-safe threshold on touch devices. */
+  @media (pointer: coarse) {
+    input, textarea, select, button {
+      font-size: 16px;
+    }
   }
 }
 
@@ -143,14 +125,8 @@
   border-radius: var(--radius-xl);
 }
 
-@utility glow-primary {
-  box-shadow: var(--glow-primary);
-}
-
-@utility glow-accent {
-  box-shadow: var(--glow-accent);
-}
-
+@utility glow-primary { box-shadow: var(--glow-primary); }
+@utility glow-accent { box-shadow: var(--glow-accent); }
 @utility lcars-label {
   font-family: var(--font-display);
   text-transform: uppercase;
