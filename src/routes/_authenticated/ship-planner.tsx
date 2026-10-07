@@ -36,7 +36,42 @@ function ShipPlannerPage() {
   const catalog = useQuery({ queryKey: ["sto_ships"], queryFn: async () => { const { data, error } = await supabase.from("sto_ships").select("id,name,ship_class,faction").order("name"); if (error) throw error; return (data ?? []) as CatalogShip[]; } });
   const sources = useQuery({ queryKey: ["sto_ship_sources"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources" as never).select("id,sto_ship_id,source_name,source_type,bundle_id,account_unlock").order("source_name"); if (error) throw error; return (data ?? []) as any[]; } });
   const bundles = useQuery({ queryKey: ["sto_ship_bundles"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_bundles" as never).select("id,name,availability_status,account_unlock,price_currency,price_amount,sto_ship_bundle_items(sto_ship_id,quantity,account_unlock,sto_ships(name))").order("name"); if (error) throw error; return (data ?? []) as any[]; } });
-  const fleet = useQuery({ queryKey: ["user_ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("*, characters(id,name), sto_ships(id,name,ship_class,faction)").order("created_at", { ascending: false }); if (error) throw error; return (data ?? []) as unknown as FleetShip[]; } });
+  const fleet = useQuery({
+    queryKey: ["user_ships"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not signed in.");
+      const { data, error } = await supabase
+        .from("user_ships")
+        .select("*")
+        .eq("user_id", u.user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      const rows = data ?? [];
+      const shipIds = Array.from(new Set(rows.map((row: any) => row.sto_ship_id).filter(Boolean)));
+      const characterIds = Array.from(new Set(rows.map((row: any) => row.character_id).filter(Boolean)));
+
+      const [shipResult, characterResult] = await Promise.all([
+        shipIds.length
+          ? supabase.from("sto_ships").select("id,name,ship_class,faction").in("id", shipIds)
+          : Promise.resolve({ data: [], error: null }),
+        characterIds.length
+          ? supabase.from("characters").select("id,name").eq("user_id", u.user.id).in("id", characterIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (shipResult.error) throw shipResult.error;
+      if (characterResult.error) throw characterResult.error;
+
+      const shipMap = new Map((shipResult.data ?? []).map((row: any) => [row.id, row]));
+      const characterMap = new Map((characterResult.data ?? []).map((row: any) => [row.id, row]));
+      return rows.map((row: any) => ({
+        ...row,
+        sto_ships: shipMap.get(row.sto_ship_id) ?? null,
+        characters: characterMap.get(row.character_id) ?? null,
+      })) as unknown as FleetShip[];
+    },
+  });
 
   const owned = useMemo(() => (fleet.data ?? []).filter((s) => s.ownership_status === "owned"), [fleet.data]);
   const buildQueue = useMemo(() => owned.filter((s) => (s.usage_mode ?? "build_pending") === "build_pending" && !s.current_build_id), [owned]);
@@ -68,7 +103,13 @@ function ShipPlannerPage() {
       ])
     );
     const allTargetCharacters = Array.from(new Set(Array.from(targetByShip.values()).flat()));
-    const existingQuery = await supabase.from("user_ships").select("sto_ship_id,character_id,sto_ships(name)").eq("ownership_status","owned").in("character_id", allTargetCharacters).in("sto_ship_id", selectedCatalog);
+    const existingQuery = await supabase
+      .from("user_ships")
+      .select("sto_ship_id,character_id")
+      .eq("user_id", u.user.id)
+      .eq("ownership_status", "owned")
+      .in("character_id", allTargetCharacters)
+      .in("sto_ship_id", selectedCatalog);
     if (existingQuery.error) throw existingQuery.error;
     const existing = (existingQuery.data ?? []) as any[];
     const rows = selectedSources.flatMap(({sto_ship_id, source}:any) => {
@@ -114,7 +155,13 @@ function ShipPlannerPage() {
     if (!u.user) throw new Error("Not signed in.");
 
     const shipIds = items.map((i:any) => i.sto_ship_id);
-    const existingQuery = await supabase.from("user_ships").select("sto_ship_id,character_id").eq("ownership_status","owned").in("character_id", targetCharacters).in("sto_ship_id", shipIds);
+    const existingQuery = await supabase
+      .from("user_ships")
+      .select("sto_ship_id,character_id")
+      .eq("user_id", u.user.id)
+      .eq("ownership_status", "owned")
+      .in("character_id", targetCharacters)
+      .in("sto_ship_id", shipIds);
     if (existingQuery.error) throw existingQuery.error;
     const existing = (existingQuery.data ?? []) as any[];
     const rows = items.flatMap((item:any) => {
