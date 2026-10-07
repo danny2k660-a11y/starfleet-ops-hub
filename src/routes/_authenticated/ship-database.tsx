@@ -649,21 +649,7 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       const updateError = updateResults.find((result) => result.error)?.error;
       if (updateError) throw updateError;
 
-      const ownershipRows = claimItems.map((item: any) => {
-        const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
-        return {
-          user_id: u.user.id,
-          sto_ship_id: item.sto_ship_id,
-          ownership_status: "owned",
-          acquired_at: new Date().toISOString(),
-          acquisition_source_id: source?.id ?? null,
-          notes: `Claimed via bundle: ${bundle.name}`,
-        };
-      });
-      const { error: ownershipError } = await supabase
-        .from("sto_ship_ownership" as never)
-        .upsert(ownershipRows as never[], { onConflict: "user_id,sto_ship_id" });
-      if (ownershipError) throw ownershipError;
+
 
       onClaimed();
       if (!rows.length) {
