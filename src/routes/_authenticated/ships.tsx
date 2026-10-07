@@ -1253,6 +1253,11 @@ function ShipDetailDialog({ ship, characters, builds, referenceData, onClose }: 
 
   const remove = useMutation({
     mutationFn: async () => {
+      // Never remove an assignment while it is still carrying a build link.
+      // Builds are user data and must not be orphaned by a fleet-management action.
+      if (ship.current_build_id) {
+        throw new Error("Remove the build from this ship first. The ship assignment cannot be removed while a build is linked.");
+      }
       // This screen represents a character assignment. Removing it must never revoke
       // account ownership or delete the catalogue ship.
       const { error } = await supabase
