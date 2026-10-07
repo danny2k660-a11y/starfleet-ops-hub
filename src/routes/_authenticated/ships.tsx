@@ -365,6 +365,7 @@ function ShipsPage() {
   const ownedCount = new Set(
     (ships.data ?? []).filter((s) => s.ownership_status === "owned").map((s) => s.sto_ship_id).filter(Boolean),
   ).size;
+  const assignmentCount = (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.character_id !== null).length;
   const wishlistCount = (ships.data ?? []).filter((s) => s.ownership_status === "wishlist").length;
   const readyCount = fleetReadiness.fullyReady;
   const [fleetConfigOpen, setFleetConfigOpen] = useState(false);
@@ -388,7 +389,7 @@ function ShipsPage() {
         <div className="panel p-3"><p className="lcars-label">Wishlist</p><p className="font-display text-xl text-primary">{wishlistCount}</p><p className="text-xs text-muted-foreground">planned</p></div>
         <div className="panel p-3"><p className="lcars-label">Ready pipeline</p><p className="font-display text-xl text-primary">{readyCount}</p><p className="text-xs text-muted-foreground">build linked</p></div>
         <div className="panel p-3"><p className="lcars-label">Catalog</p><p className="font-display text-xl text-primary">{catalog.data?.length ?? 0}</p><p className="text-xs text-muted-foreground">ships indexed</p></div>
-        <div className="col-span-2 panel p-3 sm:col-span-4"><p className="lcars-label">Command attention</p><p className="text-sm text-muted-foreground">{unassignedCount ? `${unassignedCount} owned ship${unassignedCount === 1 ? "" : "s"} still need a build assignment.` : "All owned ships intended for builds currently have a build linked."}</p></div>
+        <div className="col-span-2 panel p-3 sm:col-span-4"><p className="lcars-label">Command attention</p><p className="text-sm text-muted-foreground">{ownedCount} unique owned ship{ownedCount === 1 ? "" : "s"} across {assignmentCount} character assignment{assignmentCount === 1 ? "" : "s"}. {unassignedCount ? `${unassignedCount} assignment${unassignedCount === 1 ? "" : "s"} still need a build assignment.` : "All owned ship assignments intended for builds currently have a build linked."}</p></div>
       </div>
 
       <div className="panel p-4">
@@ -401,8 +402,8 @@ function ShipsPage() {
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-4">
           {[
-            { label: "Fully ready", count: fleetReadiness.fullyReady, note: "6/6 operational checks" },
-            { label: "Build assigned", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.current_build_id).length, note: "build linked" },
+            { label: "Fully ready", count: fleetReadiness.fullyReady, note: "6/6 checks on an assignment" },
+            { label: "Build assigned", count: (ships.data ?? []).filter((s) => s.ownership_status === "owned" && s.current_build_id).length, note: "character assignment" },
             { label: "Active loadout", count: fleetReadiness.rows.filter((row) => row.checks[2]).length, note: "deployment loadout" },
             { label: "Needs action", count: fleetReadiness.rows.filter((row) => row.complete < 6).length, note: "one or more checks missing" },
           ].map((item) => (
