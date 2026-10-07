@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Database, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Check, Package } from "lucide-react";
 
