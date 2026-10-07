@@ -143,12 +143,6 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       // Build the character fleet from every account-level ownership source.
       // Do not depend on sto_ship_ownership alone: older claims can exist only
       // as user_ships rows (including character_id = null).
-      const { data: charactersForAccount, error: charactersError } = await supabase
-        .from("characters")
-        .select("id")
-        .eq("user_id", u.user.id);
-      if (charactersError) throw charactersError;
-
       // Ownership is explicit: this query only reads existing character assignments.
       // Never infer ownership from ship catalogue/source metadata.
       const { data: existingShips, error: existingError } = await supabase
