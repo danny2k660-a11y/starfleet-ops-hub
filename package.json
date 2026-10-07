@@ -72,7 +72,8 @@
     "vite-tsconfig-paths": "^6.0.2",
     "zod": "^3.25.76",
     "@capacitor/app": "^8.0.0",
-    "@capacitor/browser": "^8.0.0"
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/preferences": "^8.0.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.0",
