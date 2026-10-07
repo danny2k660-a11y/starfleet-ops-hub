@@ -87,9 +87,22 @@ function AuthPage() {
       }
     }
 
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (Capacitor.isNativePlatform() && nextSession) {
+        void Preferences.set({
+          key: "sto-command-session",
+          value: JSON.stringify({
+            access_token: nextSession.access_token,
+            refresh_token: nextSession.refresh_token,
+          }),
+        });
+      }
+    });
+
     initialiseGuestSession();
     return () => {
       cancelled = true;
+      authListener.subscription.unsubscribe();
     };
   }, [navigate]);
 
