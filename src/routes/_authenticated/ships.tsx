@@ -1253,10 +1253,20 @@ function ShipDetailDialog({ ship, characters, builds, referenceData, onClose }: 
 
   const remove = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("user_ships").delete().eq("id", ship.id);
+      // This screen represents a character assignment. Removing it must never revoke
+      // account ownership or delete the catalogue ship.
+      const { error } = await supabase
+        .from("user_ships")
+        .delete()
+        .eq("id", ship.id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); toast.success("Ship removed"); onClose(); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user_ships"] });
+      qc.invalidateQueries({ queryKey: ["ship_database_account_ownership"] });
+      toast.success("Ship removed from this character; account ownership is unchanged");
+      onClose();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
