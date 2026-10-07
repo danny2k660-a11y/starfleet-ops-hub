@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Radar, Loader2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { Capacitor } from "@capacitor/core";
+import { Preferences } from "@capacitor/preferences";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -27,14 +29,48 @@ function AuthPage() {
     async function initialiseGuestSession() {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData.session) {
+        let session = sessionData.session;
+
+        if (!session && Capacitor.isNativePlatform()) {
+          const saved = await Preferences.get({ key: "sto-command-session" });
+          if (saved.value) {
+            try {
+              const parsed = JSON.parse(saved.value);
+              const restored = await supabase.auth.setSession(parsed);
+              session = restored.data.session;
+            } catch (restoreError) {
+              console.warn("[STO Command Center] Saved session restore failed:", restoreError);
+            }
+          }
+        }
+
+        if (session) {
+          if (Capacitor.isNativePlatform()) {
+            await Preferences.set({
+              key: "sto-command-session",
+              value: JSON.stringify({
+                access_token: session.access_token,
+                refresh_token: session.refresh_token,
+              }),
+            });
+          }
           if (!cancelled) await navigate({ to: "/dashboard", replace: true });
           return;
         }
 
         setMessage("Establishing device command session…");
-        const { error } = await supabase.auth.signInAnonymously();
+        const { data, error } = await supabase.auth.signInAnonymously();
         if (error) throw error;
+
+        if (Capacitor.isNativePlatform() && data.session) {
+          await Preferences.set({
+            key: "sto-command-session",
+            value: JSON.stringify({
+              access_token: data.session.access_token,
+              refresh_token: data.session.refresh_token,
+            }),
+          });
+        }
 
         if (!cancelled) {
           await navigate({ to: "/dashboard", replace: true });
