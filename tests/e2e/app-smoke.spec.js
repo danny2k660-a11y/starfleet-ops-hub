@@ -47,6 +47,23 @@ test.describe("STO Command Center smoke suite", () => {
     }
   });
 
+
+  test("navigating the primary app is never destructive", async ({ page }) => {
+    const deletes = [];
+    page.on("request", (request) => {
+      if (request.method().toUpperCase() === "DELETE") {
+        deletes.push(request.url());
+      }
+    });
+
+    for (const route of routes) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("body")).not.toBeEmpty();
+    }
+
+    expect(deletes, "normal navigation must never issue DELETE requests").toEqual([]);
+  });
+
   test("opening and closing a character is read-only", async ({ page }) => {
     const mutations = [];
     page.on("request", (request) => {
