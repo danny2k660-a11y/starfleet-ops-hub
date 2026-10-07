@@ -28,6 +28,37 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 
+function persistentAuthStorage(): Storage {
+  if (!Capacitor.isNativePlatform()) return localStorage;
+
+  // Capacitor WebView storage can be unavailable/reset independently of the
+  // Android app lifecycle. Keep the Supabase session in native Preferences,
+  // while falling back to the previous localStorage value once so existing
+  // installations migrate without forcing a new anonymous account.
+  return {
+    get length() { return 0; },
+    clear() { return Promise.resolve(); },
+    key() { return null; },
+    getItem: async (key: string) => {
+      const native = await Preferences.get({ key });
+      if (native.value !== null) return native.value;
+      const legacy = localStorage.getItem(key);
+      if (legacy !== null) {
+        await Preferences.set({ key, value: legacy });
+      }
+      return legacy;
+    },
+    removeItem: async (key: string) => {
+      await Preferences.remove({ key });
+      localStorage.removeItem(key);
+    },
+    setItem: async (key: string, value: string) => {
+      await Preferences.set({ key, value });
+      localStorage.setItem(key, value);
+    },
+  } as unknown as Storage;
+}
+
 function createSupabaseClient() {
   // Use import.meta.env for client-side (Vite build-time replacement)
   // Fall back to process.env for SSR (server-side rendering)
@@ -49,7 +80,7 @@ function createSupabaseClient() {
       fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
     },
     auth: {
-      storage: brokeredPreviewStorage(),
+      storage: Capacitor.isNativePlatform() ? persistentAuthStorage() : brokeredPreviewStorage(),
       persistSession: true,
       autoRefreshToken: true,
     },
