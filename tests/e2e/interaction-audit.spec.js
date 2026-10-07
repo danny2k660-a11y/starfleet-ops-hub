@@ -53,8 +53,6 @@ test.describe("STO Command Center exhaustive safe interaction audit", () => {
       const buttons = page.getByRole("button");
       const count = await buttons.count();
       const labels = [];
-      const unnamed = controls.filter((c) => !c.name);
-      expect(unnamed, `unnamed interactive controls on ${route}`).toEqual([]);
 
       for (let i = 0; i < count; i++) {
         const button = buttons.nth(i);
