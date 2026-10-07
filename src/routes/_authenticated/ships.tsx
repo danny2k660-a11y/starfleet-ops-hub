@@ -965,40 +965,27 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
         throw new Error("Select a character or choose Add to all characters.");
       }
 
-      const { data: existing, error: existingError } = await supabase
-        .from("user_ships")
-        .select("id,character_id")
-        .eq("user_id", u.user.id)
-        .eq("sto_ship_id", shipId)
-        .in("character_id", targetCharacterIds);
-      if (existingError) throw existingError;
+      const selectedSource = sourceId === "__none__" ? null : sources.find((x) => x.id === sourceId);
+      const { error: claimError } = await supabase.rpc("claim_ship_assignments" as never, {
+        p_ship_id: shipId,
+        p_character_ids: targetCharacterIds,
+        p_acquisition_source_id: selectedSource?.id ?? null,
+        p_acquisition_group: selectedSource?.source_name ?? null,
+      } as never);
+      if (claimError) throw claimError;
 
-      const existingCharacterIds = new Set((existing ?? []).map((row: any) => row.character_id));
-      const rows = targetCharacterIds
-        .filter((id) => !existingCharacterIds.has(id))
-        .map((id) => ({
-          user_id: u.user.id,
-          character_id: id,
-          sto_ship_id: shipId,
-          custom_name: name.trim() || null,
-          ownership_status: "owned",
-          usage_mode: usageMode,
-          acquisition_source_id: sourceId === "__none__" ? null : sourceId,
-          acquisition_group: sourceId !== "__none__" ? (sources.find((x) => x.id === sourceId)?.source_name ?? null) : null,
-          t6_upgraded: up.t6,
-          t6x_upgraded: up.t6x,
-          t6x2_upgraded: up.t6x2,
-        }));
-
-      if (rows.length === 0) {
-        throw new Error("This ship is already registered to all selected characters.");
-      }
-
-      const { data, error } = await supabase
-        .from("user_ships")
-        .insert(rows)
-        .select("id");
-      if (error) throw error;
+      const rows = targetCharacterIds.map((id) => ({
+        character_id: id,
+        sto_ship_id: shipId,
+        custom_name: name.trim() || null,
+        ownership_status: "owned",
+        usage_mode: usageMode,
+        acquisition_source_id: selectedSource?.id ?? null,
+        acquisition_group: selectedSource?.source_name ?? null,
+        t6_upgraded: up.t6,
+        t6x_upgraded: up.t6x,
+        t6x2_upgraded: up.t6x2,
+      }));
 
       const unlockRows = rows.flatMap((row: any) => ([
         ["ship_trait", shipTrait],
