@@ -40,15 +40,6 @@ function CharactersPage() {
     `${c.name} ${c.faction ?? ""} ${c.career ?? ""} ${c.species ?? ""}`.toLowerCase().includes(q.toLowerCase())
   ), [characters.data, q]);
 
-  const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("characters").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["characters"] }); toast.success("Character removed"); setSelected(null); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   return (
     <AppShell title="Characters" subtitle="Your STO captains">
       <div className="space-y-6">
@@ -78,7 +69,6 @@ function CharactersPage() {
             if (!value) setSelected(null);
           }}
           character={selected}
-          onDeleted={() => remove.mutate(selected!.id)}
         />
         {selected && <CharacterOps characterId={selected.id} characterName={selected.name} />}
       </div>
@@ -86,7 +76,7 @@ function CharactersPage() {
   );
 }
 
-function CharacterDialog({ open, onOpenChange, character, onDeleted }: { open: boolean; onOpenChange: (v: boolean) => void; character: Character | null; onDeleted: () => void }) {
+function CharacterDialog({ open, onOpenChange, character }: { open: boolean; onOpenChange: (v: boolean) => void; character: Character | null }) {
   const qc = useQueryClient();
   const [name, setName] = useState(character?.name ?? "");
   const [faction, setFaction] = useState(character?.faction ?? "");
@@ -124,7 +114,7 @@ function CharacterDialog({ open, onOpenChange, character, onDeleted }: { open: b
         <div className="space-y-1"><Label>Level</Label><Input type="number" min="1" max="65" value={level} onChange={e => setLevel(e.target.value)} /></div>
         <div className="space-y-1"><Label>Elite Captain</Label><label className="flex h-10 items-center gap-2 rounded-md border border-input px-3 text-sm"><input type="checkbox" checked={eliteCaptain} onChange={e => setEliteCaptain(e.target.checked)} /> Extra personal Ground + Space trait slots</label></div><div className="space-y-1 sm:col-span-2"><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Theme rules, important character notes…" /></div>
       </div>
-      <DialogFooter className="gap-2">{character && <Button variant="ghost" className="mr-auto text-destructive" onClick={() => { if (confirm("Remove this character? Their linked ships may also be affected.")) onDeleted(); }}><Trash2 className="mr-1 size-4" /> Remove</Button>}<Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : character ? "Save changes" : "Add character"}</Button></DialogFooter>
+      <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : character ? "Save changes" : "Add character"}</Button></DialogFooter>
     </DialogContent>
   </Dialog>;
 }
