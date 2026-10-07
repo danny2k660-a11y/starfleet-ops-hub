@@ -102,11 +102,23 @@ function ShipDatabasePage() {
     queryKey: ["characters"],
     staleTime: 0,
     refetchOnMount: "always",
-    queryFn: async () => { const { data, error } = await supabase.from("characters").select("id,name").order("name"); if (error) throw error; return (data ?? []) as Array<{ id: string; name: string }>; },
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) throw new Error("Not signed in.");
+      const { data, error } = await supabase.from("characters").select("id,name").eq("user_id", auth.user.id).order("name");
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string }>;
+    },
   });
   const ownership = useQuery({
     queryKey: ["sto_ship_ownership"],
-    queryFn: async () => { const { data, error } = await supabase.from("sto_ship_ownership" as never).select("*"); if (error) throw error; return (data ?? []) as any[]; },
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) throw new Error("Not signed in.");
+      const { data, error } = await supabase.from("sto_ship_ownership" as never).select("*").eq("user_id", auth.user.id);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
   });
   const bundles = useQuery({
     queryKey: ["sto_ship_bundles"],
@@ -120,7 +132,7 @@ function ShipDatabasePage() {
     queryKey: ["sto_ship_sources"],
     queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources" as never).select("*, sto_ship_bundles(*)"); if (error) throw error; return (data ?? []) as any[]; },
   });
-  const referenceData = useQuery({
+  const shipReferenceQuery = useQuery({
     queryKey: ["sto_ship_reference_data"],
     queryFn: async () => {
       const { data, error } = await supabase.from("sto_ship_reference_data").select("*");
@@ -128,7 +140,7 @@ function ShipDatabasePage() {
       return (data ?? []) as StoShipReference[];
     },
   });
-  const referenceByShip = useMemo(() => new Map((referenceData.data ?? []).map((row) => [row.sto_ship_id, row])), [referenceData.data]);
+  const referenceByShip = useMemo(() => new Map((shipReferenceQuery.data ?? []).map((row) => [row.sto_ship_id, row])), [shipReferenceQuery.data]);
 
   const { data = [], isLoading, error } = useQuery({
     queryKey: ["ship_database_catalog"],
