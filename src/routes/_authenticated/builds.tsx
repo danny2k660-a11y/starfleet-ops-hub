@@ -108,7 +108,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     }
     // Builds belong to a character assignment. Account ownership is separate and
     // must be assigned to a character before it can receive a build.
-    let effectiveFleetShipId = fleetShipId;
+    const effectiveFleetShipId = fleetShipId;
     let buildId = build?.id ?? null;
     const payload = { name: trimmedName, ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: effectiveFleetShipId, character_id: characterId, role: role || null, status, notes: notes || null, build_domain: "space", captain_setup: { primary_specialization: primarySpecialization.trim() || null, secondary_specialization: secondarySpecialization.trim() || null, ability_notes: captainAbilityNotes.trim() || null }, acquisition_needs: acquisitionNeeds, archived };
     const otherBuild = fleetShips.find((s:any) => s.id === effectiveFleetShipId && s.current_build_id && s.current_build_id !== buildId);
