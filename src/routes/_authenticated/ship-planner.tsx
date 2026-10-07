@@ -103,6 +103,19 @@ function ShipPlannerPage() {
       ])
     );
     const allTargetCharacters = Array.from(new Set(Array.from(targetByShip.values()).flat()));
+    for (const { sto_ship_id, source } of selectedSources) {
+      const { error: ownershipError } = await supabase
+        .from("sto_ship_ownership" as never)
+        .upsert({
+          user_id: u.user.id,
+          sto_ship_id,
+          ownership_status: "owned",
+          acquisition_source_id: source?.id ?? null,
+          acquired_at: new Date().toISOString(),
+          notes: "Owned ship; character assignment managed separately",
+        } as never, { onConflict: "user_id,sto_ship_id" });
+      if (ownershipError) throw ownershipError;
+    }
     const existingQuery = await supabase
       .from("user_ships")
       .select("sto_ship_id,character_id")
@@ -145,6 +158,20 @@ function ShipPlannerPage() {
     if (!u.user) throw new Error("Not signed in.");
 
     const shipIds = items.map((i:any) => i.sto_ship_id);
+    for (const item of items) {
+      const source = (sources.data ?? []).find((s:any) => s.bundle_id === selectedBundle && s.sto_ship_id === item.sto_ship_id);
+      const { error: ownershipError } = await supabase
+        .from("sto_ship_ownership" as never)
+        .upsert({
+          user_id: u.user!.id,
+          sto_ship_id: item.sto_ship_id,
+          ownership_status: "owned",
+          acquisition_source_id: source?.id ?? null,
+          acquired_at: new Date().toISOString(),
+          notes: "Owned ship; character assignment managed separately",
+        } as never, { onConflict: "user_id,sto_ship_id" });
+      if (ownershipError) throw ownershipError;
+    }
     const existingQuery = await supabase
       .from("user_ships")
       .select("sto_ship_id,character_id")
