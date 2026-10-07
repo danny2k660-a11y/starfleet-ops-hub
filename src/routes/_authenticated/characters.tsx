@@ -130,19 +130,9 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in.");
 
-      // Build the character fleet from every account-level ownership source.
-      // Do not depend on sto_ship_ownership alone: older claims can exist only
-      // as user_ships rows (including character_id = null).
-      // Ownership is explicit: this query only reads existing character assignments.
-      // Never infer ownership from ship catalogue/source metadata.
-      const { data: existingShips, error: existingError } = await supabase
-        .from("user_ships")
-        .select("id,custom_name,ownership_status,sto_ship_id,character_id,date_acquired,acquisition_source,acquisition_group,usage_mode")
-        .eq("user_id", u.user.id)
-        .eq("ownership_status", "owned")
-        .order("created_at", { ascending: false });
-      if (existingError) throw existingError;
-
+      // A character fleet contains only explicit owned assignments for this character.
+      // Account-level ownership is stored separately in sto_ship_ownership and is never
+      // projected into every character. Catalogue rows never imply ownership.
       const { data, error } = await supabase
         .from("user_ships")
         .select("id,custom_name,ownership_status,sto_ship_id,character_id,date_acquired,acquisition_source,acquisition_group,usage_mode,sto_ships(name,ship_class),builds(name,status)")
@@ -152,15 +142,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      // Older versions of the app incorrectly copied the entire account ownership
-      // catalogue onto every captain and labelled those rows "Account unlock".
-      // They are not explicit character assignments and must not count as registered
-      // ships. New assignments use the real acquisition source instead.
-      const registeredShips = (data ?? []).filter((row: any) =>
-        String(row.acquisition_source ?? "") !== "Account unlock"
-      );
-
-      return registeredShips as any[];
+      return (data ?? []) as any[];
     },
   });
 
