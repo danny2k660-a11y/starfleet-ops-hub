@@ -206,40 +206,15 @@ function ShipDatabasePage() {
       const now = new Date().toISOString();
 
       const characterIds = targetCharacters.map((c) => c.id);
-      const { data: existingRows, error: existingError } = await supabase
-        .from("user_ships")
-        .select("id,character_id,ownership_status")
-        .eq("user_id", u.user.id)
-        .eq("sto_ship_id", ship.id)
-        .in("character_id", characterIds);
-      if (existingError) throw existingError;
+      const shipSource = shipSources[0];
 
-      const existingByCharacter = new Map((existingRows ?? []).map((row: any) => [row.character_id, row]));
-      const newRows = targetCharacters
-        .filter((character) => !existingByCharacter.has(character.id))
-        .map((character) => ({
-          user_id: u.user.id,
-          character_id: character.id,
-          sto_ship_id: ship.id,
-          custom_name: null,
-          ownership_status: "owned",
-          usage_mode: "build_pending",
-          date_acquired: now.slice(0, 10),
-          acquisition_source_id: shipSource?.id ?? null,
-        }));
-
-      if (newRows.length) {
-        const { error } = await supabase.from("user_ships").insert(newRows as never[]);
-        if (error) throw error;
-      }
-
-      const existingIds = (existingRows ?? [])
-        .filter((row: any) => row.ownership_status !== "owned")
-        .map((row: any) => row.id);
-      if (existingIds.length) {
-        const { error } = await supabase.from("user_ships").update({ ownership_status: "owned" } as never).in("id", existingIds);
-        if (error) throw error;
-      }
+      const { error: claimError } = await supabase.rpc("claim_ship_assignments" as never, {
+        p_ship_id: ship.id,
+        p_character_ids: characterIds,
+        p_acquisition_source_id: shipSource?.id ?? null,
+        p_acquisition_group: sourceName,
+      } as never);
+      if (claimError) throw claimError;
 
       // Every assigned captain receives the ship's actual unlockables as character inventory:
       // starship trait, unique console, and special/experimental weapon when the catalogue has one.
