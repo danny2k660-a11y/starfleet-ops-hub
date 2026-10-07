@@ -574,71 +574,16 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       const invalidCharacter = targetCharacters.find((id) => !isUuid(id));
       if (!targetCharacters.length || invalidCharacter) throw new Error("The selected character data is missing a valid character ID. Refresh the page and try again.");
 
-      const shipIds = claimItems.map((item: any) => item.sto_ship_id);
       for (const item of claimItems) {
         const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
-        const { error: ownershipError } = await supabase
-          .from("sto_ship_ownership" as never)
-          .upsert({
-            user_id: u.user.id,
-            sto_ship_id: item.sto_ship_id,
-            ownership_status: "owned",
-            acquisition_source_id: source?.id ?? null,
-            acquired_at: new Date().toISOString(),
-            notes: "Owned ship; character assignment managed separately",
-          } as never, { onConflict: "user_id,sto_ship_id" });
-        if (ownershipError) throw ownershipError;
+        const { error: claimError } = await supabase.rpc("claim_ship_assignments" as never, {
+          p_ship_id: item.sto_ship_id,
+          p_character_ids: targetCharacters,
+          p_acquisition_source_id: source?.id ?? null,
+          p_acquisition_group: bundle.name,
+        } as never);
+        if (claimError) throw claimError;
       }
-      const { data: existing, error: existingError } = await supabase
-        .from("user_ships")
-        .select("id,sto_ship_id,character_id,ownership_status")
-        .eq("user_id", u.user.id)
-        .in("character_id", targetCharacters)
-        .in("sto_ship_id", shipIds);
-      if (existingError) throw existingError;
-
-      const existingRows = (existing ?? []) as any[];
-      const rows = claimItems.flatMap((item: any) => {
-        const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
-        return targetCharacters
-          .filter((id) => !existingRows.some((row) => row.character_id === id && row.sto_ship_id === item.sto_ship_id))
-          .map((id) => ({
-            user_id: u.user.id,
-            character_id: id,
-            sto_ship_id: item.sto_ship_id,
-            custom_name: null,
-            ownership_status: "owned",
-            acquisition_source_id: source?.id ?? null,
-            acquisition_group: bundle.name,
-            usage_mode: "build_pending",
-          }));
-      });
-
-      const updates = claimItems.flatMap((item: any) => {
-        const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
-        return existingRows
-          .filter((row) => row.sto_ship_id === item.sto_ship_id && targetCharacters.includes(row.character_id) && row.ownership_status !== "owned")
-          .map((row) => supabase
-            .from("user_ships")
-            .update({
-              ownership_status: "owned",
-              acquisition_source_id: source?.id ?? null,
-              acquisition_group: bundle.name,
-              usage_mode: "build_pending",
-            } as never)
-            .eq("id", row.id)
-          );
-      });
-
-      if (rows.length) {
-        const { error } = await supabase.from("user_ships").insert(rows as never[]);
-        if (error) throw error;
-      }
-      const updateResults = await Promise.all(updates);
-      const updateError = updateResults.find((result) => result.error)?.error;
-      if (updateError) throw updateError;
-
-
 
       onClaimed();
       if (!rows.length) {
