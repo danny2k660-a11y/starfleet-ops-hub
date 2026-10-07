@@ -67,7 +67,7 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
+    <div className="min-h-[100dvh] lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
       <aside className="hidden border-r border-border bg-sidebar/70 backdrop-blur lg:flex lg:h-screen lg:flex-col lg:sticky lg:top-0">
         <Brand />
         <div className="flex-1 overflow-y-auto px-3 pb-4">
@@ -116,8 +116,8 @@ export function AppShell({
           </Button>
         </header>
 
-        <main className="min-w-0 flex-1 p-3 pb-24 sm:p-6 sm:pb-8">{children}</main>
-        <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-2 py-2 backdrop-blur lg:hidden">
+        <main className="min-w-0 flex-1 p-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-8">{children}</main>
+        <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-2 pt-2 backdrop-blur lg:hidden" style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}>
           <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
             {navItems.slice(0, 5).map((item) => (
               <Link
