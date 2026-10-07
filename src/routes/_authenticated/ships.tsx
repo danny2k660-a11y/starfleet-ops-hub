@@ -47,13 +47,44 @@ function useData() {
       if (!u.user) throw new Error("Not signed in.");
       const { data, error } = await supabase
         .from("user_ships")
-        .select("*, sto_ships(*), characters(*), builds(*)")
+        .select("*")
         .eq("user_id", u.user.id)
         .not("character_id", "is", null)
         .neq("ownership_status", "retired")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as unknown as UserShip[];
+
+      const rows = data ?? [];
+      const shipIds = Array.from(new Set(rows.map((row: any) => row.sto_ship_id).filter(Boolean)));
+      const characterIds = Array.from(new Set(rows.map((row: any) => row.character_id).filter(Boolean)));
+      const buildIds = Array.from(new Set(rows.map((row: any) => row.current_build_id).filter(Boolean)));
+
+      const [shipResult, characterResult, buildResult] = await Promise.all([
+        shipIds.length
+          ? supabase.from("sto_ships").select("*").in("id", shipIds)
+          : Promise.resolve({ data: [], error: null }),
+        characterIds.length
+          ? supabase.from("characters").select("*").in("id", characterIds)
+          : Promise.resolve({ data: [], error: null }),
+        buildIds.length
+          ? supabase.from("builds").select("*").in("id", buildIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (shipResult.error) throw shipResult.error;
+      if (characterResult.error) throw characterResult.error;
+      if (buildResult.error) throw buildResult.error;
+
+      const shipMap = new Map((shipResult.data ?? []).map((row: any) => [row.id, row]));
+      const characterMap = new Map((characterResult.data ?? []).map((row: any) => [row.id, row]));
+      const buildMap = new Map((buildResult.data ?? []).map((row: any) => [row.id, row]));
+
+      return rows.map((row: any) => ({
+        ...row,
+        sto_ships: shipMap.get(row.sto_ship_id) ?? null,
+        characters: characterMap.get(row.character_id) ?? null,
+        builds: buildMap.get(row.current_build_id) ?? null,
+      })) as unknown as UserShip[];
     },
   });
   const catalog = useQuery({
