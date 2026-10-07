@@ -26,16 +26,16 @@ jobs:
         run: npm run build
 
       - name: Install Playwright
-        run: npx --yes playwright@1.55.0 install --with-deps chromium
+        run: npx --yes @playwright/test@1.55.0 install --with-deps chromium
 
       - name: Start app
         run: npm run preview -- --host 127.0.0.1 > /tmp/sto-preview.log 2>&1 &
 
       - name: Wait for app
-        run: npx --yes wait-on@8.0.1 http://127.0.0.1:4173
+        run: curl --retry 20 --retry-delay 1 --retry-connrefused -fsS http://127.0.0.1:4173/ > /dev/null
 
       - name: Run browser tests
-        run: npx --yes playwright@1.55.0 test tests/e2e/app-smoke.spec.js --reporter=line
+        run: npx --yes @playwright/test@1.55.0 test tests/e2e/app-smoke.spec.js --reporter=line
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173
 
