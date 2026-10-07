@@ -600,6 +600,20 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       if (!targetCharacters.length || invalidCharacter) throw new Error("The selected character data is missing a valid character ID. Refresh the page and try again.");
 
       const shipIds = claimItems.map((item: any) => item.sto_ship_id);
+      for (const item of claimItems) {
+        const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
+        const { error: ownershipError } = await supabase
+          .from("sto_ship_ownership" as never)
+          .upsert({
+            user_id: u.user.id,
+            sto_ship_id: item.sto_ship_id,
+            ownership_status: "owned",
+            acquisition_source_id: source?.id ?? null,
+            acquired_at: new Date().toISOString(),
+            notes: "Owned ship; character assignment managed separately",
+          } as never, { onConflict: "user_id,sto_ship_id" });
+        if (ownershipError) throw ownershipError;
+      }
       const { data: existing, error: existingError } = await supabase
         .from("user_ships")
         .select("id,sto_ship_id,character_id,ownership_status")
