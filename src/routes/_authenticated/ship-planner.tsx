@@ -130,17 +130,7 @@ function ShipPlannerPage() {
     if (!rows.length) throw new Error("The selected ships are already registered for their applicable character scope.");
     const { error } = await supabase.from("user_ships").insert(rows as never[]);
     if (error) throw error;
-    const { error: ownershipError } = await supabase.from("sto_ship_ownership" as never).upsert(
-      selectedSources.map(({ sto_ship_id, source }: any) => ({
-        user_id: u.user!.id,
-        sto_ship_id,
-        ownership_status: "owned",
-        acquisition_source_id: source?.id ?? null,
-        notes: claimGroup.trim() ? `Claimed via: ${claimGroup.trim()}` : source?.source_name ? `Claimed via: ${source.source_name}` : null,
-      })) as never[],
-      { onConflict: "user_id,sto_ship_id" }
-    );
-    if (ownershipError) throw ownershipError;
+
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); setSelectedCatalog([]); toast.success("Ships added to the character and placed in the build queue."); }, onError: (e: Error) => toast.error(e.message) });
   const claimBundle = useMutation({ mutationFn: async () => {
     if (!claimCharacter) throw new Error("Choose the character receiving the bundle ships.");
@@ -183,17 +173,7 @@ function ShipPlannerPage() {
     const { error } = await supabase.from("user_ships").insert(rows as never[]);
     if (error) throw error;
 
-    const { error: ownershipError } = await supabase.from("sto_ship_ownership" as never).upsert(
-      items.map((item:any) => ({
-        user_id: u.user!.id,
-        sto_ship_id: item.sto_ship_id,
-        ownership_status: "owned",
-        acquisition_source_id: (sources.data ?? []).find((s:any) => s.bundle_id === selectedBundle && s.sto_ship_id === item.sto_ship_id)?.id ?? null,
-        notes: `Claimed via bundle: ${bundle.name}`
-      })) as never[],
-      { onConflict: "user_id,sto_ship_id" }
-    );
-    if (ownershipError) throw ownershipError;
+
     return rows.length;
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["sto_ship_ownership"] }); setSelectedBundle(""); toast.success("Bundle ships claimed and added to the selected character."); }, onError: (e: Error) => toast.error(e.message) });
   const setUsage = useMutation({ mutationFn: async ({ id, mode }: { id: string; mode: string }) => { const { error } = await supabase.from("user_ships").update({ usage_mode: mode } as never).eq("id", id); if (error) throw error; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["build_readiness"] }); }, onError: (e: Error) => toast.error(e.message) });
