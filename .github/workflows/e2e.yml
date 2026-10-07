@@ -8,36 +8,31 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install dependencies
         run: npm install
-
       - name: Build
         run: npm run build
-
       - name: Install Playwright
         run: npx --yes @playwright/test@1.55.0 install --with-deps chromium
-
+      # Production build is validated above. E2E uses Vite dev because this
+      # project's current TanStack Start build does not emit the server bundle
+      # expected by the Vite preview plugin.
       - name: Start app
-        run: npm run preview -- --host 127.0.0.1 > /tmp/sto-preview.log 2>&1 &
-
+        run: npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/sto-preview.log 2>&1 &
       - name: Wait for app
-        run: curl --retry 20 --retry-delay 1 --retry-connrefused -fsS http://127.0.0.1:4173/ > /dev/null
-
+        run: curl --retry 30 --retry-delay 1 --retry-connrefused -fsS http://127.0.0.1:4173/ > /dev/null
       - name: Run browser tests
         run: npx --yes @playwright/test@1.55.0 test tests/e2e/app-smoke.spec.js --reporter=line
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173
-
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
