@@ -225,7 +225,7 @@ function ShipDatabasePage() {
           ownership_status: "owned",
           usage_mode: "build_pending",
           date_acquired: now.slice(0, 10),
-          acquisition_source: sourceName,
+          acquisition_source_id: shipSource?.id ?? null,
         }));
 
       if (newRows.length) {
