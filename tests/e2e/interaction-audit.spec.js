@@ -11,7 +11,7 @@ const destructive = /delete|remove|destroy|reset|wipe|logout|sign out|clear all|
 const submitLike = /save|submit|create|add character|add ship|assign|claim|purchase|buy|confirm|apply|sync/i;
 
 const authNoise = (message) =>
-  /Guest session failed: AuthRetryableFetchError|status of 530|HTTP 530|auth\\/v1\\/(signup|token|user)/i.test(message);
+  /Guest session failed: AuthRetryableFetchError|status of 530|HTTP 530|auth.v1.(signup|token|user)/i.test(message);
 
 async function closeTransientUi(page) {
   const dialogs = page.getByRole("dialog");
