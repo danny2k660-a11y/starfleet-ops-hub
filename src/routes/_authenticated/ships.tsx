@@ -987,6 +987,17 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
         t6x2_upgraded: up.t6x2,
       }));
 
+      const { error: detailError } = await supabase.from("user_ships").update({
+        custom_name: name.trim() || null,
+        usage_mode: usageMode,
+        acquisition_source_id: selectedSource?.id ?? null,
+        acquisition_group: selectedSource?.source_name ?? null,
+        t6_upgraded: up.t6,
+        t6x_upgraded: up.t6x,
+        t6x2_upgraded: up.t6x2,
+      } as never).eq("user_id", u.user.id).eq("sto_ship_id", shipId).in("character_id", targetCharacterIds);
+      if (detailError) throw detailError;
+
       const unlockRows = rows.flatMap((row: any) => ([
         ["ship_trait", shipTrait],
         ["console", specialConsole],
