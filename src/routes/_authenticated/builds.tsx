@@ -103,16 +103,13 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
     if (characterId === "__none__") throw new Error("Choose a character.");
     if (fleetShipId === "__none__") throw new Error("Choose a ship owned by that character.");
     const chosenShip = fleetShips.find((s:any) => s.id === fleetShipId);
-    if (!chosenShip || (chosenShip.character_id && chosenShip.character_id !== characterId)) throw new Error("Choose a ship owned by the selected character.");
-    // Every owned ship can have a build, including ships primarily kept for a console, trait, or collection. The build can simply document its intended use.
+    if (!chosenShip || chosenShip.character_id !== characterId) {
+      throw new Error("Choose a ship explicitly assigned to the selected character.");
+    }
+    // Builds belong to a character assignment. Account ownership is separate and
+    // must be assigned to a character before it can receive a build.
     let effectiveFleetShipId = fleetShipId;
     let buildId = build?.id ?? null;
-    if (!chosenShip.character_id) {
-      const { data: characterCopy, error: copyLookupError } = await supabase.from("user_ships").select("id,current_build_id").eq("user_id",u.user!.id).eq("character_id",characterId).eq("sto_ship_id",chosenShip.sto_ship_id).maybeSingle();
-      if (copyLookupError) throw copyLookupError;
-      if (characterCopy) { if (characterCopy.current_build_id && characterCopy.current_build_id !== buildId) throw new Error("That ship is already assigned to another build."); effectiveFleetShipId = characterCopy.id; }
-      else { const { data: copied, error: copyError } = await supabase.from("user_ships").insert({ user_id:u.user!.id, character_id:characterId, sto_ship_id:chosenShip.sto_ship_id, custom_name:chosenShip.custom_name ?? null, ownership_status:"owned", usage_mode:"build_pending" } as never).select("id").single(); if (copyError) throw copyError; effectiveFleetShipId = copied.id; }
-    }
     const payload = { name: trimmedName, ship_instance_id: shipId === "__none__" ? null : shipId, user_ship_id: effectiveFleetShipId, character_id: characterId, role: role || null, status, notes: notes || null, build_domain: "space", captain_setup: { primary_specialization: primarySpecialization.trim() || null, secondary_specialization: secondarySpecialization.trim() || null, ability_notes: captainAbilityNotes.trim() || null }, acquisition_needs: acquisitionNeeds, archived };
     const otherBuild = fleetShips.find((s:any) => s.id === effectiveFleetShipId && s.current_build_id && s.current_build_id !== buildId);
     if (otherBuild) throw new Error("That ship is already assigned to another build.");
@@ -136,7 +133,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle className="font-display text-primary">{build ? "Edit build" : "New build"}</DialogTitle></DialogHeader>
     <div className="space-y-4">
       <div className="space-y-1"><Label>Character</Label><Select value={characterId} onValueChange={(v) => { setCharacterId(v); setFleetShipId("__none__"); setShipId("__none__"); }}><SelectTrigger><SelectValue placeholder="Choose character" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose character</SelectItem>{characters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
-      <div className="space-y-1"><Label>Ship</Label><Select value={fleetShipId} onValueChange={setFleetShipId}><SelectTrigger><SelectValue placeholder="Choose ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose ship</SelectItem>{fleetShips.filter((s:any) => s.character_id === characterId || !s.character_id).map((s:any) => <SelectItem key={s.id} value={s.id}>{s.custom_name || s.sto_ships?.name || "Unnamed ship"}{!s.character_id ? " • Account owned" : ""}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Only ships owned by this character are shown.</p></div>
+      <div className="space-y-1"><Label>Ship</Label><Select value={fleetShipId} onValueChange={setFleetShipId}><SelectTrigger><SelectValue placeholder="Choose ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose ship</SelectItem>{fleetShips.filter((s:any) => s.character_id === characterId).map((s:any) => <SelectItem key={s.id} value={s.id}>{s.custom_name || s.sto_ships?.name || "Unnamed ship"}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Only ships explicitly assigned to this character are shown. Account ownership is separate; assign the ship first if needed.</p></div>
       <div className="space-y-1"><Label>Build name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Elite CSV — Terran" /></div>
       {build?.ship_instance_id && <div className="rounded border border-amber-500/30 bg-amber-500/5 p-3"><p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Legacy ship link</p><p className="mt-1 text-xs text-muted-foreground">Retained for compatibility; the primary owned ship above is authoritative.</p><div className="mt-2"><Select value={shipId} onValueChange={setShipId}><SelectTrigger><SelectValue placeholder="Legacy ship instance" /></SelectTrigger><SelectContent><SelectItem value="__none__">Clear legacy link</SelectItem>{ships.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.characters?.name ? ` — ${s.characters.name}` : ""}</SelectItem>)}</SelectContent></Select></div></div>}
       <div className="space-y-1"><Label>Role</Label><Input value={role} onChange={e => setRole(e.target.value)} placeholder="CSV, BO, FAW, Science, Carrier…" /></div>
