@@ -53,6 +53,8 @@ test.describe("STO Command Center exhaustive safe interaction audit", () => {
       const buttons = page.getByRole("button");
       const count = await buttons.count();
       const labels = [];
+      const unnamed = controls.filter((c) => !c.name);
+      expect(unnamed, `unnamed interactive controls on ${route}`).toEqual([]);
 
       for (let i = 0; i < count; i++) {
         const button = buttons.nth(i);
@@ -70,6 +72,15 @@ test.describe("STO Command Center exhaustive safe interaction audit", () => {
           failures.push(`BUTTON "${label}" on ${route}: ${error.message}`);
         });
         await closeTransientUi(page);
+      }
+
+      const tabs = page.getByRole("tab");
+      for (let i = 0; i < await tabs.count(); i++) {
+        const tab = tabs.nth(i);
+        if (!(await tab.isVisible().catch(() => false)) || await tab.isDisabled().catch(() => true)) continue;
+        await tab.click({ timeout: 3000 }).catch((error) => {
+          failures.push(`TAB[${i}] on ${route}: ${error.message}`);
+        });
       }
 
       const links = page.getByRole("link");
@@ -103,7 +114,7 @@ test.describe("STO Command Center exhaustive safe interaction audit", () => {
     for (const route of routes) {
       await page.goto(route, { waitUntil: "domcontentloaded" });
       const items = await page.locator(
-        "button, a, input, select, textarea, [role='tab'], [role='switch'], [role='checkbox'], [role='combobox']"
+        "button, a, input, select, textarea, [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='combobox'], [role='menuitem']"
       ).evaluateAll((els) =>
         els.filter((el) => {
           const r = el.getBoundingClientRect();
@@ -129,4 +140,17 @@ test.describe("STO Command Center exhaustive safe interaction audit", () => {
       expect(entry.count).toBeGreaterThan(0);
     }
   });
+});
+
+
+test("primary navigation never issues destructive DELETE requests", async ({ page }) => {
+  const deletes = [];
+  page.on("request", (request) => {
+    if (request.method() === "DELETE") deletes.push(request.url());
+  });
+  for (const route of routes) {
+    await page.goto(route, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(250);
+  }
+  expect(deletes).toEqual([]);
 });
