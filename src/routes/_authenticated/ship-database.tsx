@@ -26,6 +26,17 @@ export const Route = createFileRoute("/_authenticated/ship-database")({
   component: ShipDatabasePage,
 });
 
+
+function Info({ label, value }: { label: string; value: unknown }) {
+  const display = value === null || value === undefined || value === "" ? "Not populated" : String(value);
+  return (
+    <div className="rounded border border-border bg-background/40 p-2">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm">{display}</p>
+    </div>
+  );
+}
+
 function seating(ship: StoShip): Array<{ slot: number; rank: string; career: string; specialization?: string | null; label: string }> {
   const raw = ship.bridge_officer_stations as any;
   const entries = Array.isArray(raw?.slots)
