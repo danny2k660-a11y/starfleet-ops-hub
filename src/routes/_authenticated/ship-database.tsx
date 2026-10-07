@@ -110,12 +110,29 @@ function ShipDatabasePage() {
       return (data ?? []) as Array<{ id: string; name: string }>;
     },
   });
-  const ownership = useQuery({
-    queryKey: ["sto_ship_ownership"],
+  const personalShips = useQuery({
+    queryKey: ["ship_database_personal_fleet"],
     queryFn: async () => {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) throw new Error("Not signed in.");
-      const { data, error } = await supabase.from("sto_ship_ownership" as never).select("*").eq("user_id", auth.user.id);
+      const { data, error } = await supabase
+        .from("user_ships")
+        .select("id,sto_ship_id,character_id,ownership_status")
+        .eq("user_id", auth.user.id);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const wishlist = useQuery({
+    queryKey: ["ship_database_wishlist"],
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) throw new Error("Not signed in.");
+      const { data, error } = await supabase
+        .from("sto_ship_ownership" as never)
+        .select("*")
+        .eq("user_id", auth.user.id)
+        .eq("ownership_status", "wishlist");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -151,41 +168,18 @@ function ShipDatabasePage() {
     },
   });
   const factions = useMemo(() => Array.from(new Set(data.map((ship) => ship.faction).filter(Boolean))) as string[], [data]);
-  const ownedByShip = useMemo(() => new Map((ownership.data ?? []).map((row: any) => [row.sto_ship_id, row])), [ownership.data]);
+  const ownedByShip = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const row of personalShips.data ?? []) {
+      if (row.ownership_status === "owned") map.set(row.sto_ship_id, row);
+    }
+    for (const row of wishlist.data ?? []) {
+      if (!map.has(row.sto_ship_id)) map.set(row.sto_ship_id, row);
+    }
+    return map;
+  }, [personalShips.data, wishlist.data]);
   const sourcesByShip = useMemo(() => { const map = new Map<string, any[]>(); for (const row of sources.data ?? []) { const list = map.get(row.sto_ship_id) ?? []; list.push(row); map.set(row.sto_ship_id, list); } return map; }, [sources.data]);
-  // Reconcile account-wide Zen/C-Store ownership for existing accounts. This is intentionally
-  // client-side so Supabase RLS sees the signed-in user's auth context.
-  useEffect(() => {
-    let cancelled = false;
-    const reconcile = async () => {
-      if (!characters.data?.length || !data.length || !sources.data) return;
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user || cancelled) return;
-      const zenShips = data.filter((ship) => {
-        const rows = sourcesByShip.get(ship.id) ?? [];
-        return rows.some((source: any) => String(source.price_currency ?? "").toLowerCase() === "zen" || /zen|c-store|cstore|zen store/i.test(String(source.source_name ?? "")) || source.account_unlock === true);
-      });
-      if (!zenShips.length) return;
-      const { data: existing } = await supabase.from("user_ships").select("id,character_id,sto_ship_id,ownership_status").eq("user_id", auth.user.id).in("sto_ship_id", zenShips.map((s) => s.id));
-      const existingRows = existing ?? [];
-      const shipRows: any[] = [];
-      const unlockRows: any[] = [];
-      for (const ship of zenShips) {
-        for (const character of characters.data) {
-          if (!existingRows.some((row: any) => row.character_id === character.id && row.sto_ship_id === ship.id)) {
-            shipRows.push({ user_id: auth.user.id, character_id: character.id, sto_ship_id: ship.id, ownership_status: "owned", usage_mode: "build_pending" });
-          }
-          if (ship.ship_trait) unlockRows.push({ user_id: auth.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "ship_trait", name: ship.ship_trait, source_name: "Account ship unlock" });
-          if (ship.special_console) unlockRows.push({ user_id: auth.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "console", name: ship.special_console, source_name: "Account ship unlock" });
-          if (ship.special_weapons) unlockRows.push({ user_id: auth.user.id, character_id: character.id, sto_ship_id: ship.id, unlock_type: "special_weapon", name: ship.special_weapons, source_name: "Account ship unlock" });
-        }
-      }
-      if (shipRows.length && !cancelled) await supabase.from("user_ships").insert(shipRows as never[]);
-      if (unlockRows.length && !cancelled) await supabase.from("character_ship_unlocks" as never).upsert(unlockRows as never[], { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name" });
-    };
-    void reconcile();
-    return () => { cancelled = true; };
-  }, [characters.data, data, sources.data, sourcesByShip]);
+  // Ownership is explicit. The catalogue never creates personal ship records by itself.
   const filtered = useMemo(() => data.filter((ship) => {
     const haystack = `${ship.name} ${ship.ship_class ?? ""} ${ship.faction ?? ""} ${ship.tier ?? ""}`.toLowerCase();
     const status = ownedByShip.get(ship.id)?.ownership_status;
@@ -210,18 +204,6 @@ function ShipDatabasePage() {
       const shipSources = sourcesByShip.get(ship.id) ?? [];
       const sourceName = shipSources[0]?.source_name ?? "Ship assignment";
       const now = new Date().toISOString();
-
-      // The shared ownership registry records that the account owns the ship.
-      // Character scope is controlled separately by user_ships below.
-      const { error: ownershipError } = await supabase
-        .from("sto_ship_ownership" as never)
-        .upsert({
-          user_id: u.user.id,
-          sto_ship_id: ship.id,
-          ownership_status: "owned",
-          acquired_at: now,
-        } as never, { onConflict: "user_id,sto_ship_id" });
-      if (ownershipError) throw ownershipError;
 
       const characterIds = targetCharacters.map((c) => c.id);
       const { data: existingRows, error: existingError } = await supabase
@@ -383,14 +365,21 @@ function ShipDatabasePage() {
     }
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    if (current?.ownership_status === status) {
-      const { error } = await supabase.from("sto_ship_ownership" as never).delete().eq("user_id", u.user.id).eq("sto_ship_id", ship.id);
+    if (status === "wishlist") {
+      const { error } = await supabase
+        .from("sto_ship_ownership" as never)
+        .upsert({ user_id: u.user.id, sto_ship_id: ship.id, ownership_status: "wishlist", acquired_at: new Date().toISOString() }, { onConflict: "user_id,sto_ship_id" });
       if (error) return;
-    } else {
-      const { error } = await supabase.from("sto_ship_ownership" as never).upsert({ user_id: u.user.id, sto_ship_id: ship.id, ownership_status: status, acquired_at: new Date().toISOString() }, { onConflict: "user_id,sto_ship_id" });
+    } else if (current?.ownership_status === "wishlist") {
+      const { error } = await supabase
+        .from("sto_ship_ownership" as never)
+        .delete()
+        .eq("user_id", u.user.id)
+        .eq("sto_ship_id", ship.id);
       if (error) return;
     }
-    ownership.refetch();
+    wishlist.refetch();
+    personalShips.refetch();
   };
   const toggleOwnership = (ship: StoShip) => setOwnership(ship, "owned");
   const verifiedCount = data.filter((ship) => ship.source_key === "stowiki" && ship.verified_at).length;
@@ -442,7 +431,8 @@ function ShipDatabasePage() {
               <Package className="size-4 shrink-0 text-primary" />
             </div>
             {bundles.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading verified bundles…</p> : bundles.data?.length ? <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {bundles.data.map((bundle: any) => <BundleClaim key={bundle.id} bundle={bundle} characters={characters.data ?? []} sources={sources.data ?? []} onClaimed={() => { ownership.refetch(); }} />)}
+              {bundles.data.map((bundle: any) => <BundleClaim key={bundle.id} bundle={bundle} characters={characters.data ?? []} sources={sources.data ?? []} onClaimed={() => { wishlist.refetch();
+    personalShips.refetch(); }} />)}
             </div> : <p className="mt-2 text-xs text-muted-foreground">No verified bundle records have been added yet. Bundle claims will appear here as acquisition data is verified.</p>}
           </div>
           <div className="mt-4 rounded border border-border bg-muted/10 p-3">
