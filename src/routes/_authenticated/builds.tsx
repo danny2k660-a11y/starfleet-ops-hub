@@ -220,7 +220,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
     <LoadoutConfiguration loadoutId={loadout.id} />
     <GroundBuildSection buildId={loadout.build_id} />
     <LoadoutReadiness loadoutId={loadout.id} buildId={loadout.build_id} />
-    <ThemeCompliance buildId={build.id} />
+    <ThemeCompliance buildId={loadout.build_id} />
     <LoadoutEquipment loadoutId={loadout.id} buildId={loadout.build_id} />
     <Dialog open={editOpen} onOpenChange={setEditOpen}>
       <DialogContent className="sm:max-w-md">
