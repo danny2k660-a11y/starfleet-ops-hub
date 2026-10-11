@@ -45,6 +45,22 @@ function Page() {
         if(error) throw new Error(`${table}: ${error.message}`);
         result[table]=data??[];
       }
+      const loadoutIds=((result.loadouts as Array<{id:string}>|undefined)??[]).map(row=>row.id);
+      const buildIds=((result.builds as Array<{id:string}>|undefined)??[]).map(row=>row.id);
+      const groundIds=((result.build_ground_loadouts as Array<{id:string}>|undefined)??[]).map(row=>row.id);
+      for(const [table,foreignKey,parentIds] of [
+        ["loadout_traits","loadout_id",loadoutIds],
+        ["loadout_boffs","loadout_id",loadoutIds],
+        ["loadout_duty_officers","loadout_id",loadoutIds],
+        ["build_doffs","build_id",buildIds],
+        ["build_readiness_checks","build_id",buildIds],
+        ["ground_loadout_equipment","loadout_id",groundIds],
+      ] as const){
+        if(!parentIds.length){result[table]=[];continue;}
+        const {data,error}=await supabase.from(table as never).select("*").in(foreignKey as never,parentIds as never);
+        if(error) throw new Error(`${table}: ${error.message}`);
+        result[table]=data??[];
+      }
       const blob=new Blob([JSON.stringify(result,null,2)],{type:"application/json"});
       const url=URL.createObjectURL(blob);
       const anchor=document.createElement("a");
