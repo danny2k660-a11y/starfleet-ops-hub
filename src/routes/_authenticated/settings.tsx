@@ -80,10 +80,21 @@ function Page() {
       const parsed=JSON.parse(await file.text());
       if(!parsed || typeof parsed !== "object" || !Array.isArray(parsed.characters) || !Array.isArray(parsed.user_ships) || !Array.isArray(parsed.builds)) throw new Error("This is not a valid STO Command Center backup.");
       const userId=account.data.id;
-      const tables=["characters","user_ships","ship_instances","builds","loadouts","equipment_items","inventory_items","loadout_equipment","loadout_traits","loadout_boffs","sto_projects","sto_project_tasks","sto_resource_balances","character_boffs","character_ship_unlocks"];
-      const order=["characters","ship_instances","user_ships","builds","loadouts","equipment_items","inventory_items","loadout_equipment","loadout_traits","loadout_boffs","sto_projects","sto_project_tasks","sto_resource_balances","character_boffs","character_ship_unlocks"];
+      const order=["characters","ship_instances","user_ships","sto_ship_ownership","builds","loadouts","equipment_items","inventory_items","loadout_equipment","sto_projects","sto_project_tasks","sto_resource_balances","character_boffs","character_ship_unlocks","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"];
       for(const table of order){
         const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && row.user_id===userId):[];
+        if(!rows.length) continue;
+        const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id"});
+        if(error) throw new Error(table+": "+error.message);
+      }
+      const childTables=[
+        ["loadout_traits","loadout_id","loadouts"],["loadout_boffs","loadout_id","loadouts"],
+        ["loadout_duty_officers","loadout_id","loadouts"],["build_doffs","build_id","builds"],
+        ["build_readiness_checks","build_id","builds"],["ground_loadout_equipment","loadout_id","build_ground_loadouts"],
+      ] as const;
+      for(const [table,foreignKey,parentTable] of childTables){
+        const parents=new Set(((parsed[parentTable] as Array<{id:string;user_id:string}>|undefined)??[]).filter(row=>row.user_id===userId).map(row=>row.id));
+        const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && parents.has(row[foreignKey])):[];
         if(!rows.length) continue;
         const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id"});
         if(error) throw new Error(table+": "+error.message);
