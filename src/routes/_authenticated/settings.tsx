@@ -29,7 +29,7 @@ function Page() {
     setExporting(true);
     try{
       const userId=account.data.id;
-      const result:Record<string,unknown>={exported_at:new Date().toISOString(),schema_version:2};
+      const result:Record<string,unknown>={exported_at:new Date().toISOString(),schema_version:3,account_id:userId};
       const accountTables=["characters","user_ships","sto_ship_ownership","ship_instances","builds","loadouts","equipment_items","inventory_items","loadout_equipment","sto_projects","sto_project_tasks","sto_resource_balances","character_boffs","character_ship_unlocks","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"] as const;
       const {data:profileRow,error:profileError}=await supabase.from("profiles").select("*").eq("id",userId).maybeSingle();
       if(profileError) throw new Error(`profiles: ${profileError.message}`);
@@ -80,9 +80,10 @@ function Page() {
       const parsed=JSON.parse(await file.text());
       if(!parsed || typeof parsed !== "object" || !Array.isArray(parsed.characters) || !Array.isArray(parsed.user_ships) || !Array.isArray(parsed.builds)) throw new Error("This is not a valid STO Command Center backup.");
       const userId=account.data.id;
+      const sourceUserId=typeof parsed.account_id==="string"?parsed.account_id:userId;
       const order=["characters","ship_instances","user_ships","sto_ship_ownership","builds","loadouts","equipment_items","inventory_items","loadout_equipment","sto_projects","sto_project_tasks","sto_resource_balances","character_boffs","character_ship_unlocks","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"];
       for(const table of order){
-        const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && row.user_id===userId):[];
+        const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && row.user_id===sourceUserId).map((row:any)=>({...row,user_id:userId})):[];
         if(!rows.length) continue;
         const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id"});
         if(error) throw new Error(table+": "+error.message);
@@ -93,13 +94,13 @@ function Page() {
         ["build_readiness_checks","build_id","builds"],["ground_loadout_equipment","loadout_id","build_ground_loadouts"],
       ] as const;
       for(const [table,foreignKey,parentTable] of childTables){
-        const parents=new Set(((parsed[parentTable] as Array<{id:string;user_id:string}>|undefined)??[]).filter(row=>row.user_id===userId).map(row=>row.id));
+        const parents=new Set(((parsed[parentTable] as Array<{id:string;user_id:string}>|undefined)??[]).filter(row=>row.user_id===sourceUserId).map(row=>row.id));
         const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && parents.has(row[foreignKey])):[];
         if(!rows.length) continue;
         const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id"});
         if(error) throw new Error(table+": "+error.message);
       }
-      if(Array.isArray(parsed.profiles) && parsed.profiles[0]?.id===userId){const {error}=await supabase.from("profiles").upsert(parsed.profiles[0] as never,{onConflict:"id"});if(error) throw new Error("profiles: "+error.message);}
+      if(Array.isArray(parsed.profiles) && parsed.profiles[0] && (parsed.profiles[0].id===sourceUserId || parsed.profiles[0].id===userId)){const {error}=await supabase.from("profiles").upsert({...parsed.profiles[0],id:userId} as never,{onConflict:"id"});if(error) throw new Error("profiles: "+error.message);}
       toast.success("Fleet backup imported");
     }catch(e){toast.error(e instanceof Error?e.message:"Could not import fleet backup");}
     finally{setImporting(false);}
