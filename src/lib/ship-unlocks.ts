@@ -52,7 +52,7 @@ export async function ensureShipUnlocksForCharacters(
 
   const equipment = [
     ship.special_console ? { name: ship.special_console, category: "Console" } : null,
-    ship.special_weapons ? { name: ship.special_weapons, category: "Experimental Weapon" } : null,
+    ship.special_weapons ? { name: ship.special_weapons, category: "Experimental" } : null,
   ].filter((item): item is { name: string; category: string } => item !== null);
   for (const characterId of ids) {
     for (const item of equipment) {
