@@ -93,8 +93,8 @@ begin
       user_id, build_id, name, is_active, notes, ground_traits, specializations
     ) values (
       v_user_id, v_new_build_id, v_old_ground.name, v_old_ground.is_active, v_old_ground.notes,
-      case when v_same_character then coalesce(v_old_ground.ground_traits, '{}'::text[]) else '{}'::text[] end,
-      case when v_same_character then coalesce(v_old_ground.specializations, '{}'::text[]) else '{}'::text[] end
+      case when v_same_character then coalesce(v_old_ground.ground_traits, '[]'::jsonb) else '[]'::jsonb end,
+      case when v_same_character then coalesce(v_old_ground.specializations, '[]'::jsonb) else '[]'::jsonb end
     ) returning id into v_new_ground_id;
 
     if v_same_character then
