@@ -1,7 +1,9 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as typedSupabase } from "@/integrations/supabase/client";
+// Several tables used here are not yet in the generated schema types.
+const supabase = typedSupabase as any;
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,

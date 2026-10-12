@@ -8,7 +8,9 @@ import type { LinkProps } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 
 // Fleet totals are distinct STO ships, not character assignment rows.
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as typedSupabase } from "@/integrations/supabase/client";
+// Several tables used here are not yet in the generated schema types.
+const supabase = typedSupabase as any;
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — STO Command Center" }, { name: "description", content: "Your STO fleet, characters, builds and project status." }] }),
