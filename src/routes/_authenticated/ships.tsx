@@ -1013,6 +1013,23 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
         if (unlockError) throw unlockError;
       }
 
+      const equipmentUnlocks = targetCharacterIds.flatMap((targetId) => [
+        specialConsole ? { character_id: targetId, name: specialConsole, category: "Console" } : null,
+        specialWeapon ? { character_id: targetId, name: specialWeapon, category: "Experimental weapon" } : null,
+      ].filter((item): item is { character_id: string; name: string; category: string } => item !== null));
+      for (const item of equipmentUnlocks) {
+        const { data: existing, error: findError } = await supabase.from("equipment_items").select("id")
+          .eq("user_id", u.user.id).eq("character_id", item.character_id).eq("name", item.name).eq("category", item.category).limit(1).maybeSingle();
+        if (findError) throw findError;
+        if (!existing) {
+          const { error: equipmentError } = await supabase.from("equipment_items").insert({
+            user_id: u.user.id, character_id: item.character_id, name: item.name, category: item.category,
+            quantity: 1, source: "Ship unlock", notes: "Unlocked from ship: " + selectedCatalogShip.name,
+          });
+          if (equipmentError) throw equipmentError;
+        }
+      }
+
       const { data: registeredShips, error: registeredError } = await supabase.from("user_ships").select("id").eq("user_id", u.user.id).eq("sto_ship_id", shipId).in("character_id", targetCharacterIds);
       if (registeredError) throw registeredError;
       return { ids: (registeredShips ?? []).map((row) => row.id), added: rows.length, total: targetCharacterIds.length };
