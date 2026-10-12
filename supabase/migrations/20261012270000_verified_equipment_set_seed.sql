@@ -50,3 +50,83 @@ on conflict (set_name, piece_threshold, bonus_name) do update set
   verified = excluded.verified,
   data_version = excluded.data_version,
   verified_at = excluded.verified_at;
+
+-- Record unique set-piece identity so alternate variants do not inflate the count.
+update public.equipment_catalog
+set set_piece = case
+  when name ilike '%Deflector Array%' then 'Deflector'
+  when name ilike '%Impulse Engines%' then 'Impulse Engines'
+  when name ilike '%Resilient Shield Array%' then 'Shield'
+  when name ilike '%Warp Core%' or name ilike '%Singularity Core%' then 'Core'
+  else set_piece
+end
+where set_name = 'Prevailing Regalia' and set_piece is null;
+
+update public.equipment_catalog
+set set_piece = case
+  when name = 'Console - Universal - Ordnance Accelerator' then 'Console'
+  when name ilike '%Inhibiting Chroniton%' then 'Projectile'
+  else set_piece
+end
+where set_name = 'Task Force Ordnances' and set_piece is null;
+
+update public.equipment_catalog
+set set_name = 'Morphogenic Armaments',
+    set_piece = case
+      when name ilike 'Morphogenic Polaron Energy Weapon%' then 'Energy Weapon'
+      when name ilike 'Morphogenic Polaron Energy Torpedo Launcher%' then 'Torpedo'
+      when name ilike 'Console - Tactical - Morphogenic Matrix Controller%' then 'Console'
+      else set_piece
+    end,
+    source_reference = coalesce(source_reference, 'https://sto.fandom.com/wiki/Morphogenic_Armaments'),
+    source_type = coalesce(source_type, 'community_wiki'),
+    data_quality_status = coalesce(data_quality_status, 'verified'),
+    data_version = coalesce(data_version, 'community-wiki-2026-10-12'),
+    verified_at = coalesce(verified_at, now())
+where name ilike '%Morphogenic%'
+  and (set_name is null or set_name = 'Morphogenic Armaments');
+
+update public.equipment_catalog
+set set_name = 'Lorca''s Ambition',
+    set_piece = case
+      when name ilike 'Console - Tactical - Lorca''s Custom Fire Controls%' then 'Console'
+      when name ilike 'Dark Matter Quantum Torpedo Launcher%' then 'Torpedo'
+      else set_piece
+    end,
+    source_reference = coalesce(source_reference, 'https://sto.fandom.com/wiki/Lorca%27s_Ambition'),
+    source_type = coalesce(source_type, 'community_wiki'),
+    data_quality_status = coalesce(data_quality_status, 'verified'),
+    data_version = coalesce(data_version, 'community-wiki-2026-10-12'),
+    verified_at = coalesce(verified_at, now())
+where name ilike '%Lorca''s Custom Fire Controls%'
+   or name ilike 'Dark Matter Quantum Torpedo Launcher%';
+
+insert into public.sto_equipment_set_bonuses
+  (set_name, piece_threshold, bonus_name, bonus_description, source_reference, verified, data_version, verified_at)
+values
+  (
+    'Morphogenic Armaments', 2, 'Morphogenic Efficiency',
+    'Reduces recharge time by 15% for Fire at Will, Beam Overload, Scatter Volley, Rapid Fire, Torpedo Spread, Torpedo High Yield, Mine Pattern Alpha and Mine Pattern Beta.',
+    'https://sto.fandom.com/wiki/Morphogenic_Armaments', true, 'community-wiki-2026-10-12', now()
+  ),
+  (
+    'Morphogenic Armaments', 3, 'Hyperactive Morphogenic Enhancements',
+    'Activating set-linked firing modes grants a 45-second buff that stacks up to three times: Fire at Will or Beam Overload grants +2% Critical Chance per stack (max 6%); Scatter Volley or Rapid Fire grants +10% Critical Severity per stack (max 30%); Torpedo Spread, High Yield, Mine Pattern Alpha or Beta grants +7.5% Weapon Damage per stack (max 22.5%).',
+    'https://sto.fandom.com/wiki/Morphogenic_Armaments', true, 'community-wiki-2026-10-12', now()
+  ),
+  (
+    'Lorca''s Ambition', 2, 'War Discretion',
+    'On a critical hit, gain +1% Critical Severity for 20 seconds, stacking up to 25 times.',
+    'https://sto.fandom.com/wiki/Lorca%27s_Ambition', true, 'community-wiki-2026-10-12', now()
+  ),
+  (
+    'Lorca''s Ambition', 3, 'But That''s Just the Beginning',
+    'Automatically launches one Dark Matter Quantum Torpedo at enemies below 50% health; at most one torpedo per second and no more than one per enemy.',
+    'https://sto.fandom.com/wiki/Lorca%27s_Ambition', true, 'community-wiki-2026-10-12', now()
+  )
+on conflict (set_name, piece_threshold, bonus_name) do update set
+  bonus_description = excluded.bonus_description,
+  source_reference = excluded.source_reference,
+  verified = excluded.verified,
+  data_version = excluded.data_version,
+  verified_at = excluded.verified_at;
