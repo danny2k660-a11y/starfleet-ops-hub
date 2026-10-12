@@ -6,6 +6,7 @@ import { Plus, Search, Wrench, Trash2, Package, GitCompare } from "lucide-react"
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { recordAuditEvent } from "@/lib/audit";
 import { GroundBuildSection } from "@/components/ground-build-section";
 import type { Tables } from "@/integrations/supabase/types";
 import { AppShell } from "@/components/app-shell";
@@ -205,16 +206,18 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
         ground_loadout_equipment: groundEquipmentResult.data ?? [],
         loadout_hangar_pets: hangarPetsResult.data ?? [],
       };
+      const nextVersionNumber = (latest?.version_number ?? 0) + 1;
       const { error } = await supabase.from("build_versions").insert({
         user_id: auth.user.id,
         build_id: build.id,
-        version_number: (latest?.version_number ?? 0) + 1,
+        version_number: nextVersionNumber,
         summary: "Saved build snapshot",
         snapshot: snapshot as any,
       });
       if (error) throw error;
+      return nextVersionNumber;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["build_versions", build?.id] }); toast.success("Build version saved"); },
+    onSuccess: async (versionNumber) => { await recordAuditEvent("build_version_saved", "build", build?.id ?? null, "Saved build version " + versionNumber, { version_number: versionNumber }); qc.invalidateQueries({ queryKey: ["build_versions", build?.id] }); toast.success("Build version saved"); },
     onError: (error: Error) => toast.error(error.message),
   });
 
