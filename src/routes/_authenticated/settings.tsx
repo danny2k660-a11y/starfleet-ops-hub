@@ -30,16 +30,13 @@ function Page() {
     try{
       const userId=account.data.id;
       const result:Record<string,unknown>={exported_at:new Date().toISOString(),schema_version:3,account_id:userId};
-      const accountTables=["characters","user_ships","sto_ship_ownership","ship_instances","builds","loadouts","equipment_items","inventory_items","loadout_equipment","sto_projects","sto_project_tasks","sto_resource_balances","character_boffs","character_ship_unlocks","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"] as const;
+      const accountTables=["characters","user_ships","sto_ship_ownership","ship_instances","builds","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"] as const;
       const {data:profileRow,error:profileError}=await supabase.from("profiles").select("*").eq("id",userId).maybeSingle();
       if(profileError) throw new Error(`profiles: ${profileError.message}`);
       result.profiles=profileRow ? [profileRow] : [];
       const {data:catalog,error:catalogError}=await supabase.from("sto_ships").select("*");
       if(catalogError) throw new Error(`sto_ships: ${catalogError.message}`);
       result.sto_ships=catalog??[];
-      const {data:rules,error:rulesError}=await supabase.from("theme_rules" as never).select("*");
-      if(rulesError) throw new Error(`theme_rules: ${rulesError.message}`);
-      result.theme_rules=rules??[];
       for(const table of accountTables){
         const {data,error}=await supabase.from(table).select("*").eq("user_id",userId);
         if(error) throw new Error(`${table}: ${error.message}`);
