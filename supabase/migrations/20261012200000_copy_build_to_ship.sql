@@ -71,6 +71,10 @@ begin
       insert into public.loadout_equipment (user_id, loadout_id, equipment_id, slot)
       select v_user_id, v_new_loadout_id, equipment_id, slot
       from public.loadout_equipment where loadout_id = v_old_loadout.id and user_id = v_user_id;
+
+      insert into public.loadout_hangar_pets (user_id, loadout_id, hangar_slot, pet_name, quantity, notes, source_reference)
+      select v_user_id, v_new_loadout_id, hangar_slot, pet_name, quantity, notes, source_reference
+      from public.loadout_hangar_pets where loadout_id = v_old_loadout.id and user_id = v_user_id;
     end if;
   end loop;
 
