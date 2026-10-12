@@ -16,9 +16,15 @@ create index if not exists build_versions_user_created_idx on public.build_versi
 create index if not exists loadout_hangar_pets_loadout_fk_idx on public.loadout_hangar_pets(loadout_id);
 create index if not exists character_reputations_character_fk_idx on public.character_reputations(character_id);
 
-drop policy if exists "users own character boffs" on public.character_boffs;
 drop policy if exists equipment_owner on public.equipment_items;
 drop policy if exists "owners manage ground equipment" on public.ground_loadout_equipment;
+
+do $
+begin
+  if to_regclass('public.character_boffs') is not null then
+    execute 'drop policy if exists "users own character boffs" on public.character_boffs';
+  end if;
+end $;
 
 create index if not exists build_doffs_doff_fk_idx on public.build_doffs(doff_id);
 create index if not exists build_ground_loadouts_build_fk_idx on public.build_ground_loadouts(build_id);
