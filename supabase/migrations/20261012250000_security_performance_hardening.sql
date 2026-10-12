@@ -43,3 +43,14 @@ create index if not exists sto_ship_bundle_items_ship_fk_idx on public.sto_ship_
 create index if not exists sto_ship_catalog_imports_imported_by_fk_idx on public.sto_ship_catalog_imports(imported_by);
 create index if not exists sto_ship_ownership_source_fk_idx on public.sto_ship_ownership(acquisition_source_id);
 create index if not exists user_ships_ship_fk_idx on public.user_ships(sto_ship_id);
+
+drop policy if exists character_trait_slot_unlocks_owner on public.character_trait_slot_unlocks;
+
+drop index if exists public.idx_boff_ability_catalog_key;
+drop index if exists public.character_ship_unlocks_character_fk_idx;
+drop index if exists public.idx_character_ship_unlocks_character;
+drop index if exists public.idx_character_ship_unlocks_ship;
+drop index if exists public.idx_character_traits_character_domain;
+drop index if exists public.idx_trait_catalog_availability;
+drop index if exists public.trait_catalog_availability_idx;
+drop index if exists public.idx_user_ships_acquisition_source;
