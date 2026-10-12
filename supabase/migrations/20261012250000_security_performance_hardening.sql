@@ -36,18 +36,33 @@ create index if not exists loadouts_user_fk_idx on public.loadouts(user_id);
 create index if not exists ship_instances_character_fk_idx on public.ship_instances(character_id);
 create index if not exists ship_instances_ship_class_fk_idx on public.ship_instances(ship_class_id);
 create index if not exists ship_instances_user_fk_idx on public.ship_instances(user_id);
-create index if not exists sto_project_tasks_user_fk_idx on public.sto_project_tasks(user_id);
-create index if not exists sto_projects_character_fk_idx on public.sto_projects(character_id);
-create index if not exists sto_resource_balances_character_fk_idx on public.sto_resource_balances(character_id);
 create index if not exists sto_ship_bundle_items_ship_fk_idx on public.sto_ship_bundle_items(sto_ship_id);
 create index if not exists sto_ship_catalog_imports_imported_by_fk_idx on public.sto_ship_catalog_imports(imported_by);
 create index if not exists sto_ship_ownership_source_fk_idx on public.sto_ship_ownership(acquisition_source_id);
 create index if not exists user_ships_ship_fk_idx on public.user_ships(sto_ship_id);
 
-drop policy if exists character_trait_slot_unlocks_owner on public.character_trait_slot_unlocks;
+do $
+begin
+  if to_regclass('public.sto_project_tasks') is not null then
+    execute 'create index if not exists sto_project_tasks_user_fk_idx on public.sto_project_tasks(user_id)';
+  end if;
+  if to_regclass('public.sto_projects') is not null then
+    execute 'create index if not exists sto_projects_character_fk_idx on public.sto_projects(character_id)';
+  end if;
+  if to_regclass('public.sto_resource_balances') is not null then
+    execute 'create index if not exists sto_resource_balances_character_fk_idx on public.sto_resource_balances(character_id)';
+  end if;
+  if exists (
+    select 1 from pg_indexes
+    where schemaname = 'public'
+      and indexname = 'character_ship_unlocks_character_idx'
+      and indexdef not like '%(user_id, character_id)%'
+  ) then
+    execute 'drop index if exists public.character_ship_unlocks_character_idx';
+  end if;
+end $;
 
 drop index if exists public.idx_boff_ability_catalog_key;
-drop index if exists public.character_ship_unlocks_character_fk_idx;
 drop index if exists public.idx_character_ship_unlocks_character;
 drop index if exists public.idx_character_ship_unlocks_ship;
 drop index if exists public.idx_character_traits_character_domain;
