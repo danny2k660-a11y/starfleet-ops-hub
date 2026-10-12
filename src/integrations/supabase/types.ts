@@ -22,6 +22,7 @@ type ThemeRuleRow = { id: string; user_id: string; theme_name: string; rule_type
 type CharacterShipUnlockRow = { id: string; user_id: string; character_id: string; sto_ship_id: string; unlock_type: "ship_trait" | "console" | "special_weapon"; name: string; source_name: string | null; created_at: string };
 type CharacterBridgeOfficerRow = { id: string; user_id: string; character_id: string; name: string; species: string | null; career: string | null; rank: string | null; specialization: string | null; traits: Json; abilities: Json; notes: string | null; active: boolean; created_at: string; updated_at: string };
 type BuildVersionRow = { id: string; user_id: string; build_id: string; version_number: number; summary: string | null; snapshot: Json; created_at: string };
+type StoEquipmentSetBonusRow = { id: string; set_name: string; piece_threshold: number; bonus_name: string; bonus_description: string; source_reference: string; verified: boolean; data_version: string | null; verified_at: string | null; created_at: string; updated_at: string };
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
@@ -40,6 +41,7 @@ export type Database = {
       character_ship_unlocks: TableDef<CharacterShipUnlockRow, { id?: string; user_id?: string; character_id: string; sto_ship_id: string; unlock_type: CharacterShipUnlockRow["unlock_type"]; name: string; source_name?: string | null; created_at?: string }>;
       character_bridge_officers: TableDef<CharacterBridgeOfficerRow, { id?: string; user_id?: string; character_id: string; name: string; species?: string | null; career?: string | null; rank?: string | null; specialization?: string | null; traits?: Json; abilities?: Json; notes?: string | null; active?: boolean; created_at?: string; updated_at?: string }>;
       build_versions: TableDef<BuildVersionRow, { id?: string; user_id?: string; build_id: string; version_number: number; summary?: string | null; snapshot: Json; created_at?: string }>;
+      sto_equipment_set_bonuses: TableDef<StoEquipmentSetBonusRow, { id?: string; set_name: string; piece_threshold: number; bonus_name: string; bonus_description: string; source_reference: string; verified?: boolean; data_version?: string | null; verified_at?: string | null; created_at?: string; updated_at?: string }>;
       boff_ability_catalog: {
         Row: {
           canonical_key: string
