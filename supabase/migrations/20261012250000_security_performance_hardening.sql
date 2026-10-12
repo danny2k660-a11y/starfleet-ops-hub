@@ -19,18 +19,11 @@ create index if not exists character_reputations_character_fk_idx on public.char
 drop policy if exists equipment_owner on public.equipment_items;
 drop policy if exists "owners manage ground equipment" on public.ground_loadout_equipment;
 
-do $
-begin
-  if to_regclass('public.character_boffs') is not null then
-    execute 'drop policy if exists "users own character boffs" on public.character_boffs';
-  end if;
-end $;
+
 
 create index if not exists build_doffs_doff_fk_idx on public.build_doffs(doff_id);
 create index if not exists build_ground_loadouts_build_fk_idx on public.build_ground_loadouts(build_id);
 create index if not exists builds_ship_instance_fk_idx on public.builds(ship_instance_id);
-create index if not exists character_boffs_user_fk_idx on public.character_boffs(user_id);
-create index if not exists character_doffs_doff_fk_idx on public.character_doffs(doff_id);
 create index if not exists character_traits_user_fk_idx on public.character_traits(user_id);
 create index if not exists equipment_items_character_fk_idx on public.equipment_items(character_id);
 create index if not exists ground_loadout_equipment_item_fk_idx on public.ground_loadout_equipment(equipment_item_id);
@@ -47,26 +40,7 @@ create index if not exists sto_ship_catalog_imports_imported_by_fk_idx on public
 create index if not exists sto_ship_ownership_source_fk_idx on public.sto_ship_ownership(acquisition_source_id);
 create index if not exists user_ships_ship_fk_idx on public.user_ships(sto_ship_id);
 
-do $
-begin
-  if to_regclass('public.sto_project_tasks') is not null then
-    execute 'create index if not exists sto_project_tasks_user_fk_idx on public.sto_project_tasks(user_id)';
-  end if;
-  if to_regclass('public.sto_projects') is not null then
-    execute 'create index if not exists sto_projects_character_fk_idx on public.sto_projects(character_id)';
-  end if;
-  if to_regclass('public.sto_resource_balances') is not null then
-    execute 'create index if not exists sto_resource_balances_character_fk_idx on public.sto_resource_balances(character_id)';
-  end if;
-  if exists (
-    select 1 from pg_indexes
-    where schemaname = 'public'
-      and indexname = 'character_ship_unlocks_character_idx'
-      and indexdef not like '%(user_id, character_id)%'
-  ) then
-    execute 'drop index if exists public.character_ship_unlocks_character_idx';
-  end if;
-end $;
+
 
 drop index if exists public.idx_boff_ability_catalog_key;
 drop index if exists public.idx_character_ship_unlocks_character;
