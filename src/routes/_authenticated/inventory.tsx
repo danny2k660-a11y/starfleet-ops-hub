@@ -91,7 +91,7 @@ function InventoryPage() {
   });
 
   return (
-    <AppShell>
+    <AppShell title="Inventory" subtitle="Stored gear, consumables and equipment stock">
       <div className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
