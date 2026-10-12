@@ -12,138 +12,485 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as McpRouteImport } from './routes/mcp'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AuthenticatedBridgeOfficersRouteImport } from './routes/_authenticated/bridge-officers'
 import { Route as AuthenticatedBuildsRouteImport } from './routes/_authenticated/builds'
 import { Route as AuthenticatedCharactersRouteImport } from './routes/_authenticated/characters'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedEquipmentRouteImport } from './routes/_authenticated/equipment'
+import { Route as AuthenticatedGroundBuildsRouteImport } from './routes/_authenticated/ground-builds'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedShipsRouteImport } from './routes/_authenticated/ships'
+import { Route as AuthenticatedShipDatabaseRouteImport } from './routes/_authenticated/ship-database'
 import { Route as AuthenticatedShipPlannerRouteImport } from './routes/_authenticated/ship-planner'
+import { Route as AuthenticatedShipsRouteImport } from './routes/_authenticated/ships'
 import { Route as AuthenticatedThemesRouteImport } from './routes/_authenticated/themes'
 import { Route as AuthenticatedTraitsRouteImport } from './routes/_authenticated/traits'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
-const IndexRoute = IndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => rootRouteImport } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({ id: '/_authenticated', getParentRoute: () => rootRouteImport } as any)
-const AuthRoute = AuthRouteImport.update({ id: '/auth', path: '/auth', getParentRoute: () => rootRouteImport } as any)
-const AuthenticatedBuildsRoute = AuthenticatedBuildsRouteImport.update({ id: '/builds', path: '/builds', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedCharactersRoute = AuthenticatedCharactersRouteImport.update({ id: '/characters', path: '/characters', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({ id: '/dashboard', path: '/dashboard', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedEquipmentRoute = AuthenticatedEquipmentRouteImport.update({ id: '/equipment', path: '/equipment', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({ id: '/inventory', path: '/inventory', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({ id: '/projects', path: '/projects', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedResourcesRoute = AuthenticatedResourcesRouteImport.update({ id: '/resources', path: '/resources', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({ id: '/settings', path: '/settings', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedShipsRoute = AuthenticatedShipsRouteImport.update({ id: '/ships', path: '/ships', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedShipPlannerRoute = AuthenticatedShipPlannerRouteImport.update({ id: '/ship-planner', path: '/ship-planner', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedThemesRoute = AuthenticatedThemesRouteImport.update({ id: '/themes', path: '/themes', getParentRoute: () => AuthenticatedRouteRoute } as any)
-const AuthenticatedTraitsRoute = AuthenticatedTraitsRouteImport.update({ id: '/traits', path: '/traits', getParentRoute: () => AuthenticatedRouteRoute } as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedBridgeOfficersRoute =
+  AuthenticatedBridgeOfficersRouteImport.update({
+    id: '/bridge-officers',
+    path: '/bridge-officers',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedBuildsRoute = AuthenticatedBuildsRouteImport.update({
+  id: '/builds',
+  path: '/builds',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCharactersRoute = AuthenticatedCharactersRouteImport.update({
+  id: '/characters',
+  path: '/characters',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedEquipmentRoute = AuthenticatedEquipmentRouteImport.update({
+  id: '/equipment',
+  path: '/equipment',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGroundBuildsRoute =
+  AuthenticatedGroundBuildsRouteImport.update({
+    id: '/ground-builds',
+    path: '/ground-builds',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedResourcesRoute = AuthenticatedResourcesRouteImport.update({
+  id: '/resources',
+  path: '/resources',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedShipDatabaseRoute =
+  AuthenticatedShipDatabaseRouteImport.update({
+    id: '/ship-database',
+    path: '/ship-database',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedShipPlannerRoute =
+  AuthenticatedShipPlannerRouteImport.update({
+    id: '/ship-planner',
+    path: '/ship-planner',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedShipsRoute = AuthenticatedShipsRouteImport.update({
+  id: '/ships',
+  path: '/ships',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedThemesRoute = AuthenticatedThemesRouteImport.update({
+  id: '/themes',
+  path: '/themes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTraitsRoute = AuthenticatedTraitsRouteImport.update({
+  id: '/traits',
+  path: '/traits',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/mcp': typeof McpRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/bridge-officers': typeof AuthenticatedBridgeOfficersRoute
   '/builds': typeof AuthenticatedBuildsRoute
   '/characters': typeof AuthenticatedCharactersRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/equipment': typeof AuthenticatedEquipmentRoute
+  '/ground-builds': typeof AuthenticatedGroundBuildsRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/projects': typeof AuthenticatedProjectsRoute
   '/resources': typeof AuthenticatedResourcesRoute
   '/settings': typeof AuthenticatedSettingsRoute
-  '/ships': typeof AuthenticatedShipsRoute
+  '/ship-database': typeof AuthenticatedShipDatabaseRoute
   '/ship-planner': typeof AuthenticatedShipPlannerRoute
+  '/ships': typeof AuthenticatedShipsRoute
   '/themes': typeof AuthenticatedThemesRoute
   '/traits': typeof AuthenticatedTraitsRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
 }
-export interface FileRoutesByTo extends FileRoutesByFullPath {}
+export interface FileRoutesByTo {
+  '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/mcp': typeof McpRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/bridge-officers': typeof AuthenticatedBridgeOfficersRoute
+  '/builds': typeof AuthenticatedBuildsRoute
+  '/characters': typeof AuthenticatedCharactersRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/equipment': typeof AuthenticatedEquipmentRoute
+  '/ground-builds': typeof AuthenticatedGroundBuildsRoute
+  '/inventory': typeof AuthenticatedInventoryRoute
+  '/projects': typeof AuthenticatedProjectsRoute
+  '/resources': typeof AuthenticatedResourcesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/ship-database': typeof AuthenticatedShipDatabaseRoute
+  '/ship-planner': typeof AuthenticatedShipPlannerRoute
+  '/ships': typeof AuthenticatedShipsRoute
+  '/themes': typeof AuthenticatedThemesRoute
+  '/traits': typeof AuthenticatedTraitsRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+}
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/mcp': typeof McpRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_authenticated/bridge-officers': typeof AuthenticatedBridgeOfficersRoute
   '/_authenticated/builds': typeof AuthenticatedBuildsRoute
   '/_authenticated/characters': typeof AuthenticatedCharactersRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/equipment': typeof AuthenticatedEquipmentRoute
+  '/_authenticated/ground-builds': typeof AuthenticatedGroundBuildsRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRoute
   '/_authenticated/resources': typeof AuthenticatedResourcesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
-  '/_authenticated/ships': typeof AuthenticatedShipsRoute
+  '/_authenticated/ship-database': typeof AuthenticatedShipDatabaseRoute
   '/_authenticated/ship-planner': typeof AuthenticatedShipPlannerRoute
+  '/_authenticated/ships': typeof AuthenticatedShipsRoute
   '/_authenticated/themes': typeof AuthenticatedThemesRoute
   '/_authenticated/traits': typeof AuthenticatedTraitsRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: keyof FileRoutesByFullPath
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/mcp'
+    | '/.well-known/oauth-protected-resource'
+    | '/bridge-officers'
+    | '/builds'
+    | '/characters'
+    | '/dashboard'
+    | '/equipment'
+    | '/ground-builds'
+    | '/inventory'
+    | '/projects'
+    | '/resources'
+    | '/settings'
+    | '/ship-database'
+    | '/ship-planner'
+    | '/ships'
+    | '/themes'
+    | '/traits'
+    | '/.lovable/oauth/consent'
   fileRoutesByTo: FileRoutesByTo
-  to: keyof FileRoutesByTo
-  id: keyof FileRoutesById
+  to:
+    | '/'
+    | '/auth'
+    | '/mcp'
+    | '/.well-known/oauth-protected-resource'
+    | '/bridge-officers'
+    | '/builds'
+    | '/characters'
+    | '/dashboard'
+    | '/equipment'
+    | '/ground-builds'
+    | '/inventory'
+    | '/projects'
+    | '/resources'
+    | '/settings'
+    | '/ship-database'
+    | '/ship-planner'
+    | '/ships'
+    | '/themes'
+    | '/traits'
+    | '/.lovable/oauth/consent'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/mcp'
+    | '/.well-known/oauth-protected-resource'
+    | '/_authenticated/bridge-officers'
+    | '/_authenticated/builds'
+    | '/_authenticated/characters'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/equipment'
+    | '/_authenticated/ground-builds'
+    | '/_authenticated/inventory'
+    | '/_authenticated/projects'
+    | '/_authenticated/resources'
+    | '/_authenticated/settings'
+    | '/_authenticated/ship-database'
+    | '/_authenticated/ship-planner'
+    | '/_authenticated/ships'
+    | '/_authenticated/themes'
+    | '/_authenticated/traits'
+    | '/.lovable/oauth/consent'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  McpRoute: typeof McpRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': { id: '/'; path: '/'; fullPath: '/'; preLoaderRoute: typeof IndexRouteImport; parentRoute: typeof rootRouteImport }
-    '/_authenticated': { id: '/_authenticated'; path: ''; fullPath: '/'; preLoaderRoute: typeof AuthenticatedRouteRouteImport; parentRoute: typeof rootRouteImport }
-    '/auth': { id: '/auth'; path: '/auth'; fullPath: '/auth'; preLoaderRoute: typeof AuthRouteImport; parentRoute: typeof rootRouteImport }
-    '/_authenticated/builds': { id: '/_authenticated/builds'; path: '/builds'; fullPath: '/builds'; preLoaderRoute: typeof AuthenticatedBuildsRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/characters': { id: '/_authenticated/characters'; path: '/characters'; fullPath: '/characters'; preLoaderRoute: typeof AuthenticatedCharactersRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/dashboard': { id: '/_authenticated/dashboard'; path: '/dashboard'; fullPath: '/dashboard'; preLoaderRoute: typeof AuthenticatedDashboardRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/equipment': { id: '/_authenticated/equipment'; path: '/equipment'; fullPath: '/equipment'; preLoaderRoute: typeof AuthenticatedEquipmentRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/inventory': { id: '/_authenticated/inventory'; path: '/inventory'; fullPath: '/inventory'; preLoaderRoute: typeof AuthenticatedInventoryRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/projects': { id: '/_authenticated/projects'; path: '/projects'; fullPath: '/projects'; preLoaderRoute: typeof AuthenticatedProjectsRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/resources': { id: '/_authenticated/resources'; path: '/resources'; fullPath: '/resources'; preLoaderRoute: typeof AuthenticatedResourcesRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/settings': { id: '/_authenticated/settings'; path: '/settings'; fullPath: '/settings'; preLoaderRoute: typeof AuthenticatedSettingsRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/ships': { id: '/_authenticated/ships'; path: '/ships'; fullPath: '/ships'; preLoaderRoute: typeof AuthenticatedShipsRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/ship-planner': { id: '/_authenticated/ship-planner'; path: '/ship-planner'; fullPath: '/ship-planner'; preLoaderRoute: typeof AuthenticatedShipPlannerRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/themes': { id: '/_authenticated/themes'; path: '/themes'; fullPath: '/themes'; preLoaderRoute: typeof AuthenticatedThemesRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
-    '/_authenticated/traits': { id: '/_authenticated/traits'; path: '/traits'; fullPath: '/traits'; preLoaderRoute: typeof AuthenticatedTraitsRouteImport; parentRoute: typeof AuthenticatedRouteRoute }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/bridge-officers': {
+      id: '/_authenticated/bridge-officers'
+      path: '/bridge-officers'
+      fullPath: '/bridge-officers'
+      preLoaderRoute: typeof AuthenticatedBridgeOfficersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/builds': {
+      id: '/_authenticated/builds'
+      path: '/builds'
+      fullPath: '/builds'
+      preLoaderRoute: typeof AuthenticatedBuildsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/characters': {
+      id: '/_authenticated/characters'
+      path: '/characters'
+      fullPath: '/characters'
+      preLoaderRoute: typeof AuthenticatedCharactersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/equipment': {
+      id: '/_authenticated/equipment'
+      path: '/equipment'
+      fullPath: '/equipment'
+      preLoaderRoute: typeof AuthenticatedEquipmentRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ground-builds': {
+      id: '/_authenticated/ground-builds'
+      path: '/ground-builds'
+      fullPath: '/ground-builds'
+      preLoaderRoute: typeof AuthenticatedGroundBuildsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/inventory': {
+      id: '/_authenticated/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof AuthenticatedInventoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/projects': {
+      id: '/_authenticated/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof AuthenticatedProjectsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/resources': {
+      id: '/_authenticated/resources'
+      path: '/resources'
+      fullPath: '/resources'
+      preLoaderRoute: typeof AuthenticatedResourcesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ship-database': {
+      id: '/_authenticated/ship-database'
+      path: '/ship-database'
+      fullPath: '/ship-database'
+      preLoaderRoute: typeof AuthenticatedShipDatabaseRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ship-planner': {
+      id: '/_authenticated/ship-planner'
+      path: '/ship-planner'
+      fullPath: '/ship-planner'
+      preLoaderRoute: typeof AuthenticatedShipPlannerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ships': {
+      id: '/_authenticated/ships'
+      path: '/ships'
+      fullPath: '/ships'
+      preLoaderRoute: typeof AuthenticatedShipsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/themes': {
+      id: '/_authenticated/themes'
+      path: '/themes'
+      fullPath: '/themes'
+      preLoaderRoute: typeof AuthenticatedThemesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/traits': {
+      id: '/_authenticated/traits'
+      path: '/traits'
+      fullPath: '/traits'
+      preLoaderRoute: typeof AuthenticatedTraitsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedBridgeOfficersRoute: typeof AuthenticatedBridgeOfficersRoute
   AuthenticatedBuildsRoute: typeof AuthenticatedBuildsRoute
   AuthenticatedCharactersRoute: typeof AuthenticatedCharactersRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEquipmentRoute: typeof AuthenticatedEquipmentRoute
+  AuthenticatedGroundBuildsRoute: typeof AuthenticatedGroundBuildsRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
-  AuthenticatedShipsRoute: typeof AuthenticatedShipsRoute
+  AuthenticatedShipDatabaseRoute: typeof AuthenticatedShipDatabaseRoute
   AuthenticatedShipPlannerRoute: typeof AuthenticatedShipPlannerRoute
+  AuthenticatedShipsRoute: typeof AuthenticatedShipsRoute
   AuthenticatedThemesRoute: typeof AuthenticatedThemesRoute
   AuthenticatedTraitsRoute: typeof AuthenticatedTraitsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedBuildsRoute,
-  AuthenticatedCharactersRoute,
-  AuthenticatedDashboardRoute,
-  AuthenticatedEquipmentRoute,
-  AuthenticatedInventoryRoute,
-  AuthenticatedProjectsRoute,
-  AuthenticatedResourcesRoute,
-  AuthenticatedSettingsRoute,
-  AuthenticatedShipsRoute,
-  AuthenticatedShipPlannerRoute,
-  AuthenticatedThemesRoute,
-  AuthenticatedTraitsRoute,
+  AuthenticatedBridgeOfficersRoute: AuthenticatedBridgeOfficersRoute,
+  AuthenticatedBuildsRoute: AuthenticatedBuildsRoute,
+  AuthenticatedCharactersRoute: AuthenticatedCharactersRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedEquipmentRoute: AuthenticatedEquipmentRoute,
+  AuthenticatedGroundBuildsRoute: AuthenticatedGroundBuildsRoute,
+  AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
+  AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
+  AuthenticatedResourcesRoute: AuthenticatedResourcesRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedShipDatabaseRoute: AuthenticatedShipDatabaseRoute,
+  AuthenticatedShipPlannerRoute: AuthenticatedShipPlannerRoute,
+  AuthenticatedShipsRoute: AuthenticatedShipsRoute,
+  AuthenticatedThemesRoute: AuthenticatedThemesRoute,
+  AuthenticatedTraitsRoute: AuthenticatedTraitsRoute,
 }
 
-const AuthenticatedRouteRouteWithChildren = AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
-const rootRouteChildren: RootRouteChildren = { IndexRoute, AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren, AuthRoute }
-export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
+  McpRoute: McpRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+    Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+}
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
 import type { startInstance } from './start.ts'
