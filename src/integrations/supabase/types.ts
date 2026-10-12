@@ -2322,6 +2322,11 @@ export type Database = {
           id: string
           notes: string | null
           ownership_status: string
+          prefix: string | null
+          vanity_shield: string | null
+          hull_material: string | null
+          visual_notes: string | null
+          visual_config: Json
           sto_ship_id: string
           t6_upgraded: boolean
           t6x_upgraded: boolean
@@ -2343,6 +2348,11 @@ export type Database = {
           id?: string
           notes?: string | null
           ownership_status?: string
+          prefix?: string | null
+          vanity_shield?: string | null
+          hull_material?: string | null
+          visual_notes?: string | null
+          visual_config?: Json
           sto_ship_id: string
           t6_upgraded?: boolean
           t6x_upgraded?: boolean
@@ -2364,6 +2374,11 @@ export type Database = {
           id?: string
           notes?: string | null
           ownership_status?: string
+          prefix?: string | null
+          vanity_shield?: string | null
+          hull_material?: string | null
+          visual_notes?: string | null
+          visual_config?: Json
           sto_ship_id?: string
           t6_upgraded?: boolean
           t6x_upgraded?: boolean
