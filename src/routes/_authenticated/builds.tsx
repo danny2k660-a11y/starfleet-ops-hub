@@ -730,16 +730,20 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const setCounts = useMemo(() => {
     const catalogById = new Map((setPieces.data ?? []).map((item) => [item.id, item]));
     const countedEquipment = new Set<string>();
-    const counts = new Map<string, number>();
+    const piecesBySet = new Map<string, Set<string>>();
     for (const assignment of assigned.data ?? []) {
       if (countedEquipment.has(assignment.equipment_id)) continue;
       countedEquipment.add(assignment.equipment_id);
       const catalogItem = catalogById.get(assignment.equipment_items?.catalog_item_id);
-      if (catalogItem?.set_name) counts.set(catalogItem.set_name, (counts.get(catalogItem.set_name) ?? 0) + 1);
+      if (!catalogItem?.set_name) continue;
+      const pieces = piecesBySet.get(catalogItem.set_name) ?? new Set<string>();
+      // Variant items (for example, three Prevailing Regalia engine styles) are one set piece.
+      pieces.add(catalogItem.set_piece || catalogItem.id);
+      piecesBySet.set(catalogItem.set_name, pieces);
     }
-    return Array.from(counts.entries()).map(([setName, count]) => ({
-      setName, count,
-      bonuses: (setBonusRules.data ?? []).filter((rule) => rule.set_name === setName && rule.piece_threshold <= count),
+    return Array.from(piecesBySet.entries()).map(([setName, pieces]) => ({
+      setName, count: pieces.size,
+      bonuses: (setBonusRules.data ?? []).filter((rule) => rule.set_name === setName && rule.piece_threshold <= pieces.size),
     }));
   }, [assigned.data, setPieces.data, setBonusRules.data]);
   const hangarSlots = Array.from({ length: Math.max(0, Number(shipData?.hangar_bays ?? 0)) }, (_, index) => "Hangar Bay " + (index + 1));
