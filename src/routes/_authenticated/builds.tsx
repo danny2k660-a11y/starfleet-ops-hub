@@ -704,6 +704,39 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
     return out;
   })();
   const bySlot = new Map((assigned.data ?? []).map((a:any) => [a.slot, a]));
+  const catalogItemIds = useMemo(() => Array.from(new Set((assigned.data ?? []).map((item: any) => item.equipment_items?.catalog_item_id).filter(Boolean) as string[])), [assigned.data]);
+  const setPieces = useQuery({
+    queryKey: ["equipment_set_pieces", catalogItemIds],
+    enabled: catalogItemIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("equipment_catalog").select("id,name,set_name,set_piece").in("id", catalogItemIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const setBonusRules = useQuery({
+    queryKey: ["sto_equipment_set_bonuses"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("sto_equipment_set_bonuses").select("*").eq("verified", true).order("set_name").order("piece_threshold");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const setCounts = useMemo(() => {
+    const catalogById = new Map((setPieces.data ?? []).map((item) => [item.id, item]));
+    const countedEquipment = new Set<string>();
+    const counts = new Map<string, number>();
+    for (const assignment of assigned.data ?? []) {
+      if (countedEquipment.has(assignment.equipment_id)) continue;
+      countedEquipment.add(assignment.equipment_id);
+      const catalogItem = catalogById.get(assignment.equipment_items?.catalog_item_id);
+      if (catalogItem?.set_name) counts.set(catalogItem.set_name, (counts.get(catalogItem.set_name) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([setName, count]) => ({
+      setName, count,
+      bonuses: (setBonusRules.data ?? []).filter((rule) => rule.set_name === setName && rule.piece_threshold <= count),
+    }));
+  }, [assigned.data, setPieces.data, setBonusRules.data]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -739,6 +772,16 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       {Object.keys(boff).length > 0 && <div className="rounded-lg border border-border/70 bg-background/30 p-3"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bridge Officer Stations</p><div className="space-y-1">{Object.entries(boff).map(([station, value]) => <div key={station} className="flex justify-between gap-3 rounded border border-border px-2 py-1.5 text-sm"><span>{station}</span><span className="text-primary">{typeof value === "string" ? value : JSON.stringify(value)}</span></div>)}</div></div>}
       {(trait || special.length > 0) && <div className="rounded-lg border border-border/70 bg-background/30 p-3"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ship Identity</p>{trait && <div className="mb-2 rounded border border-primary/30 bg-primary/5 px-2 py-1.5"><span className="text-xs text-muted-foreground">Ship Trait</span><p className="text-sm text-primary">{trait}</p></div>}{special.map((x,i)=><div key={i} className="mb-1 rounded border border-border px-2 py-1.5 text-sm">{x}</div>)}</div>}
     </div>}
+    <div className="mt-3 rounded-lg border border-accent/20 bg-accent/5 p-3">
+      <div className="flex items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-accent">Equipment set tracker</p><p className="text-[11px] text-muted-foreground">Counts only catalogue-linked set pieces. Bonus effects appear only when a verified source is recorded.</p></div><Badge variant="outline">{setCounts.length} sets</Badge></div>
+      <div className="mt-2 space-y-2">
+        {setCounts.map((set) => <div key={set.setName} className="rounded border border-border bg-background/40 p-2">
+          <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium text-primary">{set.setName}</p><Badge variant="secondary">{set.count} piece{set.count === 1 ? "" : "s"}</Badge></div>
+          {set.bonuses.length ? set.bonuses.map((bonus) => <div key={bonus.id} className="mt-2 border-t border-border pt-2"><p className="text-xs font-medium">{bonus.piece_threshold}-piece bonus: {bonus.bonus_name}</p><p className="mt-1 text-xs text-muted-foreground">{bonus.bonus_description}</p><a className="mt-1 inline-block text-[10px] text-primary underline" href={bonus.source_reference} target="_blank" rel="noreferrer">Verified source</a></div>) : <p className="mt-1 text-xs text-muted-foreground">No verified bonus threshold is registered for this set. No effect is assumed.</p>}
+        </div>)}
+        {!setCounts.length && <p className="text-xs text-muted-foreground">{(assigned.data ?? []).length ? "The assigned items are not linked to catalogue set metadata yet." : "Assign equipment to see set-piece counts."}</p>}
+      </div>
+    </div>
     <div className="mt-3 grid gap-3 sm:grid-cols-2">
       {groups.map(([group, groupSlots]) => groupSlots.length ? <div key={group} className="rounded-lg border border-border/70 bg-background/30 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group}</p>
