@@ -1,5 +1,13 @@
 -- Add the current app table names to databases that still contain the older sto_* ledgers.
 -- All changes are additive; legacy sto_projects/sto_project_tasks/sto_resource_balances are preserved.
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  display_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
@@ -54,9 +62,12 @@ alter table public.projects enable row level security;
 alter table public.project_tasks enable row level security;
 alter table public.resource_balances enable row level security;
 alter table public.inventory_items enable row level security;
+alter table public.profiles enable row level security;
 
 grant select, insert, update, delete on public.projects, public.project_tasks, public.resource_balances, public.inventory_items to authenticated;
 grant all on public.projects, public.project_tasks, public.resource_balances, public.inventory_items to service_role;
+grant select, insert, update, delete on public.profiles to authenticated;
+grant all on public.profiles to service_role;
 
 drop policy if exists "own projects" on public.projects;
 create policy "own projects" on public.projects for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -70,6 +81,8 @@ drop policy if exists "own resource balances" on public.resource_balances;
 create policy "own resource balances" on public.resource_balances for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 drop policy if exists "own inventory" on public.inventory_items;
 create policy "own inventory" on public.inventory_items for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists profiles_owner_all on public.profiles;
+create policy profiles_owner_all on public.profiles for all to authenticated using (id = auth.uid()) with check (id = auth.uid());
 
 create index if not exists projects_user_idx on public.projects(user_id);
 create index if not exists project_tasks_project_idx on public.project_tasks(project_id);
@@ -83,3 +96,5 @@ drop trigger if exists resource_balances_updated_at on public.resource_balances;
 create trigger resource_balances_updated_at before update on public.resource_balances for each row execute function public.update_updated_at_column();
 drop trigger if exists inventory_items_updated_at on public.inventory_items;
 create trigger inventory_items_updated_at before update on public.inventory_items for each row execute function public.update_updated_at_column();
+drop trigger if exists profiles_updated_at on public.profiles;
+create trigger profiles_updated_at before update on public.profiles for each row execute function public.update_updated_at_column();
