@@ -282,32 +282,42 @@ function ShipDatabasePage() {
           .from("trait_catalog")
           .select("id")
           .ilike("name", ship.ship_trait)
+          .limit(1)
           .maybeSingle();
         if (traitLookupError) throw traitLookupError;
         if (matchingTrait) {
-          const traitRows = targetCharacters.map((character) => ({
-            user_id: u.user.id,
-            character_id: character.id,
-            trait_id: (matchingTrait as any).id,
-            // Unlocked does not mean equipped; preserve chosen trait slots.
-            active: false,
-            slot_index: null,
-            domain: "space",
-            trait_category: "starship",
-            slot_group: null,
-            source_type: "ship_unlock",
-            source_name: ship.name,
-          }));
-          const { error } = await supabase
-            .from("character_traits")
-            .upsert(traitRows, { onConflict: "character_id,trait_id", ignoreDuplicates: true });
-          if (error) throw error;
+          for (const character of targetCharacters) {
+            const { data: existingTrait, error: existingTraitError } = await supabase
+              .from("character_traits")
+              .select("id")
+              .eq("user_id", u.user.id)
+              .eq("character_id", character.id)
+              .eq("trait_id", matchingTrait.id)
+              .limit(1)
+              .maybeSingle();
+            if (existingTraitError) throw existingTraitError;
+            if (!existingTrait) {
+              const { error } = await supabase.from("character_traits").insert({
+                user_id: u.user.id,
+                character_id: character.id,
+                trait_id: matchingTrait.id,
+                active: false,
+                slot_index: null,
+                domain: "space",
+                trait_category: "starship",
+                slot_group: null,
+                source_type: "ship_unlock",
+                source_name: ship.name,
+              });
+              if (error) throw error;
+            }
+          }
         }
       }
 
       for (const equipment of equipmentRows) {
         const { data: existingEquipment, error: equipmentLookupError } = await supabase
-          .from("equipment_items" as never)
+          .from("equipment_items")
           .select("id")
           .eq("user_id", u.user.id)
           .eq("character_id", equipment.character_id)
