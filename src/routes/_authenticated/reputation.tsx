@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Plus, Trash2 } from "lucide-react";
+import { Activity, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -113,7 +113,7 @@ function ReputationPage() {
         : reputations.isError ? <div className="panel p-8 text-center text-destructive">Could not load reputation records: {(reputations.error as Error).message}</div>
         : visible.length === 0 ? <div className="panel p-8 text-center text-muted-foreground">No reputation records yet. Add the exact in-game names and your current progress.</div>
         : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{visible.map((item) => <div key={item.id} className="panel p-4">
-          <div className="flex items-start justify-between gap-2"><div><p className="lcars-label">{characterNames.get(item.character_id) ?? "Character"}</p><h3 className="font-display text-lg text-primary">{item.reputation_name}</h3></div><Button size="icon" variant="ghost" aria-label={"Delete " + item.reputation_name} onClick={() => { if (window.confirm("Delete this reputation record?")) remove.mutate(item.id); }}><Trash2 className="size-4 text-destructive" /></Button></div>
+          <div className="flex items-start justify-between gap-2"><div><p className="lcars-label">{characterNames.get(item.character_id) ?? "Character"}</p><h3 className="font-display text-lg text-primary">{item.reputation_name}</h3></div><div className="flex gap-1"><Button size="icon" variant="ghost" aria-label={"Edit " + item.reputation_name} onClick={() => { setCharacterId(item.character_id); setName(item.reputation_name); setTier(String(item.tier)); setProgress(String(item.progress)); setDailyClaimed(item.daily_claimed); setNotes(item.notes ?? ""); window.scrollTo({ top: 0, behavior: "smooth" }); }}><Pencil className="size-4" /></Button><Button size="icon" variant="ghost" aria-label={"Delete " + item.reputation_name} onClick={() => { if (window.confirm("Delete this reputation record?")) remove.mutate(item.id); }}><Trash2 className="size-4 text-destructive" /></Button></div></div>
           <div className="mt-3 flex items-center justify-between text-sm"><span>Tier {item.tier}</span><span className="tabular-nums">{item.progress}%</span></div>
           <div className="mt-1 h-2 overflow-hidden rounded bg-muted"><div className="h-full rounded bg-primary" style={{ width: item.progress + "%" }} /></div>
           <p className="mt-2 text-xs text-muted-foreground">{item.daily_claimed ? "Daily project marked claimed" : "Daily project not marked claimed"}</p>
