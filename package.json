@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "android:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android",
-    "typecheck": "npm run build && tsc --noEmit"
+    "typecheck": "npm run build && tsc --noEmit",
+    "check:migrations": "node scripts/check-migration-versions.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
