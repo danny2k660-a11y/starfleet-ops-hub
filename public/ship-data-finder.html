@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111827">
+<title>Starfleet Ops Hub — Ship Data Finder</title>
+<style>
+:root{--bg:#0a101b;--panel:#111d2c;--panel2:#17283b;--ink:#e8f4ff;--muted:#9cb3c8;--cyan:#69e5ff;--orange:#ffad62;--gold:#ffd36a;--line:#29465e;--green:#70efb3;--red:#ff8b92}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#1a3047 0,#0a101b 55%);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh}
+header{padding:24px clamp(16px,4vw,48px) 18px;border-bottom:1px solid var(--line);background:#09111ddd}
+.kicker{font-size:.75rem;letter-spacing:.2em;color:var(--orange);font-weight:800;text-transform:uppercase}
+h1{font-size:clamp(1.65rem,4vw,2.5rem);margin:.25rem 0;color:var(--cyan);letter-spacing:.03em}header p{color:var(--muted);margin:0;max-width:850px}
+main{max-width:1150px;margin:auto;padding:22px clamp(12px,3vw,30px) 48px;display:grid;gap:18px}
+.panel{background:linear-gradient(145deg,#142337ee,#0f1928ee);border:1px solid var(--line);border-radius:16px;padding:clamp(15px,3vw,24px);box-shadow:0 12px 32px #0003}
+h2{font-size:1.1rem;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);margin:0 0 14px}
+.searchrow{display:flex;gap:10px;flex-wrap:wrap}input,textarea,select{width:100%;background:#081321;color:var(--ink);border:1px solid #38536c;border-radius:10px;padding:12px 13px;font:inherit;min-width:0}input:focus,textarea:focus{outline:2px solid var(--cyan);outline-offset:1px}.searchrow input{flex:1 1 240px}
+button,.linkbtn{cursor:pointer;border:1px solid var(--cyan);background:#143348;color:var(--cyan);border-radius:10px;padding:11px 14px;font:700 .9rem system-ui;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button.primary{background:var(--cyan);color:#06111b}button.secondary{border-color:var(--line);color:var(--ink);background:#17283b}button.warn{border-color:var(--orange);color:var(--orange);background:#38271b}
+button:hover,.linkbtn:hover{filter:brightness(1.16)}button:focus-visible,.linkbtn:focus-visible{outline:2px solid white;outline-offset:2px}
+.status{margin-top:12px;padding:11px 13px;border-radius:9px;background:#0a1522;color:var(--muted);border-left:3px solid var(--cyan)}.status.good{border-color:var(--green);color:var(--green)}.status.warn{border-color:var(--orange);color:#ffd1a6}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field label{display:block;font-size:.76rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin:0 0 5px}.field.full{grid-column:1/-1}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin:16px 0}.stat{background:#0a1624;border:1px solid var(--line);border-radius:10px;padding:12px}.stat small{display:block;color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em}.stat strong{font-size:1.12rem;color:var(--cyan)}
+.pill{display:inline-block;padding:4px 9px;border-radius:99px;border:1px solid #41657c;color:var(--cyan);font-size:.75rem;margin:0 6px 6px 0}
+.actions,.sources{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}.note{color:var(--muted);font-size:.88rem}.savedlist{display:grid;gap:8px}.saveditem{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#0a1522}.saveditem button{padding:7px 10px}
+footer{max-width:1150px;margin:auto;padding:0 24px 30px;color:var(--muted);font-size:.8rem}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.field.full{grid-column:auto}.searchrow button{flex:1}.saveditem{align-items:flex-start;flex-direction:column}.actions button{flex:1}}
+</style>
+</head>
+<body>
+<header><div class="kicker">Starfleet Operations // Database Services</div><h1>SHIP DATA FINDER</h1><p>Search a ship, inspect the available record, follow source links, then save a verified copy to this device. If a wiki blocks automated access, the finder offers alternate search routes instead of trying to defeat its security.</p></header>
+<main>
+<section class="panel">
+<h2>01 / Query ship registry</h2>
+<form id="searchForm" class="searchrow"><input id="query" value="Breen Yod-Thot Dreadnought Carrier" aria-label="Ship name" placeholder="Enter ship name…" autocomplete="off"><button class="primary" type="submit">Search database</button><button class="secondary" type="button" id="externalSearch">Search sources ↗</button></form>
+<div id="status" class="status">Ready. Try “Breen Yod-Thot Dreadnought Carrier”.</div>
+<div class="sources" id="sourceLinks"></div>
+</section>
+<section class="panel">
+<h2>02 / Ship record — review and edit</h2>
+<div id="recordTags"></div>
+<div class="stats" id="stats"></div>
+<form id="recordForm">
+<div class="grid">
+<div class="field"><label for="name">Ship name</label><input id="name" required></div>
+<div class="field"><label for="tier">Tier</label><input id="tier" placeholder="e.g. T6"></div>
+<div class="field"><label for="type">Ship type</label><input id="type"></div>
+<div class="field"><label for="faction">Faction / affiliation</label><input id="faction"></div>
+<div class="field"><label for="hull">Hull modifier</label><input id="hull"></div>
+<div class="field"><label for="shield">Shield modifier</label><input id="shield"></div>
+<div class="field"><label for="turn">Turn rate</label><input id="turn"></div>
+<div class="field"><label for="impulse">Impulse modifier</label><input id="impulse"></div>
+<div class="field"><label for="inertia">Inertia rating</label><input id="inertia"></div>
+<div class="field"><label for="power">Bonus power</label><input id="power"></div>
+<div class="field"><label for="weapons">Weapon layout</label><input id="weapons"></div>
+<div class="field"><label for="dualCannons">Dual cannons</label><select id="dualCannons"><option>Unknown</option><option>Yes</option><option>No</option></select></div>
+<div class="field full"><label for="seating">Bridge officer seating (confirm before relying)</label><input id="seating"></div>
+<div class="field full"><label for="traits">Starship trait</label><input id="traits"></div>
+<div class="field full"><label for="console">Universal console / special ability</label><input id="console"></div>
+<div class="field full"><label for="notes">Notes / verification needed</label><textarea id="notes" rows="3"></textarea></div>
+<div class="field full"><label for="source">Primary source URL</label><input id="source" type="url"></div>
+</div>
+<div class="actions"><button class="primary" type="submit">Save ship to this device</button><button class="secondary" type="button" id="resetRecord">Reset form</button><button class="secondary" type="button" id="exportBtn">Export saved ships</button><label class="linkbtn" for="importFile">Import JSON</label><input id="importFile" type="file" accept="application/json,.json" hidden></div>
+</form>
+<p class="note">This standalone HTML version saves to this browser/device using local storage. It does not write to Supabase or sync to other devices. Export the saved JSON to back it up or import it elsewhere.</p>
+</section>
+<section class="panel"><h2>03 / Saved ships on this device</h2><div id="savedList" class="savedlist"></div></section>
+</main>
+<footer>Community-maintained ship information can change. Check the linked source before treating a field as confirmed. No Cloudflare challenge is bypassed by this tool.</footer>
+<script>
+const KEY='starfleet-ops-hub.shipFinder.saved.v1';
+const yodThot={
+ name:'Breen Yod-Thot Dreadnought Carrier',tier:'T6',type:'Dreadnought Carrier',faction:'Breen Confederacy',
+ hull:'1.7 (base hull modifier; source lists 17,000–76,500 scaling range)',shield:'0.9',turn:'5',impulse:'0.17',inertia:'40',power:'+20 weapon power',
+ weapons:'5 fore / 2 aft',dualCannons:'Yes',seating:'Not populated — verify against an English source before entering',
+ traits:"Breen’s Free Fire — extends Beam: Fire at Will duration by 9 seconds",
+ console:'Shield Frequency Overload (universal console); source describes shield drain / shield resistance debuff',
+ notes:'Seeded from an accessible community reference page. Confirm current stats and console details against the in-game ship selector or an English wiki page. Do not assume unlisted console counts or full bridge-officer ranks.',
+ source:'https://dark.namu.moe/w/스타트렉%20온라인/함선/중립',
+ provenance:'Seed record based on accessible community reference; some fields need English-source verification.',
+};
+const byId=id=>document.getElementById(id);
+const ids=['name','tier','type','faction','hull','shield','turn','impulse','inertia','power','weapons','dualCannons','seating','traits','console','notes','source'];
+let current={...yodThot};
+function getSaved(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}}
+function setStatus(msg,kind=''){byId('status').textContent=msg;byId('status').className='status '+kind}
+function fillForm(ship){current={...ship};ids.forEach(id=>byId(id).value=ship[id]||'');renderStats();renderTags()}
+function formShip(){const o={};ids.forEach(id=>o[id]=byId(id).value.trim());o.updatedAt=new Date().toISOString();return o}
+function renderStats(){const vals=[['Hull modifier',current.hull],['Shield modifier',current.shield],['Turn rate',current.turn],['Impulse modifier',current.impulse],['Inertia',current.inertia],['Bonus power',current.power],['Weapons',current.weapons]];byId('stats').innerHTML=vals.map(([k,v])=>'<div class="stat"><small>'+esc(k)+'</small><strong>'+esc(v||'Not recorded')+'</strong></div>').join('')}
+function renderTags(){byId('recordTags').innerHTML='<span class="pill">'+esc(current.tier||'Tier unknown')+'</span><span class="pill">'+esc(current.type||'Type unknown')+'</span><span class="pill">Editable record</span>'}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function renderSources(q){const term=encodeURIComponent(q||current.name);const links=[
+ ['STO Wiki (direct)','https://stowiki.net/wiki/'+(q||current.name).trim().replace(/\s+/g,'_')],
+ ['STO Wiki search','https://stowiki.net/wiki/Special:Search?search='+term],
+ ['Web search','https://www.google.com/search?q='+encodeURIComponent('Star Trek Online '+(q||current.name)+' ship stats')],
+ ['Old STO Wiki fallback','https://sto.fandom.com/wiki/Special:Search?query='+term]
+];byId('sourceLinks').innerHTML=links.map(([label,url])=>'<a class="linkbtn" href="'+url+'" target="_blank" rel="noopener noreferrer">'+esc(label)+' ↗</a>').join('')}
+function renderSaved(){const saved=getSaved();byId('savedList').innerHTML=saved.length?saved.map((s,i)=>'<div class="saveditem"><div><strong>'+esc(s.name)+'</strong><div class="note">'+esc([s.tier,s.type,s.weapons].filter(Boolean).join(' · '))+'</div></div><div class="actions"><button class="secondary" data-load="'+i+'">Load</button><button class="warn" data-delete="'+i+'">Delete</button></div></div>').join(''):'<p class="note">No saved ships yet. Save the Breen Yod-Thot record above to create the first local entry.</p>'}
+function normalize(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'')}
+function searchLocal(q){const list=[yodThot,...getSaved()];return list.find(s=>normalize(s.name)===normalize(q))||list.find(s=>normalize(s.name).includes(normalize(q))||normalize(q).includes(normalize(s.name)))}
+async function searchShip(q){q=q.trim();if(!q)return;renderSources(q);const found=searchLocal(q);if(found){fillForm(found);setStatus('Record loaded locally: '+found.name+'. Review the source links and save your confirmed version.','good');return}
+setStatus('No local match. Trying the public MediaWiki search API where available…');
+try{const api='https://stowiki.net/api.php?action=query&list=search&srsearch='+encodeURIComponent(q)+'&format=json&origin=*';const res=await fetch(api,{headers:{Accept:'application/json'}});if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();const hit=data?.query?.search?.[0];if(hit){setStatus('The wiki search API returned a page title, but this page does not automatically trust or scrape unverified fields. Open the source, verify details, then enter them in the editable record.','good');byId('name').value=hit.title;byId('source').value='https://stowiki.net/wiki/'+hit.title.replace(/\s+/g,'_');return}throw new Error('No matching page returned')}
+catch(err){setStatus('Automated wiki lookup was unavailable ('+String(err.message||err)+'). No security challenge was bypassed. Use the alternate source links below; once you confirm the ship data, fill the fields and save it.','warn');fillForm({name:q,tier:'',type:'',faction:'',hull:'',shield:'',turn:'',impulse:'',inertia:'',power:'',weapons:'',dualCannons:'Unknown',seating:'',traits:'',console:'',notes:'Needs source verification',source:'https://stowiki.net/wiki/'+q.replace(/\s+/g,'_')})}}
+byId('searchForm').addEventListener('submit',e=>{e.preventDefault();searchShip(byId('query').value)});
+byId('externalSearch').addEventListener('click',()=>{const q=byId('query').value.trim()||current.name;renderSources(q);window.open('https://www.google.com/search?q='+encodeURIComponent('Star Trek Online '+q+' ship stats'),'_blank','noopener')});
+byId('recordForm').addEventListener('submit',e=>{e.preventDefault();const ship=formShip();if(!ship.name)return;const saved=getSaved();const idx=saved.findIndex(s=>normalize(s.name)===normalize(ship.name));if(idx>=0)saved[idx]=ship;else saved.unshift(ship);localStorage.setItem(KEY,JSON.stringify(saved));current=ship;renderStats();renderTags();renderSaved();setStatus('Saved “'+ship.name+'” to this device.','good')});
+byId('resetRecord').addEventListener('click',()=>{fillForm(yodThot);setStatus('Seed record restored. Unsaved edits were discarded.')});
+byId('exportBtn').addEventListener('click',()=>{const data=JSON.stringify(getSaved(),null,2);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download='starfleet-ops-hub-ships.json';a.click();URL.revokeObjectURL(a.href)});
+byId('importFile').addEventListener('change',async e=>{const f=e.target.files?.[0];if(!f)return;try{const incoming=JSON.parse(await f.text());if(!Array.isArray(incoming))throw new Error('JSON must contain a list of ships');const merged=getSaved();for(const ship of incoming){if(!ship?.name)continue;const i=merged.findIndex(s=>normalize(s.name)===normalize(ship.name));if(i>=0)merged[i]={...merged[i],...ship};else merged.push(ship)}localStorage.setItem(KEY,JSON.stringify(merged));renderSaved();setStatus('Imported '+incoming.length+' record(s).','good')}catch(err){setStatus('Import failed: '+err.message,'warn')}e.target.value=''});
+byId('savedList').addEventListener('click',e=>{const load=e.target.closest('[data-load]');const del=e.target.closest('[data-delete]');if(load){const s=getSaved()[Number(load.dataset.load)];if(s){fillForm(s);byId('query').value=s.name;setStatus('Loaded saved record for editing.')}}if(del){const saved=getSaved();saved.splice(Number(del.dataset.delete),1);localStorage.setItem(KEY,JSON.stringify(saved));renderSaved();setStatus('Saved record deleted from this device.')}})
+fillForm(yodThot);renderSources(yodThot.name);renderSaved();
+</script>
+</body>
+</html>
