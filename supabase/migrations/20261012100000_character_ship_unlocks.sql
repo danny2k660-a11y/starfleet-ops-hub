@@ -13,6 +13,8 @@ create table if not exists public.character_ship_unlocks (
 
 alter table public.character_ship_unlocks enable row level security;
 grant select, insert, update, delete on public.character_ship_unlocks to authenticated;
+drop policy if exists "character ship unlocks own rows" on public.character_ship_unlocks;
+drop policy if exists character_ship_unlocks_owner_all on public.character_ship_unlocks;
 create policy character_ship_unlocks_owner_all
   on public.character_ship_unlocks for all to authenticated
   using (user_id = auth.uid())
