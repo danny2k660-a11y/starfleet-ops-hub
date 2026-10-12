@@ -259,6 +259,8 @@ export type Database = {
         Row: {
           build_id: string
           created_at: string | null
+          ground_traits: string[]
+          specializations: string[]
           id: string
           is_active: boolean
           name: string
@@ -269,6 +271,8 @@ export type Database = {
         Insert: {
           build_id: string
           created_at?: string | null
+          ground_traits?: string[]
+          specializations?: string[]
           id?: string
           is_active?: boolean
           name: string
@@ -279,6 +283,8 @@ export type Database = {
         Update: {
           build_id?: string
           created_at?: string | null
+          ground_traits?: string[]
+          specializations?: string[]
           id?: string
           is_active?: boolean
           name?: string
