@@ -66,3 +66,27 @@ Status definitions: **Present in source** means repository documentation or file
 - Never invent ship statistics, acquisition sources, set bonuses or unlocks.
 - Do not mark tests passed until the corresponding command or workflow has actually succeeded.
 - Keep this document updated with real test output and links to commits/CI runs.
+
+
+## Additional implementation progress (2026-10-12)
+
+### Implemented on `work/starfleet-computer-overhaul`
+
+- Repaired project and resource screens to use the actual migration-backed `projects`, `project_tasks`, and `resource_balances` tables instead of stale `sto_*` names. Project tasks now use the schema's `done` boolean.
+- Separated stored inventory from equipped character equipment. The inventory screen uses `inventory_items`; added nullable gear metadata columns for slot, rarity, mark and source. Existing equipment rows are not automatically copied or deleted.
+- Added character-owned bridge officer records for user-entered officer names/careers rather than writing unsupported columns into the catalogue-linked `character_boffs` table.
+- Added a per-character reputation tracker with editable tier, progress percentage, daily-project flag and notes. Reputation names are user-entered; no assumed progress is seeded.
+- Added build snapshot history, side-by-side build comparison, JSON snapshot copying and a transactional copy-to-ship RPC. Cross-character copy deliberately omits character-bound equipment, duty officers, hangar pets and ground selections.
+- Added a carrier hangar pet roster per loadout. Names are explicitly user-entered, with optional source links and notes; the app does not guess pets from ship class.
+- Added an equipment set tracker based on assigned items linked to the equipment catalogue. Bonus effects are displayed only when a verified source record exists; the new reference table is intentionally not seeded with guessed bonus data.
+- Added Tal Shiar/Borg Integration and Dominion Vanguard theme presets.
+- Expanded portable backup coverage to include reputation records, custom bridge officers, build versions and hangar pets. Restore remaps user IDs, imports parents before children, handles the circular build/ship relationship in a second pass, and uses upserts rather than deleting records.
+- Corrected ship-claim default naming, made ship-derived traits available without auto-equipping them, improved partial-failure messages, and added validate/apply actions to the STOWiki ship-catalog import review.
+- Added missing table/function type definitions and a TypeScript check to CI. Fixed the identified TypeScript failures; CI and web-build checks passed on commit `9826f2fb`. The E2E route smoke suite passed on `eb448cbf`; a newer E2E run covering the full feature set is still pending as of this note.
+
+### Remaining external dependency / release gate
+
+- The repository environment points to a Lovable Cloud backend identifier (`ltuixnsfecisrtblvnej`). The connected Supabase project available to the database tools is a different, empty project and was paused again after identifying the mismatch. No migrations or user data were applied to that unrelated project.
+- New SQL migrations in this branch have **not** been applied to the live Lovable Cloud backend, and its schema, RLS policies, and user rows could not be inspected from the current connection. Do not merge/deploy these changes until the actual Lovable Cloud project is connected and the migration set has been reviewed against its live migration history.
+- The migration directory contains duplicate timestamp prefixes in the pre-existing history. Do not rename or replay old migrations blindly; reconcile the deployed migration ledger first.
+- Build copy, backup restore and new pages have CI coverage for build/type correctness, but need authenticated integration testing against the real backend before release.
