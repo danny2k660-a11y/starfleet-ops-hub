@@ -63,11 +63,11 @@ begin
     select v_user_id, v_new_loadout_id, station, officer_name, officer_species, boff_id, specialization, abilities, notes, slot
     from public.loadout_boffs where loadout_id = v_old_loadout.id and user_id = v_user_id;
 
-    insert into public.loadout_duty_officers (loadout_id, duty_officer_id, name, department, effect_text, notes)
-    select v_new_loadout_id, duty_officer_id, name, department, effect_text, notes
-    from public.loadout_duty_officers where loadout_id = v_old_loadout.id;
-
     if v_same_character then
+      insert into public.loadout_duty_officers (loadout_id, duty_officer_id, name, department, effect_text, notes)
+      select v_new_loadout_id, duty_officer_id, name, department, effect_text, notes
+      from public.loadout_duty_officers where loadout_id = v_old_loadout.id;
+
       insert into public.loadout_equipment (user_id, loadout_id, equipment_id, slot)
       select v_user_id, v_new_loadout_id, equipment_id, slot
       from public.loadout_equipment where loadout_id = v_old_loadout.id and user_id = v_user_id;
@@ -78,9 +78,11 @@ begin
     end if;
   end loop;
 
-  insert into public.build_doffs (build_id, doff_id, name, department, specialization, assignment, notes, active)
-  select v_new_build_id, doff_id, name, department, specialization, assignment, notes, active
-  from public.build_doffs where build_id = v_source.id;
+  if v_same_character then
+    insert into public.build_doffs (build_id, doff_id, name, department, specialization, assignment, notes, active)
+    select v_new_build_id, doff_id, name, department, specialization, assignment, notes, active
+    from public.build_doffs where build_id = v_source.id;
+  end if;
 
   for v_old_ground in
     select * from public.build_ground_loadouts
