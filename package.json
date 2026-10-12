@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "android:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsr generate && tsc --noEmit"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -74,7 +74,8 @@
     "zod": "^3.25.76",
     "@capacitor/app": "^8.0.0",
     "@capacitor/browser": "^8.0.0",
-    "@capacitor/preferences": "^8.0.0"
+    "@capacitor/preferences": "^8.0.0",
+    "@radix-ui/react-scroll-area": "^1.2.10"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.0",
