@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type Item = Tables<"equipment_items">;
+type Item = Tables<"inventory_items">;
 type Character = Tables<"characters">;
 
 export const Route = createFileRoute("/_authenticated/inventory")({
@@ -33,7 +33,10 @@ function InventoryPage() {
   const characters = useQuery({
     queryKey: ["inventory-characters"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("characters").select("*").order("name");
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) throw new Error("Not signed in.");
+      const { data, error } = await supabase.from("characters").select("*").eq("user_id", auth.user.id).order("name");
       if (error) throw error;
       return data as Character[];
     },
@@ -42,7 +45,10 @@ function InventoryPage() {
   const items = useQuery({
     queryKey: ["inventory-items"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("equipment_items").select("*").order("updated_at", { ascending: false });
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) throw new Error("Not signed in.");
+      const { data, error } = await supabase.from("inventory_items").select("*").eq("user_id", auth.user.id).order("updated_at", { ascending: false });
       if (error) throw error;
       return data as Item[];
     },
@@ -62,19 +68,20 @@ function InventoryPage() {
       if (!form.name.trim()) throw new Error("Item name is required.");
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error("No signed-in user.");
-      const payload: TablesInsert<"equipment_items"> = {
+      const payload: TablesInsert<"inventory_items"> = {
         user_id: user.user.id,
         name: form.name.trim(),
-        category: form.category.trim() || null,
+        category: form.category.trim() || "Other",
         slot: form.slot.trim() || null,
         quantity: Math.max(1, Number(form.quantity) || 1),
         rarity: form.rarity.trim() || null,
         mark: form.mark.trim() || null,
         notes: form.notes.trim() || null,
         source: form.source.trim() || null,
+        location: form.characterId === "__account__" ? "Account" : "Character",
         character_id: form.characterId === "__account__" ? null : form.characterId,
       };
-      const { error } = await supabase.from("equipment_items").insert(payload);
+      const { error } = await supabase.from("inventory_items").insert(payload);
       if (error) throw error;
     },
     onSuccess: async () => { setOpen(false); setForm({ name: "", category: "", slot: "", quantity: "1", rarity: "", mark: "", notes: "", source: "", characterId: "__account__" }); await qc.invalidateQueries({ queryKey: ["inventory-items"] }); toast.success("Inventory item added."); },
@@ -83,7 +90,10 @@ function InventoryPage() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("equipment_items").delete().eq("id", id);
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) throw new Error("Not signed in.");
+      const { error } = await supabase.from("inventory_items").delete().eq("id", id).eq("user_id", auth.user.id);
       if (error) throw error;
     },
     onSuccess: async () => { await qc.invalidateQueries({ queryKey: ["inventory-items"] }); toast.success("Inventory item removed."); },
