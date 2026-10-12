@@ -20,6 +20,7 @@ type ResourceBalanceRow = { id: string; user_id: string; character_id: string | 
 type InventoryItemRow = { id: string; user_id: string; character_id: string | null; name: string; category: string; slot: string | null; rarity: string | null; mark: string | null; source: string | null; quantity: number; location: string; notes: string | null; created_at: string; updated_at: string };
 type ThemeRuleRow = { id: string; user_id: string; theme_name: string; rule_type: "required" | "allowed" | "forbidden" | "keyword"; value: string; created_at: string };
 type CharacterShipUnlockRow = { id: string; user_id: string; character_id: string; sto_ship_id: string; unlock_type: "ship_trait" | "console" | "special_weapon"; name: string; source_name: string | null; created_at: string };
+type CharacterBridgeOfficerRow = { id: string; user_id: string; character_id: string; name: string; species: string | null; career: string | null; rank: string | null; specialization: string | null; traits: Json; abilities: Json; notes: string | null; active: boolean; created_at: string; updated_at: string };
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
@@ -36,6 +37,7 @@ export type Database = {
       inventory_items: TableDef<InventoryItemRow, { id?: string; user_id?: string; character_id?: string | null; name: string; category?: string; slot?: string | null; rarity?: string | null; mark?: string | null; source?: string | null; quantity?: number; location?: string; notes?: string | null; created_at?: string; updated_at?: string }>;
       theme_rules: TableDef<ThemeRuleRow, { id?: string; user_id?: string; theme_name: string; rule_type: ThemeRuleRow["rule_type"]; value: string; created_at?: string }>;
       character_ship_unlocks: TableDef<CharacterShipUnlockRow, { id?: string; user_id?: string; character_id: string; sto_ship_id: string; unlock_type: CharacterShipUnlockRow["unlock_type"]; name: string; source_name?: string | null; created_at?: string }>;
+      character_bridge_officers: TableDef<CharacterBridgeOfficerRow, { id?: string; user_id?: string; character_id: string; name: string; species?: string | null; career?: string | null; rank?: string | null; specialization?: string | null; traits?: Json; abilities?: Json; notes?: string | null; active?: boolean; created_at?: string; updated_at?: string }>;
       boff_ability_catalog: {
         Row: {
           canonical_key: string
