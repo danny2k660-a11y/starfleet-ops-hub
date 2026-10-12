@@ -2508,6 +2508,10 @@ export type Database = {
         Args: { p_import_id: string }
         Returns: number
       }
+      claim_ship_assignments: {
+        Args: { p_ship_id: string; p_character_ids: string[]; p_acquisition_source_id?: string | null; p_acquisition_group?: string | null }
+        Returns: number
+      }
       claim_sto_ship_bundle: {
         Args: {
           p_acquired_at?: string
