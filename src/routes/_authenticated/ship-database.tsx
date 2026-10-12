@@ -323,6 +323,7 @@ function ShipDatabasePage() {
           .eq("character_id", equipment.character_id)
           .eq("name", equipment.name)
           .eq("category", equipment.category)
+          .limit(1)
           .maybeSingle();
         if (equipmentLookupError) throw equipmentLookupError;
         if (!existingEquipment) {
