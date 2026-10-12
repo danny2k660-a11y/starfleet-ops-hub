@@ -96,6 +96,68 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
   const [acquisitionNeeds, setAcquisitionNeeds] = useState<string[]>(Array.isArray((build as any)?.acquisition_needs) ? (build as any).acquisition_needs : []);
   const [acquisitionNeedInput, setAcquisitionNeedInput] = useState("");
   const [archived, setArchived] = useState(!!(build as any)?.archived);
+  const versions = useQuery({
+    queryKey: ["build_versions", build?.id],
+    enabled: !!build?.id,
+    queryFn: async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user || !build?.id) throw new Error("Build is not available.");
+      const { data, error } = await supabase.from("build_versions").select("id,version_number,summary,created_at")
+        .eq("user_id", auth.user.id).eq("build_id", build.id).order("version_number", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const saveVersion = useMutation({
+    mutationFn: async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user || !build?.id) throw new Error("Save the build before creating a version.");
+      const { data: savedBuild, error: buildError } = await supabase.from("builds").select("*").eq("id", build.id).eq("user_id", auth.user.id).single();
+      if (buildError) throw buildError;
+      const { data: savedLoadouts, error: loadoutsError } = await supabase.from("loadouts").select("*").eq("build_id", build.id).eq("user_id", auth.user.id);
+      if (loadoutsError) throw loadoutsError;
+      const loadoutIds = (savedLoadouts ?? []).map((item) => item.id);
+      const groundResult = await supabase.from("build_ground_loadouts").select("*").eq("build_id", build.id).eq("user_id", auth.user.id);
+      if (groundResult.error) throw groundResult.error;
+      const groundIds = (groundResult.data ?? []).map((item) => item.id);
+      const [equipmentResult, traitsResult, boffsResult, dutyOfficersResult, buildDoffsResult, groundEquipmentResult] = await Promise.all([
+        loadoutIds.length ? supabase.from("loadout_equipment").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
+        loadoutIds.length ? supabase.from("loadout_traits").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
+        loadoutIds.length ? supabase.from("loadout_boffs").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
+        loadoutIds.length ? supabase.from("loadout_duty_officers").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
+        supabase.from("build_doffs").select("*").eq("build_id", build.id),
+        groundIds.length ? supabase.from("ground_loadout_equipment").select("*").in("loadout_id", groundIds) : Promise.resolve({ data: [], error: null }),
+      ]);
+      for (const result of [equipmentResult, traitsResult, boffsResult, dutyOfficersResult, buildDoffsResult, groundEquipmentResult]) if (result.error) throw result.error;
+      const { data: latest, error: latestError } = await supabase.from("build_versions").select("version_number").eq("build_id", build.id).eq("user_id", auth.user.id).order("version_number", { ascending: false }).limit(1).maybeSingle();
+      if (latestError) throw latestError;
+      const snapshot = {
+        schema_version: 1,
+        captured_at: new Date().toISOString(),
+        build: savedBuild,
+        loadouts: savedLoadouts ?? [],
+        loadout_equipment: equipmentResult.data ?? [],
+        loadout_traits: traitsResult.data ?? [],
+        loadout_boffs: boffsResult.data ?? [],
+        loadout_duty_officers: dutyOfficersResult.data ?? [],
+        build_doffs: buildDoffsResult.data ?? [],
+        build_ground_loadouts: groundResult.data ?? [],
+        ground_loadout_equipment: groundEquipmentResult.data ?? [],
+      };
+      const { error } = await supabase.from("build_versions").insert({
+        user_id: auth.user.id,
+        build_id: build.id,
+        version_number: (latest?.version_number ?? 0) + 1,
+        summary: "Saved build snapshot",
+        snapshot: snapshot as any,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["build_versions", build?.id] }); toast.success("Build version saved"); },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const save = useMutation({ mutationFn: async () => {
     const trimmedName = name.trim();
@@ -141,6 +203,10 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
       <div className="rounded-lg border border-border/70 bg-background/30 p-3"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">Captain setup</p><div className="grid gap-2 sm:grid-cols-2"><Input value={primarySpecialization} onChange={e=>setPrimarySpecialization(e.target.value)} placeholder="Primary specialization" /><Input value={secondarySpecialization} onChange={e=>setSecondarySpecialization(e.target.value)} placeholder="Secondary specialization" /></div><Textarea className="mt-2" value={captainAbilityNotes} onChange={e=>setCaptainAbilityNotes(e.target.value)} placeholder="Captain abilities / setup notes…" /></div>
       <div className="space-y-1"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="testing">Testing</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="retired">Retired</SelectItem></SelectContent></Select></div>
       <div className="space-y-1"><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Theme rules, target content, gear notes…" /></div>
+      {build && <div className="rounded-lg border border-border/70 bg-background/30 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-accent">Version history</p><p className="text-[11px] text-muted-foreground">Snapshots preserve the last saved build and its linked loadouts.</p></div><Button type="button" size="sm" variant="outline" onClick={() => saveVersion.mutate()} disabled={saveVersion.isPending}><Package className="mr-1 size-3.5" />{saveVersion.isPending ? "Saving…" : "Save version"}</Button></div>
+        <div className="mt-2 space-y-1">{(versions.data ?? []).map((version) => <div key={version.id} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1.5 text-xs"><span>Version {version.version_number}{version.summary ? " · " + version.summary : ""}</span><span className="text-muted-foreground">{new Date(version.created_at).toLocaleString()}</span></div>)}{versions.isLoading && <p className="text-xs text-muted-foreground">Loading versions…</p>}{!versions.isLoading && !(versions.data ?? []).length && <p className="text-xs text-muted-foreground">No snapshots yet.</p>}</div>
+      </div>}
       <div className="rounded-lg border border-accent/20 bg-accent/5 p-3"><div className="flex items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-accent">Acquisition needs</p><p className="text-[11px] text-muted-foreground">Track items, traits, ships or resources still required for this build.</p></div><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={archived} onChange={e=>setArchived(e.target.checked)} /> Archived</label></div><div className="mt-2 flex gap-2"><Input value={acquisitionNeedInput} onChange={e=>setAcquisitionNeedInput(e.target.value)} placeholder="e.g. DPRM console" /><Button type="button" size="sm" variant="outline" onClick={()=>{const v=acquisitionNeedInput.trim();if(v&&!acquisitionNeeds.includes(v)){setAcquisitionNeeds([...acquisitionNeeds,v]);setAcquisitionNeedInput("");}}}>Add</Button></div><div className="mt-2 flex flex-wrap gap-1.5">{acquisitionNeeds.map((need,i)=><Badge key={`${need}-${i}`} variant="outline" className="cursor-pointer" onClick={()=>setAcquisitionNeeds(acquisitionNeeds.filter((_,j)=>j!==i))}>{need} ×</Badge>)}</div></div>
     </div>
     <DialogFooter className="gap-2">{build && <Button variant="ghost" className="mr-auto text-destructive" onClick={() => { if (confirm("Delete this build?")) onDeleted(); }}><Trash2 className="mr-1 size-4" /> Delete</Button>}<Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : build ? "Save changes" : "Create build"}</Button></DialogFooter>
