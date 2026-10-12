@@ -152,7 +152,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
     staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("character_ship_unlocks" as never)
+        .from("character_ship_unlocks")
         .select("id,sto_ship_id,unlock_type,name,source_name,sto_ships(name)")
         .eq("character_id", characterId)
         .order("unlock_type")
@@ -170,7 +170,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
       const { data, error } = await supabase
-        .from("equipment_items" as never)
+        .from("equipment_items")
         .select("id,name,category,slot,mark,rarity,mark_level,upgrade_level,catalog_item_id,character_id")
         .eq("user_id", u.user.id)
         .or(`character_id.eq.${characterId},character_id.is.null`)
@@ -184,7 +184,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
     queryKey: ["character_ops_traits", characterId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("character_traits" as never)
+        .from("character_traits")
         .select("id,trait_id,domain,trait_category,slot_index,active,trait_catalog(name,trait_type,domain)")
         .eq("character_id", characterId)
         .order("domain")
@@ -198,7 +198,7 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
     queryKey: ["character_ops_boffs", characterId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("character_boffs" as never)
+        .from("character_boffs")
         .select("id,name,species,career,rank,specialization,traits,abilities,notes,active")
         .eq("character_id", characterId)
         .order("created_at");
@@ -208,16 +208,16 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
   });
 
   const [traitSearch,setTraitSearch]=useState("");
-  const characterTraitCatalog=useQuery({queryKey:["character_ops_trait_catalog"],queryFn:async()=>{const {data,error}=await supabase.from("trait_catalog" as never).select("id,name,trait_type,domain,trait_category,description").in("domain",["space","ground"]).order("name");if(error)throw error;return data as any[];}});
-  const addCharacterTrait=useMutation({mutationFn:async(trait:any)=>{const {data:u}=await supabase.auth.getUser();if(!u.user)throw new Error("Not signed in");const {data:existing}=await supabase.from("character_traits" as never).select("id").eq("character_id",characterId).eq("trait_id",trait.id).maybeSingle();if(existing)throw new Error("That trait is already assigned");const {data:maxRow}=await supabase.from("character_traits" as never).select("slot_index").eq("character_id",characterId).eq("domain",trait.domain).order("slot_index",{ascending:false}).limit(1).maybeSingle();const {error}=await supabase.from("character_traits" as never).insert({user_id:u.user.id,character_id:characterId,trait_id:trait.id,active:true,slot_index:Number(maxRow?.slot_index||0)+1,domain:trait.domain,trait_category:trait.trait_category||trait.trait_type||"personal",slot_group:trait.domain,source_type:"catalog",source_name:trait.name});if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["character_ops_traits",characterId]});toast.success("Trait added to character");},onError:(e:any)=>toast.error(e?.message||"Could not add trait")});
-  const removeCharacterTrait=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("character_traits" as never).update({active:false}).eq("id",id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["character_ops_traits",characterId]})});
+  const characterTraitCatalog=useQuery({queryKey:["character_ops_trait_catalog"],queryFn:async()=>{const {data,error}=await supabase.from("trait_catalog").select("id,name,trait_type,domain,trait_category,description").in("domain",["space","ground"]).order("name");if(error)throw error;return data as any[];}});
+  const addCharacterTrait=useMutation({mutationFn:async(trait:any)=>{const {data:u}=await supabase.auth.getUser();if(!u.user)throw new Error("Not signed in");const {data:existing}=await supabase.from("character_traits").select("id").eq("character_id",characterId).eq("trait_id",trait.id).maybeSingle();if(existing)throw new Error("That trait is already assigned");const {data:maxRow}=await supabase.from("character_traits").select("slot_index").eq("character_id",characterId).eq("domain",trait.domain).order("slot_index",{ascending:false}).limit(1).maybeSingle();const {error}=await supabase.from("character_traits").insert({user_id:u.user.id,character_id:characterId,trait_id:trait.id,active:true,slot_index:Number(maxRow?.slot_index||0)+1,domain:trait.domain,trait_category:trait.trait_category||trait.trait_type||"personal",slot_group:trait.domain,source_type:"catalog",source_name:trait.name});if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["character_ops_traits",characterId]});toast.success("Trait added to character");},onError:(e:any)=>toast.error(e?.message||"Could not add trait")});
+  const removeCharacterTrait=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("character_traits").update({active:false}).eq("id",id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["character_ops_traits",characterId]})});
   const [doffSearch,setDoffSearch]=useState("");
   const [boffName,setBoffName]=useState("");
   const [boffCareer,setBoffCareer]=useState("");
-  const doffs=useQuery({enabled:Boolean(characterId),queryKey:["character_ops_doffs",characterId],queryFn:async()=>{const {data,error}=await supabase.from("character_doffs" as never).select("id,doff_id,active,notes,doff_catalog(id,name,department,specialization,domain,ability_data)").eq("character_id",characterId).eq("active",true).order("created_at");if(error)throw error;return data as any[];}});
-  const doffCatalog=useQuery({queryKey:["character_ops_doff_catalog"],queryFn:async()=>{const {data,error}=await supabase.from("doff_catalog" as never).select("id,name,department,specialization,domain,ability_data").order("name");if(error)throw error;return data as any[];}});
-  const addDoff=useMutation({mutationFn:async(id:string)=>{const {data:u}=await supabase.auth.getUser();if(!u.user)throw new Error("Not signed in");const {data:existing}=await supabase.from("character_doffs" as never).select("id").eq("character_id",characterId).eq("doff_id",id).maybeSingle();if(existing)throw new Error("That Duty Officer is already assigned");const {error}=await supabase.from("character_doffs" as never).insert({user_id:u.user.id,character_id:characterId,doff_id:id,active:true});if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["character_ops_doffs",characterId]});toast.success("Duty Officer added to character");},onError:(e:any)=>toast.error(e?.message||"Could not add Duty Officer")});
-  const removeDoff=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("character_doffs" as never).update({active:false}).eq("id",id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["character_ops_doffs",characterId]})});
+  const doffs=useQuery({enabled:Boolean(characterId),queryKey:["character_ops_doffs",characterId],queryFn:async()=>{const {data,error}=await supabase.from("character_doffs").select("id,doff_id,active,notes,doff_catalog(id,name,department,specialization,domain,ability_data)").eq("character_id",characterId).eq("active",true).order("created_at");if(error)throw error;return data as any[];}});
+  const doffCatalog=useQuery({queryKey:["character_ops_doff_catalog"],queryFn:async()=>{const {data,error}=await supabase.from("doff_catalog").select("id,name,department,specialization,domain,ability_data").order("name");if(error)throw error;return data as any[];}});
+  const addDoff=useMutation({mutationFn:async(id:string)=>{const {data:u}=await supabase.auth.getUser();if(!u.user)throw new Error("Not signed in");const {data:existing}=await supabase.from("character_doffs").select("id").eq("character_id",characterId).eq("doff_id",id).maybeSingle();if(existing)throw new Error("That Duty Officer is already assigned");const {error}=await supabase.from("character_doffs").insert({user_id:u.user.id,character_id:characterId,doff_id:id,active:true});if(error)throw error;},onSuccess:()=>{qc.invalidateQueries({queryKey:["character_ops_doffs",characterId]});toast.success("Duty Officer added to character");},onError:(e:any)=>toast.error(e?.message||"Could not add Duty Officer")});
+  const removeDoff=useMutation({mutationFn:async(id:string)=>{const {error}=await supabase.from("character_doffs").update({active:false}).eq("id",id);if(error)throw error;},onSuccess:()=>qc.invalidateQueries({queryKey:["character_ops_doffs",characterId]})});
   const filteredDoffs=useMemo(()=>((doffCatalog.data as any[])||[]).filter((d:any)=>{const q=doffSearch.trim().toLowerCase();return !q||[d.name,d.department,d.specialization,d.domain].filter(Boolean).join(" ").toLowerCase().includes(q);}),[doffCatalog.data,doffSearch]);
   const shipCount = new Set(
     (ships.data ?? []).filter((ship: any) => ship.ownership_status === "owned").map((ship: any) => ship.sto_ship_id).filter(Boolean),
@@ -262,8 +262,8 @@ function CharacterOps({ characterId, characterName }: { characterId: string; cha
       <div className="rounded-lg border border-border bg-muted/10 p-3">
         <div className="flex items-center justify-between gap-2"><div><p className="text-xs uppercase tracking-wider text-accent">Bridge Officer roster</p><p className="text-[11px] text-muted-foreground">Record the actual BOFFs assigned to this captain.</p></div><span className="text-[11px] text-muted-foreground">{activeBoffs} assigned</span></div>
         <div className="mt-2 grid gap-2 sm:grid-cols-2"><Input placeholder="BOFF name" value={boffName} onChange={e=>setBoffName(e.target.value)}/><Input placeholder="Career / specialization" value={boffCareer} onChange={e=>setBoffCareer(e.target.value)}/></div>
-        <Button size="sm" className="mt-2" onClick={async()=>{if(!boffName.trim()){toast.error("Enter a BOFF name");return;}const {data:u}=await supabase.auth.getUser();if(!u.user)return;const {error}=await supabase.from("character_boffs" as never).insert({user_id:u.user.id,character_id:characterId,name:boffName.trim(),career:boffCareer.trim()||null,active:true});if(error)toast.error(error.message);else{setBoffName("");setBoffCareer("");toast.success("Bridge Officer added");qc.invalidateQueries({queryKey:["character_ops_boffs",characterId]});}}}>Add Bridge Officer</Button>
-        <div className="mt-2 space-y-1">{(bridgeOfficers.data??[]).map((b:any)=><div key={b.id} className="flex items-center justify-between rounded border px-2 py-1.5 text-xs"><span>{b.name}{b.career?<span className="ml-2 text-muted-foreground">{b.career}</span>:""}</span><Button size="icon" variant="ghost" className="size-7" onClick={async()=>{const {error}=await supabase.from("character_boffs" as never).update({active:false}).eq("id",b.id);if(error)toast.error(error.message);else qc.invalidateQueries({queryKey:["character_ops_boffs",characterId]});}}><Trash2 className="size-3.5"/></Button></div>)}</div>
+        <Button size="sm" className="mt-2" onClick={async()=>{if(!boffName.trim()){toast.error("Enter a BOFF name");return;}const {data:u}=await supabase.auth.getUser();if(!u.user)return;const {error}=await supabase.from("character_boffs").insert({user_id:u.user.id,character_id:characterId,name:boffName.trim(),career:boffCareer.trim()||null,active:true});if(error)toast.error(error.message);else{setBoffName("");setBoffCareer("");toast.success("Bridge Officer added");qc.invalidateQueries({queryKey:["character_ops_boffs",characterId]});}}}>Add Bridge Officer</Button>
+        <div className="mt-2 space-y-1">{(bridgeOfficers.data??[]).map((b:any)=><div key={b.id} className="flex items-center justify-between rounded border px-2 py-1.5 text-xs"><span>{b.name}{b.career?<span className="ml-2 text-muted-foreground">{b.career}</span>:""}</span><Button size="icon" variant="ghost" className="size-7" onClick={async()=>{const {error}=await supabase.from("character_boffs").update({active:false}).eq("id",b.id);if(error)toast.error(error.message);else qc.invalidateQueries({queryKey:["character_ops_boffs",characterId]});}}><Trash2 className="size-3.5"/></Button></div>)}</div>
       </div>
       <div className="rounded-lg border border-border bg-muted/10 p-3">
         <div className="flex items-center justify-between gap-2"><div><p className="text-xs uppercase tracking-wider text-accent">Personal trait roster</p><p className="text-[11px] text-muted-foreground">Search Space and Ground personal traits and assign them to this captain.</p></div><span className="text-[11px] text-muted-foreground">{activeTraits} assigned</span></div>
