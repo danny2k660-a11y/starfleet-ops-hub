@@ -12,6 +12,7 @@ const routes = [
   "/ground-builds",
   "/projects",
   "/resources",
+  "/reputation",
   "/ship-database",
   "/ship-planner",
   "/themes",
