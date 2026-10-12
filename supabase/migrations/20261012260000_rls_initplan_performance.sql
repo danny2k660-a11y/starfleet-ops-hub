@@ -27,6 +27,10 @@ drop policy if exists "own inventory" on public.inventory_items;
 create policy "own inventory" on public.inventory_items for all to authenticated
   using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
+drop policy if exists profiles_owner_all on public.profiles;
+create policy profiles_owner_all on public.profiles for all to authenticated
+  using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
+
 drop policy if exists equipment_owner_all on public.equipment_items;
 create policy equipment_owner_all on public.equipment_items for all to authenticated
   using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
