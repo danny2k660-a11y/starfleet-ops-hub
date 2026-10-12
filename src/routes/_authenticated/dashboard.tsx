@@ -64,7 +64,7 @@ function Dashboard() {
     if(error) throw error;
     return new Set((data ?? []).map((row: any) => row.sto_ship_id).filter(Boolean)).size;
   }});
-  const recentShips = useQuery({ queryKey: ["dashboard-recent-ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,characters(name),sto_ships(name),builds(name,status)").order("created_at",{ascending:false}).limit(5); if(error) throw error; return data as any[]; }});
+  const recentShips = useQuery({ queryKey: ["dashboard-recent-ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,characters!user_ships_character_id_fkey(name),sto_ships(name),builds!user_ships_current_build_id_fkey(name,status)").order("created_at",{ascending:false}).limit(5); if(error) throw error; return data as any[]; }});
   const attentionShips = useQuery({ queryKey: ["dashboard-attention-ships"], queryFn: async () => {
     const { data, error } = await supabase.from("user_ships").select("sto_ship_id,custom_name,sto_ships(name)").eq("ownership_status","owned").not("character_id","is",null).is("current_build_id",null);
     if(error) throw error;
