@@ -43,7 +43,7 @@ begin
   ) values (
     v_user_id, v_target.character_id, v_target.id, null, trim(p_new_name), v_source.role, 'draft',
     v_source.notes, v_source.build_domain, v_source.captain_setup,
-    coalesce(v_source.acquisition_needs, '{}'::text[]), false
+    coalesce(v_source.acquisition_needs, '[]'::jsonb), false
   ) returning id into v_new_build_id;
 
   for v_old_loadout in
