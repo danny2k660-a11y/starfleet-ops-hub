@@ -23,6 +23,7 @@ type CharacterShipUnlockRow = { id: string; user_id: string; character_id: strin
 type CharacterBridgeOfficerRow = { id: string; user_id: string; character_id: string; name: string; species: string | null; career: string | null; rank: string | null; specialization: string | null; traits: Json; abilities: Json; notes: string | null; active: boolean; created_at: string; updated_at: string };
 type BuildVersionRow = { id: string; user_id: string; build_id: string; version_number: number; summary: string | null; snapshot: Json; created_at: string };
 type StoEquipmentSetBonusRow = { id: string; set_name: string; piece_threshold: number; bonus_name: string; bonus_description: string; source_reference: string; verified: boolean; data_version: string | null; verified_at: string | null; created_at: string; updated_at: string };
+type LoadoutHangarPetRow = { id: string; user_id: string; loadout_id: string; hangar_slot: string; pet_name: string; quantity: number; notes: string | null; source_reference: string | null; created_at: string; updated_at: string };
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
@@ -42,6 +43,7 @@ export type Database = {
       character_bridge_officers: TableDef<CharacterBridgeOfficerRow, { id?: string; user_id?: string; character_id: string; name: string; species?: string | null; career?: string | null; rank?: string | null; specialization?: string | null; traits?: Json; abilities?: Json; notes?: string | null; active?: boolean; created_at?: string; updated_at?: string }>;
       build_versions: TableDef<BuildVersionRow, { id?: string; user_id?: string; build_id: string; version_number: number; summary?: string | null; snapshot: Json; created_at?: string }>;
       sto_equipment_set_bonuses: TableDef<StoEquipmentSetBonusRow, { id?: string; set_name: string; piece_threshold: number; bonus_name: string; bonus_description: string; source_reference: string; verified?: boolean; data_version?: string | null; verified_at?: string | null; created_at?: string; updated_at?: string }>;
+      loadout_hangar_pets: TableDef<LoadoutHangarPetRow, { id?: string; user_id?: string; loadout_id: string; hangar_slot: string; pet_name: string; quantity?: number; notes?: string | null; source_reference?: string | null; created_at?: string; updated_at?: string }>;
       boff_ability_catalog: {
         Row: {
           canonical_key: string
