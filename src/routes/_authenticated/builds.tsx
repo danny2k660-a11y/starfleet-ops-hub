@@ -421,7 +421,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     const { error } = await supabase.from("loadout_traits" as never).insert({
       loadout_id: loadoutId, trait_id: picked?.id || null, name, trait_type: "starship", slot: picked?.domain || "space", domain: "space", trait_category: "starship"
     });
-    if (error) { toast({ title: "Could not add trait", description: error.message, variant: "destructive" }); return; }
+    if (error) { toast.error("Could not add trait: " + error.message); return; }
     setTrait(""); setTraitId(""); qc.invalidateQueries({ queryKey: ["loadout_traits", loadoutId] });
   };
   const addConsole = async (consoleName: string, sourceShip: string) => {
@@ -442,7 +442,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const saveOfficer = async () => {
     if (!station.trim()) return;
     const { error } = await supabase.from("loadout_boffs" as never).upsert({ loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null, specialization: specialization.trim() || null, abilities: abilities.split(",").map((x) => x.trim()).filter(Boolean) });
-    if (error) { toast({ title: "Could not save officer", description: error.message, variant: "destructive" }); return; }
+    if (error) { toast.error("Could not save officer: " + error.message); return; }
     setStation(""); setOfficer(""); setSpecialization(""); setAbilities(""); qc.invalidateQueries({ queryKey: ["loadout_boffs", loadoutId] });
   };
   const saveDutyOfficer = async () => {
@@ -450,7 +450,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     if (!picked) return;
     if (!buildContext.data?.build_id) return;
     const { error } = await supabase.from("build_doffs" as never).insert({ build_id: buildContext.data.build_id, doff_id: picked.id, name: picked.name, department: picked.department || null, specialization: picked.specialization || null, assignment: picked.domain || null });
-    if (error) { toast({ title: "Could not save duty officer", description: error.message, variant: "destructive" }); return; }
+    if (error) { toast.error("Could not save duty officer: " + error.message); return; }
     setDutyOfficerId(""); qc.invalidateQueries({ queryKey: ["build_doffs", buildContext.data?.build_id] });
   };
   const remove = async (table: string, id: string, key: string) => {
