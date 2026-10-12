@@ -967,6 +967,10 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
       }
 
       const selectedSource = sourceId === "__none__" ? null : sources.find((x) => x.id === sourceId);
+      const { data: existingAssignments, error: existingError } = await supabase.from("user_ships").select("character_id,ownership_status").eq("user_id", u.user.id).eq("sto_ship_id", shipId).in("character_id", targetCharacterIds);
+      if (existingError) throw existingError;
+      const alreadyOwned = new Set((existingAssignments ?? []).filter((row) => row.ownership_status === "owned").map((row) => row.character_id));
+      const newlyRegistered = targetCharacterIds.filter((id) => !alreadyOwned.has(id)).length;
       const { error: claimError } = await supabase.rpc("claim_ship_assignments", {
         p_ship_id: shipId,
         p_character_ids: targetCharacterIds,
@@ -1034,7 +1038,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
       if (registeredError) throw registeredError;
       const firstId = registeredShips?.[0]?.id;
       if (!firstId) throw new Error("Ship assignment succeeded, but the fleet record could not be found.");
-      return { firstId, added: rows.length, total: targetCharacterIds.length };
+      return { firstId, added: newlyRegistered, total: targetCharacterIds.length };
     },
     onSuccess: ({ firstId, added, total }) => {
       qc.invalidateQueries({ queryKey: ["user_ships"] });
