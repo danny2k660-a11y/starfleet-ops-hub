@@ -29,6 +29,7 @@ create policy loadout_hangar_pets_owner_all
 grant select, insert, update, delete on public.loadout_hangar_pets to authenticated;
 create index if not exists loadout_hangar_pets_loadout_idx
   on public.loadout_hangar_pets(user_id, loadout_id);
+drop trigger if exists loadout_hangar_pets_updated_at on public.loadout_hangar_pets;
 create trigger loadout_hangar_pets_updated_at
   before update on public.loadout_hangar_pets
   for each row execute function public.update_updated_at_column();
