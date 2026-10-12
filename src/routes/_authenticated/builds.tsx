@@ -130,6 +130,29 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
   const [acquisitionNeeds, setAcquisitionNeeds] = useState<string[]>(Array.isArray((build as any)?.acquisition_needs) ? (build as any).acquisition_needs : []);
   const [acquisitionNeedInput, setAcquisitionNeedInput] = useState("");
   const [archived, setArchived] = useState(!!(build as any)?.archived);
+  const [copyTargetId, setCopyTargetId] = useState("__none__");
+  const [copyName, setCopyName] = useState(build?.name ? build.name + " copy" : "");
+  const copyToShip = useMutation({
+    mutationFn: async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user || !build?.id) throw new Error("Save a build before copying it.");
+      if (!copyName.trim()) throw new Error("Enter a name for the copied build.");
+      if (copyTargetId === "__none__") throw new Error("Choose a target ship.");
+      const { data, error } = await supabase.rpc("copy_sto_build_to_ship", { p_source_build_id: build.id, p_target_ship_id: copyTargetId, p_new_name: copyName.trim() });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (newBuildId) => {
+      const target = fleetShips.find((item: any) => item.id === copyTargetId);
+      qc.invalidateQueries({ queryKey: ["builds"] }); qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["loadouts"] }); qc.invalidateQueries({ queryKey: ["build_ground_loadouts"] });
+      toast.success("Build copied to " + (target?.custom_name || target?.sto_ships?.name || "the selected ship"));
+      if (target?.character_id !== build?.character_id) toast.info("Character-bound equipment and ground selections were intentionally left unassigned on the new character.");
+      setCopyTargetId("__none__"); setCopyName(build?.name ? build.name + " copy" : "");
+      onOpenChange(false);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
   const versions = useQuery({
     queryKey: ["build_versions", build?.id],
     enabled: !!build?.id,
@@ -241,6 +264,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
         <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-accent">Version history</p><p className="text-[11px] text-muted-foreground">Snapshots preserve the last saved build and its linked loadouts.</p></div><Button type="button" size="sm" variant="outline" onClick={() => saveVersion.mutate()} disabled={saveVersion.isPending}><Package className="mr-1 size-3.5" />{saveVersion.isPending ? "Saving…" : "Save version"}</Button></div>
         <div className="mt-2 space-y-1">{(versions.data ?? []).map((version) => <div key={version.id} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1.5 text-xs"><span>Version {version.version_number}{version.summary ? " · " + version.summary : ""}</span><span className="text-muted-foreground">{new Date(version.created_at).toLocaleString()}</span></div>)}{versions.isLoading && <p className="text-xs text-muted-foreground">Loading versions…</p>}{!versions.isLoading && !(versions.data ?? []).length && <p className="text-xs text-muted-foreground">No snapshots yet.</p>}</div>
       </div>}
+      {build && <div className="rounded-lg border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Copy to another ship</p><p className="mt-1 text-[11px] text-muted-foreground">Creates a separate draft build. Character-bound equipment and ground selections are copied only when the target ship belongs to the same character.</p><div className="mt-2 space-y-2"><Input value={copyName} onChange={(event) => setCopyName(event.target.value)} placeholder="Copied build name" /><Select value={copyTargetId} onValueChange={setCopyTargetId}><SelectTrigger><SelectValue placeholder="Choose target ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose target ship</SelectItem>{fleetShips.filter((item: any) => item.id !== build.user_ship_id && !item.current_build_id).map((item: any) => <SelectItem key={item.id} value={item.id}>{item.custom_name || item.sto_ships?.name || "Unnamed ship"}{item.characters?.name ? " — " + item.characters.name : ""}</SelectItem>)}</SelectContent></Select><Button type="button" variant="outline" onClick={() => copyToShip.mutate()} disabled={copyToShip.isPending || !copyName.trim() || copyTargetId === "__none__"}>{copyToShip.isPending ? "Copying…" : "Copy build to ship"}</Button></div></div>}
       <div className="rounded-lg border border-accent/20 bg-accent/5 p-3"><div className="flex items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-accent">Acquisition needs</p><p className="text-[11px] text-muted-foreground">Track items, traits, ships or resources still required for this build.</p></div><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={archived} onChange={e=>setArchived(e.target.checked)} /> Archived</label></div><div className="mt-2 flex gap-2"><Input value={acquisitionNeedInput} onChange={e=>setAcquisitionNeedInput(e.target.value)} placeholder="e.g. DPRM console" /><Button type="button" size="sm" variant="outline" onClick={()=>{const v=acquisitionNeedInput.trim();if(v&&!acquisitionNeeds.includes(v)){setAcquisitionNeeds([...acquisitionNeeds,v]);setAcquisitionNeedInput("");}}}>Add</Button></div><div className="mt-2 flex flex-wrap gap-1.5">{acquisitionNeeds.map((need,i)=><Badge key={`${need}-${i}`} variant="outline" className="cursor-pointer" onClick={()=>setAcquisitionNeeds(acquisitionNeeds.filter((_,j)=>j!==i))}>{need} ×</Badge>)}</div></div>
     </div>
     <DialogFooter className="gap-2">{build && <Button variant="ghost" className="mr-auto text-destructive" onClick={() => { if (confirm("Delete this build?")) onDeleted(); }}><Trash2 className="mr-1 size-4" /> Delete</Button>}<Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : build ? "Save changes" : "Create build"}</Button></DialogFooter>
