@@ -33,7 +33,7 @@ create policy character_ship_unlocks_owner_all
     )
   );
 
-create index if not exists character_ship_unlocks_character_idx
+create index if not exists character_ship_unlocks_user_character_idx
   on public.character_ship_unlocks(user_id, character_id);
 create index if not exists character_ship_unlocks_ship_idx
   on public.character_ship_unlocks(sto_ship_id);
