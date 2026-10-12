@@ -17,7 +17,13 @@ drop policy if exists "character ship unlocks own rows" on public.character_ship
 drop policy if exists character_ship_unlocks_owner_all on public.character_ship_unlocks;
 create policy character_ship_unlocks_owner_all
   on public.character_ship_unlocks for all to authenticated
-  using (user_id = auth.uid())
+  using (
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.characters c
+      where c.id = character_id and c.user_id = auth.uid()
+    )
+  )
   with check (
     user_id = auth.uid()
     and exists (
