@@ -29,6 +29,7 @@ create policy character_reputations_owner_all
 grant select, insert, update, delete on public.character_reputations to authenticated;
 create index if not exists character_reputations_character_idx
   on public.character_reputations(user_id, character_id);
+drop trigger if exists character_reputations_updated_at on public.character_reputations;
 create trigger character_reputations_updated_at
   before update on public.character_reputations
   for each row execute function public.update_updated_at_column();
