@@ -466,7 +466,7 @@ function ShipsPage() {
                 type="button"
                 disabled={item.state !== "ready"}
                 onClick={() => {
-                  if (item.state !== "ready") return;
+                  if (item.state !== "ready" || !activeFilter) return;
                   setReadinessFilter(activeFilter);
                   setQ("");
                 }}
@@ -518,7 +518,8 @@ function ShipsPage() {
                 key={item.label}
                 onClick={() => {
                   const filters = ["captain", "build", "loadout", "equipment", "traits", "boffs"] as const;
-                  setReadinessFilter(filters[item.index]);
+                  const selectedFilter = filters[item.index];
+                  if (selectedFilter) setReadinessFilter(selectedFilter);
                   setQ("");
                   setCharFilter(ALL);
                                     setFactionFilter(ALL);
@@ -1129,7 +1130,7 @@ function BaseStats({ s }: { s: StoShip | null }) {
     ? `Eng ${s.engineering_console_slots} · Sci ${s.science_console_slots} · Tac ${s.tactical_console_slots}${s.universal_console_slots ? ` · Uni ${s.universal_console_slots}` : ""}`
     : null;
   const rawBoffs = s.bridge_officer_stations as unknown;
-  const boffs: Boff[] = Array.isArray(rawBoffs)
+  const boffs = (Array.isArray(rawBoffs)
     ? rawBoffs as Boff[]
     : rawBoffs && typeof rawBoffs === "object"
       ? Object.keys(rawBoffs as Record<string, unknown>).map((seat) => {
@@ -1143,7 +1144,7 @@ function BaseStats({ s }: { s: StoShip | null }) {
           if (parts.length >= 2) return { rank: parts.slice(0, 2).join(" "), career: parts.slice(2).join(" ") || undefined };
           return { rank: seat };
         })
-      : [];
+      : []) as Boff[];
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1179,8 +1180,8 @@ function BaseStats({ s }: { s: StoShip | null }) {
 function ShipDetailDialog({ ship, characters, builds, referenceData, onClose }: { ship: UserShip; characters: Character[]; builds: Build[]; referenceData: any[]; onClose: () => void }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(ship.custom_name);
-  const [characterId, setCharacterId] = useState(ship.character_id);
+  const [name, setName] = useState(ship.custom_name ?? ship.sto_ships?.name ?? "");
+  const [characterId, setCharacterId] = useState(ship.character_id ?? "");
   const [buildId, setBuildId] = useState(ship.current_build_id ?? NONE);
   const [status, setStatus] = useState(ship.ownership_status);
   const [acquired, setAcquired] = useState(ship.date_acquired ?? "");
