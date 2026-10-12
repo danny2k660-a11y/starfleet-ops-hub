@@ -27,6 +27,21 @@ alter table public.loadout_boffs alter column user_id set not null;
 alter table public.loadout_traits
   drop constraint if exists loadout_traits_loadout_id_trait_type_slot_key;
 
+-- If legacy rows already contain duplicate catalogue links, retain every named trait row
+-- but detach all except the newest duplicate from the shared catalogue entry.
+with ranked as (
+  select id, row_number() over (
+    partition by loadout_id, trait_id
+    order by created_at desc nulls last, id desc
+  ) as rn
+  from public.loadout_traits
+  where trait_id is not null
+)
+update public.loadout_traits lt
+set trait_id = null
+from ranked r
+where lt.id = r.id and r.rn > 1;
+
 create unique index if not exists loadout_traits_unique_catalog_trait
   on public.loadout_traits(loadout_id, trait_id)
   where trait_id is not null;
