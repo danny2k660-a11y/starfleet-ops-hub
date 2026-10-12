@@ -147,7 +147,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
       const target = fleetShips.find((item: any) => item.id === copyTargetId);
       qc.invalidateQueries({ queryKey: ["builds"] }); qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["loadouts"] }); qc.invalidateQueries({ queryKey: ["build_ground_loadouts"] });
       toast.success("Build copied to " + (target?.custom_name || target?.sto_ships?.name || "the selected ship"));
-      if (target?.character_id !== build?.character_id) toast.info("Character-bound equipment and ground selections were intentionally left unassigned on the new character.");
+      if (target?.character_id !== build?.character_id) toast.info("Character-bound equipment, duty officers, hangar pets and ground selections were left unassigned on the new character.");
       setCopyTargetId("__none__"); setCopyName(build?.name ? build.name + " copy" : "");
       onOpenChange(false);
     },
