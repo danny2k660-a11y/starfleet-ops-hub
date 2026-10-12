@@ -2537,6 +2537,10 @@ export type Database = {
         Args: { p_ship_id: string; p_character_ids: string[]; p_acquisition_source_id?: string | null; p_acquisition_group?: string | null }
         Returns: number
       }
+      copy_sto_build_to_ship: {
+        Args: { p_source_build_id: string; p_target_ship_id: string; p_new_name: string }
+        Returns: string
+      }
       claim_sto_ship_bundle: {
         Args: {
           p_acquired_at?: string
