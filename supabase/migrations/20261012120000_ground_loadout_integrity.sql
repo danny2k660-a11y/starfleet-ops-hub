@@ -1,7 +1,7 @@
 -- Persist the ground-specific trait and specialization selections used by the UI.
 alter table public.build_ground_loadouts
-  add column if not exists ground_traits text[] not null default '{}',
-  add column if not exists specializations text[] not null default '{}';
+  add column if not exists ground_traits jsonb not null default '[]'::jsonb,
+  add column if not exists specializations jsonb not null default '[]'::jsonb;
 
 create table if not exists public.ground_loadout_equipment (
   id uuid primary key default gen_random_uuid(),
