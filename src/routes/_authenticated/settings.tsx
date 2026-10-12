@@ -41,7 +41,8 @@ function Page() {
         supabase.from("sto_ships").select("id", { count: "exact", head: true }),
       ]);
       const errors = [characters, ships, builds, loadouts, inventory, projects, resources, catalogue].filter((result) => result.error);
-      if (errors.length) throw errors[0].error!;
+      const firstError = errors[0]?.error;
+      if (firstError) throw firstError;
       return {
         characters: characters.count ?? 0, ownedShips: ships.count ?? 0, builds: builds.count ?? 0,
         loadouts: loadouts.count ?? 0, inventory: inventory.count ?? 0, projects: projects.count ?? 0,
