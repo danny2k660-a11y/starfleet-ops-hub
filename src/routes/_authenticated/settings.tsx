@@ -67,6 +67,7 @@ function Page() {
     setExporting(true);
     try{
       const userId=account.data.id;
+      const db = supabase as any; // Table names are drawn from fixed backup allowlists.
       const result:Record<string,unknown>={exported_at:new Date().toISOString(),schema_version:3,account_id:userId};
       const accountTables=["characters","user_ships","sto_ship_ownership","ship_instances","builds","build_versions","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_bridge_officers","character_reputations","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"] as const;
       const {data:profileRow,error:profileError}=await supabase.from("profiles").select("*").eq("id",userId).maybeSingle();
@@ -76,7 +77,7 @@ function Page() {
       if(catalogError) throw new Error(`sto_ships: ${catalogError.message}`);
       result["sto_ships"]=catalog??[];
       for(const table of accountTables){
-        const {data,error}=await supabase.from(table).select("*").eq("user_id",userId);
+        const {data,error}=await db.from(table).select("*").eq("user_id",userId);
         if(error) throw new Error(`${table}: ${error.message}`);
         result[table]=data??[];
       }
@@ -93,7 +94,7 @@ function Page() {
         ["ground_loadout_equipment","loadout_id",groundIds],
       ] as const){
         if(!parentIds.length){result[table]=[];continue;}
-        const {data,error}=await supabase.from(table as never).select("*").in(foreignKey as never,parentIds as never);
+        const {data,error}=await db.from(table).select("*").in(foreignKey,parentIds);
         if(error) throw new Error(`${table}: ${error.message}`);
         result[table]=data??[];
       }
@@ -117,12 +118,13 @@ function Page() {
       const parsed=JSON.parse(await file.text());
       if(!parsed || typeof parsed !== "object" || !Array.isArray(parsed.characters) || !Array.isArray(parsed.user_ships) || !Array.isArray(parsed.builds)) throw new Error("This is not a valid STO Command Center backup.");
       const userId=account.data.id;
+      const db = supabase as any; // Dynamic table names are restricted to the restore allowlists below.
       const sourceUserId=typeof parsed.account_id==="string"?parsed.account_id:userId;
       const order=["characters","ship_instances","builds","user_ships","sto_ship_ownership","build_versions","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_bridge_officers","character_reputations","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"];
       for(const table of order){
         const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && row.user_id===sourceUserId).map((row:any)=>{const mapped={...row,user_id:userId}; if(table==="builds") delete mapped.user_ship_id; if(table==="user_ships") delete mapped.current_build_id; return mapped;}):[];
         if(!rows.length) continue;
-        const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id",ignoreDuplicates:table==="build_versions"});
+        const {error}=await db.from(table).upsert(rows,{onConflict:"id",ignoreDuplicates:table==="build_versions"});
         if(error) throw new Error(table+": "+error.message);
       }
       const childTables=[
@@ -134,7 +136,7 @@ function Page() {
         const parents=new Set(((parsed[parentTable] as Array<{id:string;user_id:string}>|undefined)??[]).filter(row=>row.user_id===sourceUserId).map(row=>row.id));
         const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && parents.has(row[foreignKey])).map((row:any)=>row.user_id ? {...row,user_id:userId} : row):[];
         if(!rows.length) continue;
-        const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id"});
+        const {error}=await db.from(table).upsert(rows,{onConflict:"id"});
         if(error) throw new Error(table+": "+error.message);
       }
       // Restore the circular build/ship links only after both sides exist.
@@ -146,13 +148,13 @@ function Page() {
         const { error } = await supabase.from("user_ships").update({ current_build_id: row.current_build_id ?? null }).eq("id", row.id).eq("user_id", userId);
         if (error) throw new Error("ship build link: " + error.message);
       }
-      if(Array.isArray(parsed.profiles) && parsed.profiles[0] && (parsed.profiles[0].id===sourceUserId || parsed.profiles[0].id===userId)){const {error}=await supabase.from("profiles").upsert({...parsed.profiles[0],id:userId} as never,{onConflict:"id"});if(error) throw new Error("profiles: "+error.message);}
+      if(Array.isArray(parsed.profiles) && parsed.profiles[0] && (parsed.profiles[0].id===sourceUserId || parsed.profiles[0].id===userId)){const {error}=await supabase.from("profiles").upsert({...parsed.profiles[0],id:userId},{onConflict:"id"});if(error) throw new Error("profiles: "+error.message);}
       await recordAuditEvent("backup_import", "backup", null, "Fleet backup imported", { schema_version: Number(parsed.schema_version ?? 1) });
       toast.success("Fleet backup imported");
     }catch(e){toast.error(e instanceof Error?e.message:"Could not import fleet backup");}
     finally{setImporting(false);}
   };
-  const saveProfile=async()=>{ if(!account.data) return; setSaving(true); const {error}=await supabase.from("profiles").update({display_name:displayName.trim()||null}).eq("id",account.data.id); setSaving(false); if(error) toast.error(error.message); else { await recordAuditEvent("profile_update", "profile", account.data.id, "Profile display name updated"); toast.success("Profile updated"); } };
+  const saveProfile=async()=>{ if(!account.data) return; setSaving(true); const {error}=await supabase.from("profiles").upsert({id:account.data.id,display_name:displayName.trim()||null},{onConflict:"id"}); setSaving(false); if(error) toast.error(error.message); else { await recordAuditEvent("profile_update", "profile", account.data.id, "Profile display name updated"); toast.success("Profile updated"); } };
   return <AppShell title="Settings" subtitle="Account and preferences"><div className="mx-auto max-w-3xl space-y-5">
     <section className="panel p-5"><div className="flex items-center gap-3"><User className="size-5 text-primary"/><div><h2 className="font-display text-xl text-primary">Profile</h2><p className="text-sm text-muted-foreground">Your Command Center identity.</p></div></div><Separator className="my-4"/><div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Email</Label><Input value={account.data?.email??""} readOnly/></div><div className="space-y-1"><Label>Display name</Label><Input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Fleet commander"/></div></div><Button className="mt-4" onClick={saveProfile} disabled={!account.data||saving}>{saving?"Saving…":"Save profile"}</Button></section>
     <section className="panel p-5"><div className="flex items-center gap-3"><Shield className="size-5 text-primary"/><div><h2 className="font-display text-xl text-primary">Security</h2><p className="text-sm text-muted-foreground">Authentication remains managed by Supabase.</p></div></div><Separator className="my-4"/><div className="grid gap-2 text-sm"><div className="flex justify-between gap-3"><span className="text-muted-foreground">Signed in as</span><span className="truncate">{account.data?.email??"Loading…"}</span></div><div className="flex justify-between gap-3"><span className="text-muted-foreground">Provider</span><span>{account.data?.app_metadata?.provider??"Account"}</span></div></div></section>
