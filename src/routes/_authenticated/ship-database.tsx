@@ -159,7 +159,7 @@ function ShipDatabasePage() {
   });
   const referenceByShip = useMemo(() => new Map((shipReferenceQuery.data ?? []).map((row) => [row.sto_ship_id, row])), [shipReferenceQuery.data]);
 
-  const { data = [], isLoading, error } = useQuery({
+  const { data = [], isLoading, error, refetch: refetchCatalog } = useQuery({
     queryKey: ["ship_database_catalog"],
     queryFn: async () => {
       const { data, error } = await supabase.from("sto_ships").select("*").order("name");
@@ -428,7 +428,7 @@ function ShipDatabasePage() {
           </div>
           <div className="mt-4 rounded border border-border bg-muted/10 p-3">
             <div className="flex items-center justify-between gap-2"><div><p className="lcars-label text-[10px]">Catalogue import pipeline</p><p className="mt-1 text-xs text-muted-foreground">Only validated source payloads can be applied. Missing fields stay empty rather than being guessed.</p></div><div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>Stage JSON</Button><Database className="size-4 text-primary" /></div></div>
-            {imports.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading import status…</p> : imports.data?.length ? <div className="mt-2 space-y-1.5">{imports.data.map((item: any) => <ImportRow key={item.id} item={item} onChanged={() => imports.refetch()} />)}</div> : <p className="mt-2 text-xs text-muted-foreground">No catalogue imports have been staged yet.</p>}
+            {imports.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading import status…</p> : imports.data?.length ? <div className="mt-2 space-y-1.5">{imports.data.map((item: any) => <ImportRow key={item.id} item={item} onChanged={() => { void imports.refetch(); void refetchCatalog(); void coverage.refetch(); void shipReferenceQuery.refetch(); }} />)}</div> : <p className="mt-2 text-xs text-muted-foreground">No catalogue imports have been staged yet.</p>}
           </div>
           <Dialog open={!!assignmentShip} onOpenChange={(open) => { if (!open && !assignmentBusy) { setAssignmentShip(null); setAssignmentCharacter(""); } }}>
             <DialogContent>
