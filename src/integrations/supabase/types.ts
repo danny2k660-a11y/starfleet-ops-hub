@@ -6,13 +6,6 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.18"
-  }
-  public: {
 type TableDef<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -28,6 +21,13 @@ type InventoryItemRow = { id: string; user_id: string; character_id: string | nu
 type ThemeRuleRow = { id: string; user_id: string; theme_name: string; rule_type: "required" | "allowed" | "forbidden" | "keyword"; value: string; created_at: string };
 type CharacterShipUnlockRow = { id: string; user_id: string; character_id: string; sto_ship_id: string; unlock_type: "ship_trait" | "console" | "special_weapon"; name: string; source_name: string | null; created_at: string };
 
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.18"
+  }
+  public: {
     Tables: {
       profiles: TableDef<ProfileRow, { id: string; display_name?: string | null; avatar_url?: string | null; created_at?: string; updated_at?: string }>;
       projects: TableDef<ProjectRow, { id?: string; user_id?: string; name: string; description?: string | null; status?: ProjectRow["status"]; priority?: ProjectRow["priority"]; character_id?: string | null; target_date?: string | null; progress?: number; created_at?: string; updated_at?: string }>;
