@@ -739,6 +739,54 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       bonuses: (setBonusRules.data ?? []).filter((rule) => rule.set_name === setName && rule.piece_threshold <= count),
     }));
   }, [assigned.data, setPieces.data, setBonusRules.data]);
+  const hangarSlots = Array.from({ length: Math.max(0, Number(shipData?.hangar_bays ?? 0)) }, (_, index) => "Hangar Bay " + (index + 1));
+  const [petSlot, setPetSlot] = useState("Hangar Bay 1");
+  const [petName, setPetName] = useState("");
+  const [petQuantity, setPetQuantity] = useState("1");
+  const [petSource, setPetSource] = useState("");
+  const [petNotes, setPetNotes] = useState("");
+  const hangarPets = useQuery({
+    queryKey: ["loadout_hangar_pets", loadoutId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("loadout_hangar_pets").select("*").eq("loadout_id", loadoutId).order("hangar_slot");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const saveHangarPet = useMutation({
+    mutationFn: async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) throw new Error("Not signed in.");
+      if (!hangarSlots.length) throw new Error("This ship has no recorded hangar bays.");
+      if (!petName.trim()) throw new Error("Enter the exact hangar pet name.");
+      const quantity = Number(petQuantity);
+      if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Pet quantity must be a positive whole number.");
+      const selectedSlot = hangarSlots.includes(petSlot) ? petSlot : hangarSlots[0];
+      const { error } = await supabase.from("loadout_hangar_pets").upsert({
+        user_id: auth.user.id, loadout_id: loadoutId, hangar_slot: selectedSlot, pet_name: petName.trim(),
+        quantity, source_reference: petSource.trim() || null, notes: petNotes.trim() || null,
+      }, { onConflict: "loadout_id,hangar_slot" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["loadout_hangar_pets", loadoutId] });
+      setPetName(""); setPetQuantity("1"); setPetSource(""); setPetNotes("");
+      toast.success("Hangar pet assignment saved");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const removeHangarPet = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) throw new Error("Not signed in.");
+      const { error } = await supabase.from("loadout_hangar_pets").delete().eq("id", id).eq("user_id", auth.user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["loadout_hangar_pets", loadoutId] }),
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -783,6 +831,16 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
         </div>)}
         {!setCounts.length && <p className="text-xs text-muted-foreground">{(assigned.data ?? []).length ? "The assigned items are not linked to catalogue set metadata yet." : "Assign equipment to see set-piece counts."}</p>}
       </div>
+    </div>
+    <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-primary">Carrier hangar pets</p><p className="text-[11px] text-muted-foreground">Record exact pet names and optional source links. No pet is assumed or invented from the ship type.</p></div><Badge variant="outline">{hangarPets.data?.length ?? 0} assignments</Badge></div>
+      {!hangarSlots.length ? <p className="mt-2 text-xs text-muted-foreground">No hangar bays are recorded for this ship.</p> : <>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2"><div className="space-y-1"><Label>Hangar bay</Label><Select value={hangarSlots.includes(petSlot) ? petSlot : hangarSlots[0]} onValueChange={setPetSlot}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{hangarSlots.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div><div className="space-y-1"><Label>Pet quantity</Label><Input type="number" min="1" step="1" value={petQuantity} onChange={(event) => setPetQuantity(event.target.value)} /></div></div>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2"><div className="space-y-1"><Label>Exact pet name</Label><Input value={petName} onChange={(event) => setPetName(event.target.value)} placeholder="Enter the pet you own" /></div><div className="space-y-1"><Label>Source URL (optional)</Label><Input value={petSource} onChange={(event) => setPetSource(event.target.value)} placeholder="STO Wiki or acquisition source" /></div></div>
+        <Input className="mt-2" value={petNotes} onChange={(event) => setPetNotes(event.target.value)} placeholder="Pet rarity, unlock notes or details (optional)" />
+        <Button className="mt-2" size="sm" variant="outline" onClick={() => saveHangarPet.mutate()} disabled={saveHangarPet.isPending || !petName.trim()}>{saveHangarPet.isPending ? "Saving…" : "Save hangar pet"}</Button>
+        <div className="mt-3 space-y-2">{(hangarPets.data ?? []).map((pet) => <div key={pet.id} className="flex items-start justify-between gap-2 rounded border border-border bg-background/50 p-2"><div><p className="text-sm font-medium">{pet.hangar_slot}: {pet.pet_name} <span className="text-muted-foreground">×{pet.quantity}</span></p>{pet.notes && <p className="mt-1 text-xs text-muted-foreground">{pet.notes}</p>}{pet.source_reference && <a href={pet.source_reference} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[10px] text-primary underline">Open source</a>}</div><Button size="icon" variant="ghost" onClick={() => removeHangarPet.mutate(pet.id)} aria-label={"Remove " + pet.pet_name}><Trash2 className="size-3.5 text-destructive" /></Button></div>)}</div>
+      </>}
     </div>
     <div className="mt-3 grid gap-3 sm:grid-cols-2">
       {groups.map(([group, groupSlots]) => groupSlots.length ? <div key={group} className="rounded-lg border border-border/70 bg-background/30 p-3">
