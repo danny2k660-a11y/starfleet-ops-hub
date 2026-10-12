@@ -32,10 +32,10 @@ function ShipPlannerPage() {
   const [buildSearch, setBuildSearch] = useState("");
   const [selectedBundle, setSelectedBundle] = useState("");
 
-  const characters = useQuery({ queryKey: ["characters"], queryFn: async () => { const { data, error } = await supabase.from("characters").select("id,name").order("name"); if (error) throw error; return (data ?? []) as Character[]; } });
+  const characters = useQuery({ queryKey: ["characters"], queryFn: async () => { const { data: u, error: authError } = await supabase.auth.getUser(); if (authError) throw authError; if (!u.user) throw new Error("Not signed in."); const { data, error } = await supabase.from("characters").select("id,name").eq("user_id", u.user.id).order("name"); if (error) throw error; return (data ?? []) as Character[]; } });
   const catalog = useQuery({ queryKey: ["sto_ships"], queryFn: async () => { const { data, error } = await supabase.from("sto_ships").select("id,name,ship_class,faction").order("name"); if (error) throw error; return (data ?? []) as CatalogShip[]; } });
-  const sources = useQuery({ queryKey: ["sto_ship_sources"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources" as never).select("id,sto_ship_id,source_name,source_type,bundle_id,account_unlock").order("source_name"); if (error) throw error; return (data ?? []) as any[]; } });
-  const bundles = useQuery({ queryKey: ["sto_ship_bundles"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_bundles" as never).select("id,name,availability_status,account_unlock,price_currency,price_amount,sto_ship_bundle_items(sto_ship_id,quantity,account_unlock,sto_ships(name))").order("name"); if (error) throw error; return (data ?? []) as any[]; } });
+  const sources = useQuery({ queryKey: ["sto_ship_sources"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources").select("id,sto_ship_id,source_name,source_type,bundle_id,account_unlock").order("source_name"); if (error) throw error; return (data ?? []) as any[]; } });
+  const bundles = useQuery({ queryKey: ["sto_ship_bundles"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_bundles").select("id,name,availability_status,account_unlock,price_currency,price_amount,sto_ship_bundle_items(sto_ship_id,quantity,account_unlock,sto_ships(name))").order("name"); if (error) throw error; return (data ?? []) as any[]; } });
   const fleet = useQuery({
     queryKey: ["user_ships"],
     queryFn: async () => {
@@ -104,16 +104,16 @@ function ShipPlannerPage() {
     );
     for (const { sto_ship_id, source } of selectedSources) {
       const targetCharacters = targetByShip.get(sto_ship_id) ?? [claimCharacter];
-      const { error: claimError } = await supabase.rpc("claim_ship_assignments" as never, {
+      const { error: claimError } = await supabase.rpc("claim_ship_assignments", {
         p_ship_id: sto_ship_id,
         p_character_ids: targetCharacters,
         p_acquisition_source_id: source?.id ?? null,
         p_acquisition_group: claimGroup.trim() || (source?.account_unlock === true ? source?.source_name ?? null : null),
-      } as never);
+      });
       if (claimError) throw claimError;
     }
-
-  }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); setSelectedCatalog([]); toast.success("Ships added to the character and placed in the build queue."); }, onError: (e: Error) => toast.error(e.message) });
+    return selectedSources.length;
+  }, onSuccess: (count) => { qc.invalidateQueries({ queryKey: ["user_ships"] }); setSelectedCatalog([]); toast.success(count + " ship claim" + (count === 1 ? "" : "s") + " processed; already-owned ships remain unchanged."); }, onError: (e: Error) => toast.error(e.message) });
   const claimBundle = useMutation({ mutationFn: async () => {
     if (!claimCharacter) throw new Error("Choose the character receiving the bundle ships.");
     if (!selectedBundle) throw new Error("Choose a bundle.");
@@ -129,18 +129,18 @@ function ShipPlannerPage() {
     let claimedCount = 0;
     for (const item of items) {
       const source = (sources.data ?? []).find((s:any) => s.bundle_id === selectedBundle && s.sto_ship_id === item.sto_ship_id);
-      const { data: count, error: claimError } = await supabase.rpc("claim_ship_assignments" as never, {
+      const { error: claimError } = await supabase.rpc("claim_ship_assignments", {
         p_ship_id: item.sto_ship_id,
         p_character_ids: targetCharacters,
         p_acquisition_source_id: source?.id ?? null,
         p_acquisition_group: bundle.name,
-      } as never);
+      });
       if (claimError) throw claimError;
-      claimedCount += Number(count ?? 0);
+      claimedCount += targetCharacters.length;
     }
 
     return claimedCount;
-  }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["sto_ship_ownership"] }); setSelectedBundle(""); toast.success("Bundle ships claimed and added to the selected character."); }, onError: (e: Error) => toast.error(e.message) });
+  }, onSuccess: (count) => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["sto_ship_ownership"] }); setSelectedBundle(""); toast.success("Bundle processed: " + count + " ship-to-character assignments requested."); }, onError: (e: Error) => toast.error(e.message) });
   const setUsage = useMutation({ mutationFn: async ({ id, mode }: { id: string; mode: string }) => { const { error } = await supabase.from("user_ships").update({ usage_mode: mode } as never).eq("id", id); if (error) throw error; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["build_readiness"] }); }, onError: (e: Error) => toast.error(e.message) });
   const createBuild = useMutation({ mutationFn: async (ship: FleetShip) => { const { data: u } = await supabase.auth.getUser(); if (!u.user) throw new Error("Not signed in"); const shipName = ship.custom_name || ship.sto_ships?.name || "Ship";
 if (ship.ownership_status !== "owned" || !ship.character_id) throw new Error("Only a character-owned ship can become a build.");
