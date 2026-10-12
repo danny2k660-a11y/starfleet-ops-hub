@@ -629,15 +629,24 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
 
       let assignedCount = 0;
       for (const item of claimItems) {
+        const { data: existingAssignments, error: existingError } = await supabase
+          .from("user_ships")
+          .select("character_id,ownership_status")
+          .eq("user_id", u.user.id)
+          .eq("sto_ship_id", item.sto_ship_id)
+          .in("character_id", targetCharacters);
+        if (existingError) throw existingError;
+        const alreadyOwned = new Set((existingAssignments ?? []).filter((row) => row.ownership_status === "owned").map((row) => row.character_id));
+        assignedCount += targetCharacters.filter((id) => !alreadyOwned.has(id)).length;
+
         const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
-        const { data: assigned, error: claimError } = await supabase.rpc("claim_ship_assignments", {
+        const { error: claimError } = await supabase.rpc("claim_ship_assignments", {
           p_ship_id: item.sto_ship_id,
           p_character_ids: targetCharacters,
           p_acquisition_source_id: source?.id ?? null,
           p_acquisition_group: bundle.name,
         });
         if (claimError) throw claimError;
-        assignedCount += assigned ?? 0;
       }
 
       onClaimed();
