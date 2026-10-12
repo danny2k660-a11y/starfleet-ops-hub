@@ -33,18 +33,18 @@ function Page() {
       const accountTables=["characters","user_ships","sto_ship_ownership","ship_instances","builds","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"] as const;
       const {data:profileRow,error:profileError}=await supabase.from("profiles").select("*").eq("id",userId).maybeSingle();
       if(profileError) throw new Error(`profiles: ${profileError.message}`);
-      result.profiles=profileRow ? [profileRow] : [];
+      result["profiles"]=profileRow ? [profileRow] : [];
       const {data:catalog,error:catalogError}=await supabase.from("sto_ships").select("*");
       if(catalogError) throw new Error(`sto_ships: ${catalogError.message}`);
-      result.sto_ships=catalog??[];
+      result["sto_ships"]=catalog??[];
       for(const table of accountTables){
         const {data,error}=await supabase.from(table).select("*").eq("user_id",userId);
         if(error) throw new Error(`${table}: ${error.message}`);
         result[table]=data??[];
       }
-      const loadoutIds=((result.loadouts as Array<{id:string}>|undefined)??[]).map(row=>row.id);
-      const buildIds=((result.builds as Array<{id:string}>|undefined)??[]).map(row=>row.id);
-      const groundIds=((result.build_ground_loadouts as Array<{id:string}>|undefined)??[]).map(row=>row.id);
+      const loadoutIds=((result["loadouts"] as Array<{id:string}>|undefined)??[]).map(row=>row.id);
+      const buildIds=((result["builds"] as Array<{id:string}>|undefined)??[]).map(row=>row.id);
+      const groundIds=((result["build_ground_loadouts"] as Array<{id:string}>|undefined)??[]).map(row=>row.id);
       for(const [table,foreignKey,parentIds] of [
         ["loadout_traits","loadout_id",loadoutIds],
         ["loadout_boffs","loadout_id",loadoutIds],
