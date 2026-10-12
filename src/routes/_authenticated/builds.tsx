@@ -432,7 +432,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user || !shipContext.data?.characterId || !consoleName.trim()) return;
     const { data: existing, error: findError } = await supabase.from("equipment_items")
-      .select("id").eq("user_id", u.user.id).eq("character_id", shipContext.data.characterId).eq("name", consoleName.trim()).eq("category", "Console").maybeSingle();
+      .select("id").eq("user_id", u.user.id).eq("character_id", shipContext.data.characterId).eq("name", consoleName.trim()).eq("category", "Console").limit(1).maybeSingle();
     if (findError) { toast.error(findError.message); return; }
     if (existing) { toast.info(`${consoleName} is already in character equipment`); return; }
     const { error } = await supabase.from("equipment_items").insert({
