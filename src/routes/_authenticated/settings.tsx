@@ -79,9 +79,9 @@ function Page() {
       if(!parsed || typeof parsed !== "object" || !Array.isArray(parsed.characters) || !Array.isArray(parsed.user_ships) || !Array.isArray(parsed.builds)) throw new Error("This is not a valid STO Command Center backup.");
       const userId=account.data.id;
       const sourceUserId=typeof parsed.account_id==="string"?parsed.account_id:userId;
-      const order=["characters","ship_instances","user_ships","sto_ship_ownership","builds","build_versions","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_bridge_officers","character_reputations","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"];
+      const order=["characters","ship_instances","builds","user_ships","sto_ship_ownership","build_versions","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_bridge_officers","character_reputations","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"];
       for(const table of order){
-        const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && row.user_id===sourceUserId).map((row:any)=>({...row,user_id:userId})):[];
+        const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && row.user_id===sourceUserId).map((row:any)=>{const mapped={...row,user_id:userId}; if(table==="builds") delete mapped.user_ship_id; if(table==="user_ships") delete mapped.current_build_id; return mapped;}):[];
         if(!rows.length) continue;
         const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id"});
         if(error) throw new Error(table+": "+error.message);
@@ -97,6 +97,15 @@ function Page() {
         if(!rows.length) continue;
         const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id"});
         if(error) throw new Error(table+": "+error.message);
+      }
+      // Restore the circular build/ship links only after both sides exist.
+      for (const row of ((parsed.builds as Array<any> | undefined) ?? []).filter((item) => item && item.user_id === sourceUserId)) {
+        const { error } = await supabase.from("builds").update({ user_ship_id: row.user_ship_id ?? null }).eq("id", row.id).eq("user_id", userId);
+        if (error) throw new Error("builds ship link: " + error.message);
+      }
+      for (const row of ((parsed.user_ships as Array<any> | undefined) ?? []).filter((item) => item && item.user_id === sourceUserId)) {
+        const { error } = await supabase.from("user_ships").update({ current_build_id: row.current_build_id ?? null }).eq("id", row.id).eq("user_id", userId);
+        if (error) throw new Error("ship build link: " + error.message);
       }
       if(Array.isArray(parsed.profiles) && parsed.profiles[0] && (parsed.profiles[0].id===sourceUserId || parsed.profiles[0].id===userId)){const {error}=await supabase.from("profiles").upsert({...parsed.profiles[0],id:userId} as never,{onConflict:"id"});if(error) throw new Error("profiles: "+error.message);}
       toast.success("Fleet backup imported");
