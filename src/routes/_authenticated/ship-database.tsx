@@ -246,7 +246,7 @@ function ShipDatabasePage() {
             user_id: u.user.id,
             character_id: character.id,
             name: ship.special_console,
-            category: "console",
+            category: "Console",
             quantity: 1,
             notes: "Unlocked from ship: " + ship.name,
           });
@@ -264,7 +264,7 @@ function ShipDatabasePage() {
             user_id: u.user.id,
             character_id: character.id,
             name: ship.special_weapons,
-            category: "experimental weapon",
+            category: "Experimental Weapon",
             quantity: 1,
             notes: "Unlocked from ship: " + ship.name,
           });
