@@ -5,7 +5,7 @@ const seen = new Map();
 const errors = [];
 
 for (const file of files) {
-  const match = file.match(/^(\d{14})_([a-z0-9_]+)\.sql$/);
+  const match = file.match(/^(\d{14})_([a-z0-9_-]+)\.sql$/);
   if (!match) {
     errors.push(`Invalid migration filename: ${file}`);
     continue;
