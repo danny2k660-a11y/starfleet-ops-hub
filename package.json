@@ -11,7 +11,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "android:sync": "npm run build && npx cap sync android",
-    "android:open": "npx cap open android"
+    "android:open": "npx cap open android",
+    "typecheck": "npm run build && tsc --noEmit",
+    "check:migrations": "node scripts/check-migration-versions.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -73,7 +75,8 @@
     "zod": "^3.25.76",
     "@capacitor/app": "^8.0.0",
     "@capacitor/browser": "^8.0.0",
-    "@capacitor/preferences": "^8.0.0"
+    "@capacitor/preferences": "^8.0.0",
+    "@radix-ui/react-scroll-area": "^1.2.10"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.0",
@@ -94,6 +97,7 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.1.5",
-    "@playwright/test": "1.55.0"
+    "@playwright/test": "1.55.0",
+    "@tailwindcss/vite": "^4.2.1"
   }
 }

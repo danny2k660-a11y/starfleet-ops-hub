@@ -235,34 +235,61 @@ export type Database = {
       }
       build_ground_loadouts: {
         Row: {
+          armor: Json | null
           build_id: string
           created_at: string | null
+          devices: Json | null
+          ground_traits: Json
           id: string
           is_active: boolean
+          kit: Json | null
+          kit_modules: Json | null
           name: string
           notes: string | null
+          personal_shield: Json | null
+          specializations: Json
           updated_at: string | null
           user_id: string
+          weapon_1: Json | null
+          weapon_2: Json | null
         }
         Insert: {
+          armor?: Json | null
           build_id: string
           created_at?: string | null
+          devices?: Json | null
+          ground_traits?: Json
           id?: string
           is_active?: boolean
+          kit?: Json | null
+          kit_modules?: Json | null
           name: string
           notes?: string | null
+          personal_shield?: Json | null
+          specializations?: Json
           updated_at?: string | null
           user_id: string
+          weapon_1?: Json | null
+          weapon_2?: Json | null
         }
         Update: {
+          armor?: Json | null
           build_id?: string
           created_at?: string | null
+          devices?: Json | null
+          ground_traits?: Json
           id?: string
           is_active?: boolean
+          kit?: Json | null
+          kit_modules?: Json | null
           name?: string
           notes?: string | null
+          personal_shield?: Json | null
+          specializations?: Json
           updated_at?: string | null
           user_id?: string
+          weapon_1?: Json | null
+          weapon_2?: Json | null
         }
         Relationships: [
           {
@@ -312,14 +339,55 @@ export type Database = {
           },
         ]
       }
+      build_versions: {
+        Row: {
+          build_id: string
+          created_at: string
+          id: string
+          snapshot: Json
+          summary: string | null
+          user_id: string
+          version_number: number
+        }
+        Insert: {
+          build_id: string
+          created_at?: string
+          id?: string
+          snapshot: Json
+          summary?: string | null
+          user_id?: string
+          version_number: number
+        }
+        Update: {
+          build_id?: string
+          created_at?: string
+          id?: string
+          snapshot?: Json
+          summary?: string | null
+          user_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "build_versions_build_id_fkey"
+            columns: ["build_id"]
+            isOneToOne: false
+            referencedRelation: "builds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       builds: {
         Row: {
+          acquisition_needs: Json
+          archived: boolean
           build_domain: string
           captain_setup: Json | null
           character_id: string | null
           completion_percent: number
           created_at: string
           duty_officer_notes: string | null
+          ground_loadout: Json
           id: string
           is_complete: boolean
           last_validated_at: string | null
@@ -330,17 +398,22 @@ export type Database = {
           role: string | null
           ship_instance_id: string | null
           status: string
+          template_id: string | null
           updated_at: string
           user_id: string
           user_ship_id: string | null
+          version: number
         }
         Insert: {
+          acquisition_needs?: Json
+          archived?: boolean
           build_domain?: string
           captain_setup?: Json | null
           character_id?: string | null
           completion_percent?: number
           created_at?: string
           duty_officer_notes?: string | null
+          ground_loadout?: Json
           id?: string
           is_complete?: boolean
           last_validated_at?: string | null
@@ -351,17 +424,22 @@ export type Database = {
           role?: string | null
           ship_instance_id?: string | null
           status?: string
+          template_id?: string | null
           updated_at?: string
           user_id: string
           user_ship_id?: string | null
+          version?: number
         }
         Update: {
+          acquisition_needs?: Json
+          archived?: boolean
           build_domain?: string
           captain_setup?: Json | null
           character_id?: string | null
           completion_percent?: number
           created_at?: string
           duty_officer_notes?: string | null
+          ground_loadout?: Json
           id?: string
           is_complete?: boolean
           last_validated_at?: string | null
@@ -372,9 +450,11 @@ export type Database = {
           role?: string | null
           ship_instance_id?: string | null
           status?: string
+          template_id?: string | null
           updated_at?: string
           user_id?: string
           user_ship_id?: string | null
+          version?: number
         }
         Relationships: [
           {
@@ -399,6 +479,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      catalog_validation_runs: {
+        Row: {
+          created_at: string
+          dataset: string
+          duplicate_key_rows: number
+          id: string
+          missing_description_rows: number
+          missing_source_rows: number
+          notes: string | null
+          review_rows: number
+          total_rows: number
+          verified_rows: number
+        }
+        Insert: {
+          created_at?: string
+          dataset: string
+          duplicate_key_rows?: number
+          id?: string
+          missing_description_rows?: number
+          missing_source_rows?: number
+          notes?: string | null
+          review_rows: number
+          total_rows: number
+          verified_rows: number
+        }
+        Update: {
+          created_at?: string
+          dataset?: string
+          duplicate_key_rows?: number
+          id?: string
+          missing_description_rows?: number
+          missing_source_rows?: number
+          notes?: string | null
+          review_rows?: number
+          total_rows?: number
+          verified_rows?: number
+        }
+        Relationships: []
       }
       character_boffs: {
         Row: {
@@ -438,6 +557,65 @@ export type Database = {
           },
           {
             foreignKeyName: "character_boffs_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      character_bridge_officers: {
+        Row: {
+          abilities: Json
+          active: boolean
+          career: string | null
+          character_id: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          rank: string | null
+          specialization: string | null
+          species: string | null
+          traits: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          abilities?: Json
+          active?: boolean
+          career?: string | null
+          character_id: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          rank?: string | null
+          specialization?: string | null
+          species?: string | null
+          traits?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          abilities?: Json
+          active?: boolean
+          career?: string | null
+          character_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          rank?: string | null
+          specialization?: string | null
+          species?: string | null
+          traits?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_bridge_officers_character_id_fkey"
             columns: ["character_id"]
             isOneToOne: false
             referencedRelation: "characters"
@@ -531,6 +709,115 @@ export type Database = {
             columns: ["duty_officer_id"]
             isOneToOne: false
             referencedRelation: "duty_officer_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      character_reputations: {
+        Row: {
+          character_id: string
+          created_at: string
+          daily_claimed: boolean
+          id: string
+          notes: string | null
+          progress: number
+          reputation_name: string
+          tier: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          character_id: string
+          created_at?: string
+          daily_claimed?: boolean
+          id?: string
+          notes?: string | null
+          progress?: number
+          reputation_name: string
+          tier?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          character_id?: string
+          created_at?: string
+          daily_claimed?: boolean
+          id?: string
+          notes?: string | null
+          progress?: number
+          reputation_name?: string
+          tier?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_reputations_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      character_ship_unlocks: {
+        Row: {
+          character_id: string
+          created_at: string
+          id: string
+          name: string
+          source_name: string | null
+          sto_ship_id: string
+          unlock_type: string
+          user_id: string
+        }
+        Insert: {
+          character_id: string
+          created_at?: string
+          id?: string
+          name: string
+          source_name?: string | null
+          sto_ship_id: string
+          unlock_type: string
+          user_id: string
+        }
+        Update: {
+          character_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          source_name?: string | null
+          sto_ship_id?: string
+          unlock_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_ship_unlocks_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_ship_unlocks_sto_ship_id_fkey"
+            columns: ["sto_ship_id"]
+            isOneToOne: false
+            referencedRelation: "sto_ship_catalogue_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_ship_unlocks_sto_ship_id_fkey"
+            columns: ["sto_ship_id"]
+            isOneToOne: false
+            referencedRelation: "sto_ship_data_quality"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_ship_unlocks_sto_ship_id_fkey"
+            columns: ["sto_ship_id"]
+            isOneToOne: false
+            referencedRelation: "sto_ships"
             referencedColumns: ["id"]
           },
         ]
@@ -1193,6 +1480,65 @@ export type Database = {
           },
         ]
       }
+      inventory_items: {
+        Row: {
+          category: string
+          character_id: string | null
+          created_at: string
+          id: string
+          location: string
+          mark: string | null
+          name: string
+          notes: string | null
+          quantity: number
+          rarity: string | null
+          slot: string | null
+          source: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          character_id?: string | null
+          created_at?: string
+          id?: string
+          location?: string
+          mark?: string | null
+          name: string
+          notes?: string | null
+          quantity?: number
+          rarity?: string | null
+          slot?: string | null
+          source?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          category?: string
+          character_id?: string | null
+          created_at?: string
+          id?: string
+          location?: string
+          mark?: string | null
+          name?: string
+          notes?: string | null
+          quantity?: number
+          rarity?: string | null
+          slot?: string | null
+          source?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loadout_boffs: {
         Row: {
           abilities: Json
@@ -1207,6 +1553,7 @@ export type Database = {
           specialization: string | null
           station: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           abilities?: Json
@@ -1221,6 +1568,7 @@ export type Database = {
           specialization?: string | null
           station: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           abilities?: Json
@@ -1235,6 +1583,7 @@ export type Database = {
           specialization?: string | null
           station?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -1346,6 +1695,53 @@ export type Database = {
           },
         ]
       }
+      loadout_hangar_pets: {
+        Row: {
+          created_at: string
+          hangar_slot: string
+          id: string
+          loadout_id: string
+          notes: string | null
+          pet_name: string
+          quantity: number
+          source_reference: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hangar_slot: string
+          id?: string
+          loadout_id: string
+          notes?: string | null
+          pet_name: string
+          quantity?: number
+          source_reference?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          hangar_slot?: string
+          id?: string
+          loadout_id?: string
+          notes?: string | null
+          pet_name?: string
+          quantity?: number
+          source_reference?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loadout_hangar_pets_loadout_id_fkey"
+            columns: ["loadout_id"]
+            isOneToOne: false
+            referencedRelation: "loadouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loadout_traits: {
         Row: {
           created_at: string
@@ -1358,6 +1754,7 @@ export type Database = {
           trait_category: string | null
           trait_id: string | null
           trait_type: string
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -1370,6 +1767,7 @@ export type Database = {
           trait_category?: string | null
           trait_id?: string | null
           trait_type?: string
+          user_id?: string
         }
         Update: {
           created_at?: string
@@ -1382,6 +1780,7 @@ export type Database = {
           trait_category?: string | null
           trait_id?: string | null
           trait_type?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -1437,6 +1836,162 @@ export type Database = {
             columns: ["build_id"]
             isOneToOne: false
             referencedRelation: "builds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      project_tasks: {
+        Row: {
+          created_at: string
+          done: boolean
+          id: string
+          project_id: string
+          sort_order: number
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          id?: string
+          project_id: string
+          sort_order?: number
+          title: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          id?: string
+          project_id?: string
+          sort_order?: number
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          character_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          priority: string
+          progress: number
+          project_type: string
+          status: string
+          target_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          character_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          priority?: string
+          progress?: number
+          project_type?: string
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          character_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          priority?: string
+          progress?: number
+          project_type?: string
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_balances: {
+        Row: {
+          category: string
+          character_id: string | null
+          id: string
+          name: string
+          notes: string | null
+          quantity: number
+          target: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          character_id?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          quantity?: number
+          target?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          category?: string
+          character_id?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          quantity?: number
+          target?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_balances_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
             referencedColumns: ["id"]
           },
         ]
@@ -1566,6 +2121,186 @@ export type Database = {
           verified_at?: string
         }
         Relationships: []
+      }
+      sto_equipment_set_bonuses: {
+        Row: {
+          bonus_description: string
+          bonus_name: string
+          created_at: string
+          data_version: string | null
+          id: string
+          piece_threshold: number
+          set_name: string
+          source_reference: string
+          updated_at: string
+          verified: boolean
+          verified_at: string | null
+        }
+        Insert: {
+          bonus_description: string
+          bonus_name: string
+          created_at?: string
+          data_version?: string | null
+          id?: string
+          piece_threshold: number
+          set_name: string
+          source_reference: string
+          updated_at?: string
+          verified?: boolean
+          verified_at?: string | null
+        }
+        Update: {
+          bonus_description?: string
+          bonus_name?: string
+          created_at?: string
+          data_version?: string | null
+          id?: string
+          piece_threshold?: number
+          set_name?: string
+          source_reference?: string
+          updated_at?: string
+          verified?: boolean
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
+      sto_project_tasks: {
+        Row: {
+          completed_quantity: number
+          created_at: string
+          id: string
+          notes: string | null
+          project_id: string
+          quantity: number
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_quantity?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          project_id: string
+          quantity?: number
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_quantity?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          project_id?: string
+          quantity?: number
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sto_project_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "sto_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sto_projects: {
+        Row: {
+          character_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          notes: string | null
+          priority: string
+          project_type: string
+          status: string
+          target_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          character_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          priority?: string
+          project_type?: string
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          character_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          priority?: string
+          project_type?: string
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sto_projects_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sto_resource_balances: {
+        Row: {
+          amount: number
+          character_id: string | null
+          id: string
+          notes: string | null
+          resource_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          character_id?: string | null
+          id?: string
+          notes?: string | null
+          resource_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          character_id?: string | null
+          id?: string
+          notes?: string | null
+          resource_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sto_resource_balances_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sto_ship_bundle_items: {
         Row: {
@@ -2276,6 +3011,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json
+          entity_id: string | null
+          entity_type: string
+          id: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          summary: string
+          user_id?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_ships: {
         Row: {
           acquisition_group: string | null
@@ -2285,9 +3053,11 @@ export type Database = {
           current_build_id: string | null
           custom_name: string | null
           date_acquired: string | null
+          hull_material: string | null
           id: string
           notes: string | null
           ownership_status: string
+          prefix: string | null
           sto_ship_id: string
           t6_upgraded: boolean
           t6x_upgraded: boolean
@@ -2297,6 +3067,9 @@ export type Database = {
           upgrades: Json
           usage_mode: string
           user_id: string
+          vanity_shield: string | null
+          visual_config: Json
+          visual_notes: string | null
         }
         Insert: {
           acquisition_group?: string | null
@@ -2306,9 +3079,11 @@ export type Database = {
           current_build_id?: string | null
           custom_name?: string | null
           date_acquired?: string | null
+          hull_material?: string | null
           id?: string
           notes?: string | null
           ownership_status?: string
+          prefix?: string | null
           sto_ship_id: string
           t6_upgraded?: boolean
           t6x_upgraded?: boolean
@@ -2318,6 +3093,9 @@ export type Database = {
           upgrades?: Json
           usage_mode?: string
           user_id: string
+          vanity_shield?: string | null
+          visual_config?: Json
+          visual_notes?: string | null
         }
         Update: {
           acquisition_group?: string | null
@@ -2327,9 +3105,11 @@ export type Database = {
           current_build_id?: string | null
           custom_name?: string | null
           date_acquired?: string | null
+          hull_material?: string | null
           id?: string
           notes?: string | null
           ownership_status?: string
+          prefix?: string | null
           sto_ship_id?: string
           t6_upgraded?: boolean
           t6x_upgraded?: boolean
@@ -2339,6 +3119,9 @@ export type Database = {
           upgrades?: Json
           usage_mode?: string
           user_id?: string
+          vanity_shield?: string | null
+          visual_config?: Json
+          visual_notes?: string | null
         }
         Relationships: [
           {
@@ -2382,6 +3165,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sto_ships"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_ships_user_character_fkey"
+            columns: ["user_id", "character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["user_id", "id"]
           },
         ]
       }
@@ -2474,6 +3264,15 @@ export type Database = {
         Args: { p_import_id: string }
         Returns: number
       }
+      claim_ship_assignments: {
+        Args: {
+          p_acquisition_group?: string
+          p_acquisition_source_id?: string
+          p_character_ids: string[]
+          p_ship_id: string
+        }
+        Returns: number
+      }
       claim_sto_ship_bundle: {
         Args: {
           p_acquired_at?: string
@@ -2481,6 +3280,24 @@ export type Database = {
           p_character_id?: string
         }
         Returns: number
+      }
+      copy_sto_build_to_ship: {
+        Args: {
+          p_new_name: string
+          p_source_build_id: string
+          p_target_ship_id: string
+        }
+        Returns: string
+      }
+      record_sto_audit_event: {
+        Args: {
+          p_action: string
+          p_details?: Json
+          p_entity_id?: string
+          p_entity_type: string
+          p_summary?: string
+        }
+        Returns: string
       }
       refresh_build_readiness: {
         Args: { p_build_id: string }

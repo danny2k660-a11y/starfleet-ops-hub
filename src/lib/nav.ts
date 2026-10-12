@@ -10,6 +10,11 @@ import {
   Settings,
   ClipboardList,
   ShieldCheck,
+  Archive,
+  FolderKanban,
+  Coins,
+  Palette,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,7 +35,12 @@ export const navItems: NavItem[] = [
   { to: "/builds", label: "Space Builds", icon: Wrench },
   { to: "/ground-builds", label: "Ground Builds", icon: ShieldCheck },
   { to: "/equipment", label: "Equipment", icon: Shield },
+  { to: "/inventory", label: "Inventory", icon: Archive },
   { to: "/traits", label: "Traits", icon: Sparkles },
   { to: "/bridge-officers", label: "Bridge Officers", icon: UsersRound },
+  { to: "/reputation", label: "Reputation", icon: Activity },
+  { to: "/projects", label: "Projects", icon: FolderKanban },
+  { to: "/resources", label: "Resources", icon: Coins },
+  { to: "/themes", label: "Themes", icon: Palette },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

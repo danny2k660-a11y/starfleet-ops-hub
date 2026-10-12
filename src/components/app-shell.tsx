@@ -123,8 +123,8 @@ export function AppShell({
               <Link
                 key={item.to}
                 to={item.to}
-                className="flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-                activeProps={{ className: "flex min-w-0 flex-col items-center gap-1 rounded-md bg-primary/10 px-1 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-primary" }}
+                className="flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                activeProps={{ className: "flex min-w-0 flex-col items-center gap-1 rounded-md bg-primary/10 px-1 py-2 text-[11px] font-semibold uppercase tracking-wide text-primary" }}
               >
                 <item.icon className="size-4" />
                 <span className="max-w-full truncate">{item.label}</span>

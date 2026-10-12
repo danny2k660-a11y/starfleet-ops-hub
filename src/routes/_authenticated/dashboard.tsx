@@ -64,15 +64,16 @@ function Dashboard() {
     if(error) throw error;
     return new Set((data ?? []).map((row: any) => row.sto_ship_id).filter(Boolean)).size;
   }});
-  const recentShips = useQuery({ queryKey: ["dashboard-recent-ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,characters(name),sto_ships(name),builds(name,status)").order("created_at",{ascending:false}).limit(5); if(error) throw error; return data as any[]; }});
+  const recentShips = useQuery({ queryKey: ["dashboard-recent-ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,characters!user_ships_character_id_fkey(name),sto_ships(name),builds!user_ships_current_build_id_fkey(name,status)").order("created_at",{ascending:false}).limit(5); if(error) throw error; return data as any[]; }});
   const attentionShips = useQuery({ queryKey: ["dashboard-attention-ships"], queryFn: async () => {
     const { data, error } = await supabase.from("user_ships").select("sto_ship_id,custom_name,sto_ships(name)").eq("ownership_status","owned").not("character_id","is",null).is("current_build_id",null);
     if(error) throw error;
     return Array.from(new Map((data ?? []).map((row: any) => [row.sto_ship_id, row])).values());
   } });
   const attentionBuilds = useQuery({ queryKey: ["dashboard-attention-builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("id,name,status").in("status",["draft","testing"]); if(error) throw error; return data ?? []; } });
-  const attentionProjects = useQuery({ queryKey: ["dashboard-attention-projects"], queryFn: async () => { const { data, error } = await supabase.from("sto_projects").select("id,name,status").in("status",["planned","active","in_progress"]); if(error) throw error; return data ?? []; } });
-  const attention = { data: { shipsWithoutBuild: attentionShips.data ?? [], draftBuilds: attentionBuilds.data ?? [], activeProjects: attentionProjects.data ?? [], resourcesNearTarget: [] }, isLoading: attentionShips.isLoading || attentionBuilds.isLoading || attentionProjects.isLoading, isError: !!(attentionShips.error || attentionBuilds.error || attentionProjects.error) };
+  const attentionProjects = useQuery({ queryKey: ["dashboard-attention-projects"], queryFn: async () => { const { data: auth, error: authError } = await supabase.auth.getUser(); if (authError) throw authError; if (!auth.user) throw new Error("Not signed in."); const { data, error } = await supabase.from("projects").select("id,name,status").eq("user_id", auth.user.id).eq("status","active"); if(error) throw error; return data ?? []; } });
+  const attentionResources = useQuery({ queryKey: ["dashboard-attention-resources"], queryFn: async () => { const { data: auth, error: authError } = await supabase.auth.getUser(); if (authError) throw authError; if (!auth.user) throw new Error("Not signed in."); const { data, error } = await supabase.from("resource_balances").select("id,name,quantity,target").eq("user_id", auth.user.id).not("target","is",null); if (error) throw error; return (data ?? []).filter((item) => item.target !== null && item.target > 0 && item.quantity >= item.target * 0.8 && item.quantity < item.target); } });
+  const attention = { data: { shipsWithoutBuild: attentionShips.data ?? [], draftBuilds: attentionBuilds.data ?? [], activeProjects: attentionProjects.data ?? [], resourcesNearTarget: attentionResources.data ?? [] }, isLoading: attentionShips.isLoading || attentionBuilds.isLoading || attentionProjects.isLoading || attentionResources.isLoading, isError: !!(attentionShips.error || attentionBuilds.error || attentionProjects.error || attentionResources.error) };
 
 
   const readinessShips = useQuery({
@@ -159,7 +160,7 @@ function Dashboard() {
         !!active,
         !!catalog && slots.length > 0 && slots.every((slot) => assignedSlots.has(slot.toLowerCase())),
         traits.length >= 5,
-        !!catalog && expectedStations.length > 0 && expectedStations.every((station) => configuredStations.has(station.toLowerCase())),
+        !!catalog && expectedStations.length > 0 && expectedStations.every((station: string) => configuredStations.has(station.toLowerCase())),
       ];
       return { checks, complete: checks.filter(Boolean).length };
     });
@@ -188,7 +189,8 @@ function Dashboard() {
           <Link to="/ships" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Ships without build</p><p className="mt-1 font-display text-2xl text-primary">{attention.data?.shipsWithoutBuild.length ?? "—"}</p></Link>
           <Link to="/builds" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Builds needing work</p><p className="mt-1 font-display text-2xl text-primary">{attention.data?.draftBuilds.length ?? "—"}</p></Link>
           <Link to="/ship-planner" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Ships awaiting build</p><p className="mt-1 font-display text-2xl text-primary">{plannerShips.data ?? "—"}</p></Link>
-          <Link to="/ship-planner" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Planner queue</p><p className="mt-1 font-display text-2xl text-primary">{plannerShips.data ?? "—"}</p></Link>
+          <Link to="/projects" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Active projects</p><p className="mt-1 font-display text-2xl text-primary">{attention.data?.activeProjects.length ?? "—"}</p></Link>
+          <Link to="/resources" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Resources near target</p><p className="mt-1 font-display text-2xl text-primary">{attention.data?.resourcesNearTarget.length ?? "—"}</p></Link>
         </div>
       </div>
       <div className="panel p-5">
@@ -251,7 +253,7 @@ function Dashboard() {
                   !!active,
                   !!catalog && slots.length > 0 && slots.every((slot) => equipmentSlots.has(slot.toLowerCase())),
                   traits.length > 0,
-                  !!catalog && expectedStations.length > 0 && expectedStations.every((station) => boffStations.has(station.toLowerCase())),
+                  !!catalog && expectedStations.length > 0 && expectedStations.every((station: string) => boffStations.has(station.toLowerCase())),
                 ];
                 return checks.every(Boolean);
               }).length;

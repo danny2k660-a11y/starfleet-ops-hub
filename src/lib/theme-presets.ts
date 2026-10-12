@@ -54,6 +54,30 @@ export const THEME_PRESETS: ThemePreset[] = [
     ],
   },
   {
+    id: "tal-shiar-borg",
+    name: "Tal Shiar / Borg Integration",
+    era: "Romulan Intelligence / Borg Technology",
+    identity: "Tal Shiar intelligence hardware integrated with acquired or assimilated Borg systems.",
+    preferredFactions: ["Romulan", "Borg"],
+    guidance: [
+      "Prefer Tal Shiar, Romulan intelligence, Borg and assimilation-themed technology.",
+      "Treat non-matching technology as captured, reverse-engineered or integrated rather than silently changing the theme.",
+      "Do not mark a set bonus or special effect as verified unless the equipment source confirms it.",
+    ],
+  },
+  {
+    id: "dominion-vanguard",
+    name: "Dominion Vanguard",
+    era: "Gamma Quadrant / Dominion War",
+    identity: "Jem'Hadar Vanguard military systems and Dominion carrier support.",
+    preferredFactions: ["Dominion", "Jem'Hadar", "Cardassian"],
+    guidance: [
+      "Prefer Jem'Hadar Vanguard hulls, Dominion equipment and Gamma Quadrant technology.",
+      "Keep carrier pets and support systems explicitly recorded by hangar bay.",
+      "Treat outside technology as captured or mission-acquired when the build concept supports it.",
+    ],
+  },
+  {
     id: "klingon-warrior",
     name: "Klingon Warrior",
     era: "Klingon Empire",

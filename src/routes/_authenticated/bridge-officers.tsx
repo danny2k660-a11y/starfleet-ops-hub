@@ -42,8 +42,8 @@ function Page() {
   const [notes, setNotes] = useState("");
   const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
 
-  const catalog = useQuery({ queryKey: ["boff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_catalog" as never).select("*").order("name"); if(error) throw error; return (data ?? []) as any[]; }});
-  const abilityCatalog = useQuery({ queryKey: ["boff_ability_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_ability_catalog" as never).select("id,name,region,career,rank1,rank2,rank3").order("name"); if(error) throw error; return (data ?? []) as any[]; }});
+  const catalog = useQuery({ queryKey: ["boff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_catalog").select("*").order("name"); if(error) throw error; return (data ?? []) as any[]; }});
+  const abilityCatalog = useQuery({ queryKey: ["boff_ability_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_ability_catalog").select("id,name,region,career,rank1,rank2,rank3").order("name"); if(error) throw error; return (data ?? []) as any[]; }});
   const syncAbilityCatalog = useMutation({ mutationFn: async () => { const { data, error } = await supabase.functions.invoke("sync-boff-ability-catalog", { body: {} }); if(error) throw error; return data as { imported?: number }; }, onSuccess: (data) => { qc.invalidateQueries({ queryKey: ["boff_ability_catalog"] }); toast.success(`BOFF ability catalogue synced: ${data?.imported ?? 0} records`); }, onError: (e: Error) => toast.error(e.message) });
   useEffect(() => { if (!abilityCatalog.isLoading && !abilityCatalog.isError && (abilityCatalog.data?.length ?? 0) === 0 && !autoSyncAttempted) { setAutoSyncAttempted(true); syncAbilityCatalog.mutate(); } }, [abilityCatalog.isLoading, abilityCatalog.isError, abilityCatalog.data?.length, autoSyncAttempted]);
 
@@ -72,7 +72,7 @@ function Page() {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user || !loadoutId || !station) throw new Error("Loadout and bridge station are required");
     const abilityList = abilities.split("\n").map((x) => x.trim()).filter(Boolean);
-    const { error } = await supabase.from("loadout_boffs" as never).upsert({ loadout_id: loadoutId, station, officer_name: officerName.trim() || null, officer_species: species.trim() || null, boff_id: catalogId || null, specialization: specialization.trim() || null, abilities: abilityList, notes: notes.trim() || null }, { onConflict: "loadout_id,station" });
+    const { error } = await supabase.from("loadout_boffs").upsert({ user_id: u.user.id, loadout_id: loadoutId, station, officer_name: officerName.trim() || null, officer_species: species.trim() || null, boff_id: catalogId || null, specialization: specialization.trim() || null, abilities: abilityList, notes: notes.trim() || null }, { onConflict: "loadout_id,station" });
     if (error) throw error;
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["loadout_boffs"] }); toast.success("Bridge officer station saved"); setOpen(false); reset(); }, onError: (e: Error) => toast.error(e.message) });
   const remove = useMutation({ mutationFn: async (id: string) => { const { error } = await supabase.from("loadout_boffs").delete().eq("id", id); if (error) throw error; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["loadout_boffs"] }); toast.success("Bridge officer removed"); }, onError: (e: Error) => toast.error(e.message) });

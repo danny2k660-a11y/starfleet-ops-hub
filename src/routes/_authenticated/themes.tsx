@@ -22,7 +22,7 @@ function ThemesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_ships")
-        .select("id,custom_name,theme_id,ownership_status,characters(name),sto_ships(name,faction,ship_class)")
+        .select("id,custom_name,theme_id,ownership_status,characters!user_ships_character_id_fkey(name),sto_ships(name,faction,ship_class)")
         .eq("ownership_status", "owned")
         .order("created_at", { ascending: false });
       if (error) throw error;

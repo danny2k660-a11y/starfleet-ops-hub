@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, Database, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Check, Package } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { recordAuditEvent } from "@/lib/audit";
 import type { Tables } from "@/integrations/supabase/types";
 import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
@@ -89,14 +90,14 @@ function ShipDatabasePage() {
   const coverage = useQuery({
     queryKey: ["sto_ship_catalogue_coverage"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sto_ship_catalogue_coverage" as never).select("*").maybeSingle();
+      const { data, error } = await supabase.from("sto_ship_catalogue_coverage").select("*").maybeSingle();
       if (error) throw error;
       return data as any;
     },
   });
   const imports = useQuery({
     queryKey: ["sto_ship_catalog_imports"],
-    queryFn: async () => { const { data, error } = await supabase.from("sto_ship_catalog_imports" as never).select("*").order("created_at", { ascending: false }).limit(10); if (error) throw error; return (data ?? []) as any[]; },
+    queryFn: async () => { const { data, error } = await supabase.from("sto_ship_catalog_imports").select("*").order("created_at", { ascending: false }).limit(10); if (error) throw error; return (data ?? []) as any[]; },
   });
   const characters = useQuery({
     queryKey: ["characters"],
@@ -129,7 +130,7 @@ function ShipDatabasePage() {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) throw new Error("Not signed in.");
       const { data, error } = await supabase
-        .from("sto_ship_ownership" as never)
+        .from("sto_ship_ownership")
         .select("*")
         .eq("user_id", auth.user.id)
         .eq("ownership_status", "wishlist");
@@ -140,14 +141,14 @@ function ShipDatabasePage() {
   const bundles = useQuery({
     queryKey: ["sto_ship_bundles"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sto_ship_bundles" as never).select("*, sto_ship_bundle_items(sto_ships(name))").order("name");
+      const { data, error } = await supabase.from("sto_ship_bundles").select("*, sto_ship_bundle_items(sto_ships(name))").order("name");
       if (error) throw error;
       return (data ?? []) as any[];
     },
   });
   const sources = useQuery({
     queryKey: ["sto_ship_sources"],
-    queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources" as never).select("*, sto_ship_bundles(*)"); if (error) throw error; return (data ?? []) as any[]; },
+    queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources").select("*, sto_ship_bundles(*)"); if (error) throw error; return (data ?? []) as any[]; },
   });
   const shipReferenceQuery = useQuery({
     queryKey: ["sto_ship_reference_data"],
@@ -159,7 +160,7 @@ function ShipDatabasePage() {
   });
   const referenceByShip = useMemo(() => new Map((shipReferenceQuery.data ?? []).map((row) => [row.sto_ship_id, row])), [shipReferenceQuery.data]);
 
-  const { data = [], isLoading, error } = useQuery({
+  const { data = [], isLoading, error, refetch: refetchCatalog } = useQuery({
     queryKey: ["ship_database_catalog"],
     queryFn: async () => {
       const { data, error } = await supabase.from("sto_ships").select("*").order("name");
@@ -200,21 +201,22 @@ function ShipDatabasePage() {
     if (!targetCharacters.length) throw new Error("Choose a character.");
 
     setAssignmentBusy(true);
+    let assignmentSaved = false;
     try {
       const shipSources = sourcesByShip.get(ship.id) ?? [];
       const sourceName = shipSources[0]?.source_name ?? "Ship assignment";
-      const now = new Date().toISOString();
 
       const characterIds = targetCharacters.map((c) => c.id);
       const shipSource = shipSources[0];
 
-      const { error: claimError } = await supabase.rpc("claim_ship_assignments" as never, {
+      const { error: claimError } = await supabase.rpc("claim_ship_assignments", {
         p_ship_id: ship.id,
         p_character_ids: characterIds,
         p_acquisition_source_id: shipSource?.id ?? null,
         p_acquisition_group: sourceName,
-      } as never);
+      });
       if (claimError) throw claimError;
+      assignmentSaved = true;
 
       // Every assigned captain receives the ship's actual unlockables as character inventory:
       // starship trait, unique console, and special/experimental weapon when the catalogue has one.
@@ -244,10 +246,9 @@ function ShipDatabasePage() {
             user_id: u.user.id,
             character_id: character.id,
             name: ship.special_console,
-            category: "console",
+            category: "Console",
             quantity: 1,
-            source: "Ship unlock",
-            notes: ship.name,
+            notes: "Unlocked from ship: " + ship.name,
           });
         }
         if (ship.special_weapons) {
@@ -263,69 +264,86 @@ function ShipDatabasePage() {
             user_id: u.user.id,
             character_id: character.id,
             name: ship.special_weapons,
-            category: "experimental weapon",
+            category: "Experimental",
             quantity: 1,
-            source: "Ship unlock",
-            notes: ship.name,
+            notes: "Unlocked from ship: " + ship.name,
           });
         }
       }
 
       if (unlockRows.length) {
         const { error } = await supabase
-          .from("character_ship_unlocks" as never)
-          .upsert(unlockRows as never[], { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name" });
+          .from("character_ship_unlocks")
+          .upsert(unlockRows, { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name" });
         if (error) throw error;
       }
 
       if (ship.ship_trait) {
         const { data: matchingTrait, error: traitLookupError } = await supabase
-          .from("trait_catalog" as never)
+          .from("trait_catalog")
           .select("id")
           .ilike("name", ship.ship_trait)
+          .limit(1)
           .maybeSingle();
         if (traitLookupError) throw traitLookupError;
         if (matchingTrait) {
-          const traitRows = targetCharacters.map((character) => ({
-            user_id: u.user.id,
-            character_id: character.id,
-            trait_id: (matchingTrait as any).id,
-            active: true,
-            slot_index: 0,
-            domain: "space",
-            trait_category: "starship",
-            slot_group: "space",
-            source_type: "ship_unlock",
-            source_name: ship.name,
-          }));
-          const { error } = await supabase
-            .from("character_traits" as never)
-            .upsert(traitRows as never[], { onConflict: "character_id,trait_id" });
-          if (error) throw error;
+          for (const character of targetCharacters) {
+            const { data: existingTrait, error: existingTraitError } = await supabase
+              .from("character_traits")
+              .select("id")
+              .eq("user_id", u.user.id)
+              .eq("character_id", character.id)
+              .eq("trait_id", matchingTrait.id)
+              .limit(1)
+              .maybeSingle();
+            if (existingTraitError) throw existingTraitError;
+            if (!existingTrait) {
+              const { error } = await supabase.from("character_traits").insert({
+                user_id: u.user.id,
+                character_id: character.id,
+                trait_id: matchingTrait.id,
+                active: false,
+                slot_index: null,
+                domain: "space",
+                trait_category: "starship",
+                slot_group: null,
+                source_type: "ship_unlock",
+                source_name: ship.name,
+              });
+              if (error) throw error;
+            }
+          }
         }
       }
 
       for (const equipment of equipmentRows) {
         const { data: existingEquipment, error: equipmentLookupError } = await supabase
-          .from("equipment_items" as never)
+          .from("equipment_items")
           .select("id")
           .eq("user_id", u.user.id)
           .eq("character_id", equipment.character_id)
           .eq("name", equipment.name)
           .eq("category", equipment.category)
+          .limit(1)
           .maybeSingle();
         if (equipmentLookupError) throw equipmentLookupError;
         if (!existingEquipment) {
-          const { error } = await supabase.from("equipment_items" as never).insert(equipment as never);
+          const { error } = await supabase.from("equipment_items").insert(equipment);
           if (error) throw error;
         }
       }
 
+      await recordAuditEvent("ship_assignment", "ship", ship.id, "Assigned " + ship.name + " to character(s)", { character_count: targetCharacters.length, mode });
       setAssignmentShip(null);
       setAssignmentCharacter("");
       window.alert(mode === "all"
         ? `${ship.name} assigned to every character. Ship trait, unique console and special/experimental weapon were added where available.`
         : `${ship.name} assigned to the selected character. Ship trait, unique console and special/experimental weapon were added where available.`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Unknown error";
+      window.alert(assignmentSaved
+        ? "Ship ownership was saved, but some unlocks could not be recorded: " + detail
+        : "Ship assignment failed: " + detail);
     } finally {
       setAssignmentBusy(false);
     }
@@ -342,12 +360,12 @@ function ShipDatabasePage() {
     if (!u.user) return;
     if (status === "wishlist") {
       const { error } = await supabase
-        .from("sto_ship_ownership" as never)
+        .from("sto_ship_ownership")
         .upsert({ user_id: u.user.id, sto_ship_id: ship.id, ownership_status: "wishlist", acquired_at: new Date().toISOString() }, { onConflict: "user_id,sto_ship_id" });
       if (error) return;
     } else if (current?.ownership_status === "wishlist") {
       const { error } = await supabase
-        .from("sto_ship_ownership" as never)
+        .from("sto_ship_ownership")
         .delete()
         .eq("user_id", u.user.id)
         .eq("sto_ship_id", ship.id);
@@ -412,7 +430,7 @@ function ShipDatabasePage() {
           </div>
           <div className="mt-4 rounded border border-border bg-muted/10 p-3">
             <div className="flex items-center justify-between gap-2"><div><p className="lcars-label text-[10px]">Catalogue import pipeline</p><p className="mt-1 text-xs text-muted-foreground">Only validated source payloads can be applied. Missing fields stay empty rather than being guessed.</p></div><div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>Stage JSON</Button><Database className="size-4 text-primary" /></div></div>
-            {imports.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading import status…</p> : imports.data?.length ? <div className="mt-2 space-y-1.5">{imports.data.map((item: any) => <ImportRow key={item.id} item={item} onChanged={() => imports.refetch()} />)}</div> : <p className="mt-2 text-xs text-muted-foreground">No catalogue imports have been staged yet.</p>}
+            {imports.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading import status…</p> : imports.data?.length ? <div className="mt-2 space-y-1.5">{imports.data.map((item: any) => <ImportRow key={item.id} item={item} onChanged={() => { void imports.refetch(); void refetchCatalog(); void coverage.refetch(); void shipReferenceQuery.refetch(); }} />)}</div> : <p className="mt-2 text-xs text-muted-foreground">No catalogue imports have been staged yet.</p>}
           </div>
           <Dialog open={!!assignmentShip} onOpenChange={(open) => { if (!open && !assignmentBusy) { setAssignmentShip(null); setAssignmentCharacter(""); } }}>
             <DialogContent>
@@ -453,7 +471,7 @@ function ShipDatabasePage() {
                     if (!Array.isArray(payload)) throw new Error("JSON must be an array.");
                     const { data: u } = await supabase.auth.getUser();
                     if (!u.user) throw new Error("You must be signed in.");
-                    const { error } = await supabase.from("sto_ship_catalog_imports" as never).insert({ source_key: "stowiki", source_url: importUrl.trim(), payload, status: "pending", imported_by: u.user.id } as never);
+                    const { error } = await supabase.from("sto_ship_catalog_imports").insert({ source_key: "stowiki", source_url: importUrl.trim(), payload, status: "pending", imported_by: u.user.id } as never);
                     if (error) throw error;
                     setImportJson(""); setImportOpen(false); imports.refetch();
                   } catch (e) { console.error(e); window.alert(e instanceof Error ? e.message : "Invalid import."); }
@@ -522,7 +540,7 @@ function ShipDatabasePage() {
                     {ref.console_description && <div className="mt-2"><Info label="Console effect" value={ref.console_description} /></div>}
                     <p className="mt-2 text-[10px] text-muted-foreground">Reference data: STO Ship DB / Fleffle-derived community dataset · last upstream update 2025-11-11. This is reference data, not STOWiki verification.</p>
                   </div>}
-                  <div className="mt-3 rounded border border-primary/20 bg-primary/5 p-3"><div className="flex items-center justify-between gap-2"><p className="lcars-label text-[10px]">Acquisition routes</p>{ownedByShip.get(ship.id)?.acquired_at && <span className="text-[10px] text-primary">Owned {new Date(ownedByShip.get(ship.id).acquired_at).toLocaleDateString()}</span>}</div>{(sourcesByShip.get(ship.id) ?? []).length > 0 ? <div className="mt-2 space-y-1.5">{(sourcesByShip.get(ship.id) ?? []).map((source: any) => <div key={source.id} className="rounded border border-border bg-background/40 px-2 py-1.5 text-xs"><div className="flex flex-wrap items-center justify-between gap-2"><span>{source.source_name}</span><span className="text-muted-foreground">{source.price_amount != null ? `${source.price_currency ?? ""} ${source.price_amount}` : source.availability_status}</span></div>{source.character_restriction && <p className="mt-1 text-muted-foreground">Character restriction: {source.character_restriction}</p>}{source.account_unlock && <p className="mt-1 text-primary">Account unlock</p>}</div>)}</div> : <p className="mt-1 text-xs text-muted-foreground">Acquisition route not verified yet — this ship stays separate from the store audit until a source is recorded.</p>}</div><p className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Database className="size-3" /> Definition source: {ship.source_reference ?? "Not recorded"} · Version: {ship.data_version ?? "Not recorded"} {ship.source_key === "stowiki" && <Badge variant="outline" className="text-[9px]">STOWiki source</Badge>}</p>
+                  <div className="mt-3 rounded border border-primary/20 bg-primary/5 p-3"><div className="flex items-center justify-between gap-2"><p className="lcars-label text-[10px]">Acquisition routes</p>{ownedByShip.get(ship.id)?.acquired_at && <span className="text-[10px] text-primary">Owned {new Date(ownedByShip.get(ship.id).acquired_at).toLocaleDateString()}</span>}</div>{(sourcesByShip.get(ship.id) ?? []).length > 0 ? <div className="mt-2 space-y-1.5">{(sourcesByShip.get(ship.id) ?? []).map((source: any) => <div key={source.id} className="rounded border border-border bg-background/40 px-2 py-1.5 text-xs"><div className="flex flex-wrap items-center justify-between gap-2"><span>{source.source_name}</span><span className="text-muted-foreground">{source.price_amount != null ? `${source.price_currency ?? ""} ${source.price_amount}` : source.availability_status}</span></div>{source.character_restriction && <p className="mt-1 text-muted-foreground">Character restriction: {source.character_restriction}</p>}{source.account_unlock && <p className="mt-1 text-primary">Account unlock</p>}</div>)}</div> : <p className="mt-1 text-xs text-muted-foreground">Acquisition route not verified yet — this ship stays separate from the store audit until a source is recorded.</p>}</div><p className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Database className="size-3" /> Definition source: {ship.source_reference ?? "Not recorded"} · Version: {ship.data_version ?? "Not recorded"} {ship.source_key === "stowiki" && <Badge variant="outline" className="text-[9px]">STOWiki source</Badge>}</p><div className="mt-2 flex flex-wrap gap-2"><a className="rounded border border-border px-2 py-1 text-[10px] text-primary hover:border-primary/60" href={`https://stowiki.net/wiki/Special:Search?search=${encodeURIComponent(ship.name)}`} target="_blank" rel="noopener noreferrer">Search STOWiki</a>{typeof ship.source_reference === "string" && /^https?:\/\//i.test(ship.source_reference) && <a className="rounded border border-border px-2 py-1 text-[10px] hover:border-primary/60" href={ship.source_reference} target="_blank" rel="noopener noreferrer">Open recorded source</a>}</div>
                 </div>}
               </div>
             );
@@ -535,6 +553,44 @@ function ShipDatabasePage() {
 
 function CoverageStat({ label, value }: { label: string; value: number }) {
   return <div className="rounded border border-border p-2"><p className="text-[10px] text-muted-foreground">{label}</p><p className="mt-1 font-display text-sm text-primary">{value}</p></div>;
+}
+
+function ImportRow({ item, onChanged }: { item: any; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const validate = async () => {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("validate_sto_ship_catalog_import", { p_import_id: item.id });
+      if (error) throw error;
+      if (data === "validated") window.alert("Import validated. Review the source and record fields before applying it.");
+      else window.alert(item.error_message || "The import was rejected. Check required fields and the STOWiki source URL.");
+      onChanged();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not validate the import.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const apply = async () => {
+    if (!window.confirm("Apply this validated import to the shared ship catalogue? This can add or update reference data, but never marks a ship as owned.")) return;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("apply_sto_ship_catalog_import", { p_import_id: item.id });
+      if (error) throw error;
+      window.alert(`Import applied. ${data ?? 0} catalogue records processed. No ownership records were created.`);
+      onChanged();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not apply the import.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-border bg-background/40 p-2">
+    <div className="min-w-0 flex-1"><p className="text-xs font-medium">{item.source_url || "No source URL"}</p><p className="text-[10px] text-muted-foreground">Status: {item.status} · {item.created_at ? new Date(item.created_at).toLocaleString() : "Date unknown"}</p>{item.error_message && <p className="mt-1 text-xs text-destructive">{item.error_message}</p>}</div>
+    {item.status === "pending" && <Button size="sm" variant="outline" onClick={validate} disabled={busy}>Validate</Button>}
+    {item.status === "validated" && <Button size="sm" onClick={apply} disabled={busy}>Apply verified data</Button>}
+    {busy && <span className="text-xs text-muted-foreground">Working…</span>}
+  </div>;
 }
 
 function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; characters: Array<{ id: string; name: string }>; sources: any[]; onClaimed: () => void }) {
@@ -557,7 +613,7 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       // Always reload the bundle items from their source table. This prevents a partially
       // shaped nested Supabase response from ever sending an undefined UUID to Postgres.
       const { data: freshItems, error: itemsError } = await supabase
-        .from("sto_ship_bundle_items" as never)
+        .from("sto_ship_bundle_items")
         .select("sto_ship_id,item_type")
         .eq("bundle_id", bundle.id);
 
@@ -574,19 +630,31 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       const invalidCharacter = targetCharacters.find((id) => !isUuid(id));
       if (!targetCharacters.length || invalidCharacter) throw new Error("The selected character data is missing a valid character ID. Refresh the page and try again.");
 
+      let assignedCount = 0;
       for (const item of claimItems) {
+        const { data: existingAssignments, error: existingError } = await supabase
+          .from("user_ships")
+          .select("character_id,ownership_status")
+          .eq("user_id", u.user.id)
+          .eq("sto_ship_id", item.sto_ship_id)
+          .in("character_id", targetCharacters);
+        if (existingError) throw existingError;
+        const alreadyOwned = new Set((existingAssignments ?? []).filter((row) => row.ownership_status === "owned").map((row) => row.character_id));
+        assignedCount += targetCharacters.filter((id) => !alreadyOwned.has(id)).length;
+
         const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
-        const { error: claimError } = await supabase.rpc("claim_ship_assignments" as never, {
+        const { error: claimError } = await supabase.rpc("claim_ship_assignments", {
           p_ship_id: item.sto_ship_id,
           p_character_ids: targetCharacters,
           p_acquisition_source_id: source?.id ?? null,
           p_acquisition_group: bundle.name,
-        } as never);
+        });
         if (claimError) throw claimError;
       }
 
+      await recordAuditEvent("bundle_claim", "bundle", bundle.id, "Processed bundle ship assignments: " + bundle.name, { character_count: targetCharacters.length, ship_count: claimItems.length, new_assignments: assignedCount });
       onClaimed();
-      if (!rows.length) {
+      if (assignedCount === 0) {
         window.alert(accountWide ? "This bundle is already registered on every character." : "This bundle is already registered on this character.");
       }
     } catch (e) {

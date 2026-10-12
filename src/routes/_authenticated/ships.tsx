@@ -466,7 +466,7 @@ function ShipsPage() {
                 type="button"
                 disabled={item.state !== "ready"}
                 onClick={() => {
-                  if (item.state !== "ready") return;
+                  if (item.state !== "ready" || !activeFilter) return;
                   setReadinessFilter(activeFilter);
                   setQ("");
                 }}
@@ -518,7 +518,8 @@ function ShipsPage() {
                 key={item.label}
                 onClick={() => {
                   const filters = ["captain", "build", "loadout", "equipment", "traits", "boffs"] as const;
-                  setReadinessFilter(filters[item.index]);
+                  const selectedFilter = filters[item.index];
+                  if (selectedFilter) setReadinessFilter(selectedFilter);
                   setQ("");
                   setCharFilter(ALL);
                                     setFactionFilter(ALL);
@@ -914,7 +915,7 @@ function UpgradeChecks({ t6, t6x, t6x2, set }: { t6: boolean; t6x: boolean; t6x2
   );
 }
 
-function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], onSaved }: {
+function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], referenceData = [], onSaved }: {
   open: boolean; onOpenChange: (o: boolean) => void; catalog: StoShip[]; characters: Character[]; sources?: any[]; referenceData?: any[]; onSaved: (id: string) => void;
 }) {
   const qc = useQueryClient();
@@ -930,6 +931,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
   const [sourceFilter, setSourceFilter] = useState("all");
 
   const results = (catalog ?? []).filter((s) => `${s.name} ${s.ship_class ?? ""} ${s.faction ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+  const selectedCatalogShip = (catalog ?? []).find((s) => s.id === shipId) ?? null;
 
   const createChar = useMutation({
     mutationFn: async () => {
@@ -966,12 +968,16 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
       }
 
       const selectedSource = sourceId === "__none__" ? null : sources.find((x) => x.id === sourceId);
-      const { error: claimError } = await supabase.rpc("claim_ship_assignments" as never, {
+      const { data: existingAssignments, error: existingError } = await supabase.from("user_ships").select("character_id,ownership_status").eq("user_id", u.user.id).eq("sto_ship_id", shipId).in("character_id", targetCharacterIds);
+      if (existingError) throw existingError;
+      const alreadyOwned = new Set((existingAssignments ?? []).filter((row) => row.ownership_status === "owned").map((row) => row.character_id));
+      const newlyRegistered = targetCharacterIds.filter((id) => !alreadyOwned.has(id)).length;
+      const { error: claimError } = await supabase.rpc("claim_ship_assignments", {
         p_ship_id: shipId,
         p_character_ids: targetCharacterIds,
         p_acquisition_source_id: selectedSource?.id ?? null,
         p_acquisition_group: selectedSource?.source_name ?? null,
-      } as never);
+      });
       if (claimError) throw claimError;
 
       const rows = targetCharacterIds.map((id) => ({
@@ -988,7 +994,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
       }));
 
       const { error: detailError } = await supabase.from("user_ships").update({
-        custom_name: name.trim() || null,
+        custom_name: name.trim() || selectedCatalogShip.name,
         usage_mode: usageMode,
         acquisition_source_id: selectedSource?.id ?? null,
         acquisition_group: selectedSource?.source_name ?? null,
@@ -1007,21 +1013,42 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
         unlock_type, name, source_name: "Ship assignment",
       }))));
       if (unlockRows.length) {
-        const { error: unlockError } = await supabase.from("character_ship_unlocks" as never)
-          .upsert(unlockRows as never[], { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name", ignoreDuplicates: true });
+        const { error: unlockError } = await supabase.from("character_ship_unlocks")
+          .upsert(unlockRows, { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name", ignoreDuplicates: true });
         if (unlockError) throw unlockError;
       }
 
-      return { ids: (data ?? []).map((row: any) => row.id), added: rows.length, total: targetCharacterIds.length };
+      const equipmentUnlocks = targetCharacterIds.flatMap((targetId) => [
+        specialConsole ? { character_id: targetId, name: specialConsole, category: "Console" } : null,
+        specialWeapon ? { character_id: targetId, name: specialWeapon, category: "Experimental Weapon" } : null,
+      ].filter((item): item is { character_id: string; name: string; category: string } => item !== null));
+      for (const item of equipmentUnlocks) {
+        const { data: existing, error: findError } = await supabase.from("equipment_items").select("id")
+          .eq("user_id", u.user.id).eq("character_id", item.character_id).eq("name", item.name).eq("category", item.category).limit(1).maybeSingle();
+        if (findError) throw findError;
+        if (!existing) {
+          const { error: equipmentError } = await supabase.from("equipment_items").insert({
+            user_id: u.user.id, character_id: item.character_id, name: item.name, category: item.category,
+            quantity: 1, source: "Ship unlock", notes: "Unlocked from ship: " + selectedCatalogShip.name,
+          });
+          if (equipmentError) throw equipmentError;
+        }
+      }
+
+      const { data: registeredShips, error: registeredError } = await supabase.from("user_ships").select("id").eq("user_id", u.user.id).eq("sto_ship_id", shipId).in("character_id", targetCharacterIds);
+      if (registeredError) throw registeredError;
+      const firstId = registeredShips?.[0]?.id;
+      if (!firstId) throw new Error("Ship assignment succeeded, but the fleet record could not be found.");
+      return { firstId, added: newlyRegistered, total: targetCharacterIds.length };
     },
-    onSuccess: ({ ids, added, total }) => {
+    onSuccess: ({ firstId, added, total }) => {
       qc.invalidateQueries({ queryKey: ["user_ships"] });
       toast.success(addToAllCharacters
         ? added + " ship registration" + (added === 1 ? "" : "s") + " added across your " + total + " character" + (total === 1 ? "" : "s") + "."
         : "Ship registered");
       setSearch(""); setShipId(null); setName(""); setCharacterId(""); setAddToAllCharacters(false);
       setUsageMode("build_pending"); setSourceId("__none__"); setSourceFilter("all"); setUp({ t6: false, t6x: false, t6x2: false });
-      onSaved(ids[0]);
+      onSaved(firstId);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1046,6 +1073,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
                 </button>
               ))}
             </div>
+            {selectedCatalogShip && <div className="rounded border border-primary/20 bg-primary/5 p-2 text-xs"><p className="font-medium text-primary">{selectedCatalogShip.name}</p><p className="mt-1 text-muted-foreground">Review the source before registering. Opening the wiki does not verify or claim the ship automatically.</p><div className="mt-2 flex flex-wrap gap-2"><a className="rounded border border-border px-2 py-1 text-primary hover:border-primary/60" href={`https://stowiki.net/wiki/Special:Search?search=${encodeURIComponent(selectedCatalogShip.name)}`} target="_blank" rel="noopener noreferrer">Search STOWiki</a>{typeof selectedCatalogShip.source_reference === "string" && /^https?:\/\//i.test(selectedCatalogShip.source_reference) && <a className="rounded border border-border px-2 py-1 hover:border-primary/60" href={selectedCatalogShip.source_reference} target="_blank" rel="noopener noreferrer">Open recorded source</a>}</div></div>}
           </div>
           <div className="space-y-2">
             <Label>2. Character ownership</Label>
@@ -1127,7 +1155,7 @@ function BaseStats({ s }: { s: StoShip | null }) {
     ? `Eng ${s.engineering_console_slots} · Sci ${s.science_console_slots} · Tac ${s.tactical_console_slots}${s.universal_console_slots ? ` · Uni ${s.universal_console_slots}` : ""}`
     : null;
   const rawBoffs = s.bridge_officer_stations as unknown;
-  const boffs: Boff[] = Array.isArray(rawBoffs)
+  const boffs = (Array.isArray(rawBoffs)
     ? rawBoffs as Boff[]
     : rawBoffs && typeof rawBoffs === "object"
       ? Object.keys(rawBoffs as Record<string, unknown>).map((seat) => {
@@ -1141,7 +1169,7 @@ function BaseStats({ s }: { s: StoShip | null }) {
           if (parts.length >= 2) return { rank: parts.slice(0, 2).join(" "), career: parts.slice(2).join(" ") || undefined };
           return { rank: seat };
         })
-      : [];
+      : []) as Boff[];
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1177,8 +1205,8 @@ function BaseStats({ s }: { s: StoShip | null }) {
 function ShipDetailDialog({ ship, characters, builds, referenceData, onClose }: { ship: UserShip; characters: Character[]; builds: Build[]; referenceData: any[]; onClose: () => void }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(ship.custom_name);
-  const [characterId, setCharacterId] = useState(ship.character_id);
+  const [name, setName] = useState(ship.custom_name ?? ship.sto_ships?.name ?? "");
+  const [characterId, setCharacterId] = useState(ship.character_id ?? "");
   const [buildId, setBuildId] = useState(ship.current_build_id ?? NONE);
   const [status, setStatus] = useState(ship.ownership_status);
   const [acquired, setAcquired] = useState(ship.date_acquired ?? "");

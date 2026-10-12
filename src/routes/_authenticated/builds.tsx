@@ -2,10 +2,11 @@ import { getThemePreset } from "@/lib/theme-presets";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Wrench, Trash2, Package } from "lucide-react";
+import { Plus, Search, Wrench, Trash2, Package, GitCompare } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { recordAuditEvent } from "@/lib/audit";
 import { GroundBuildSection } from "@/components/ground-build-section";
 import type { Tables } from "@/integrations/supabase/types";
 import { AppShell } from "@/components/app-shell";
@@ -19,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type Build = Tables<"builds"> & { user_ship_id?: string | null };
 type Ship = Tables<"ship_instances">;
+type BuildWithShip = Build & { ship_instances: Ship & { characters: Character | null } | null };
 type Character = Tables<"characters">;
 type Loadout = { id: string; user_id: string; build_id: string; name: string; notes: string | null; is_active: boolean; created_at: string; updated_at: string };
 type FleetShip = Tables<"user_ships"> & { sto_ships: { name: string } | null; characters: Character | null };
@@ -32,8 +34,11 @@ function BuildsPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<Build | null>(null);
-  const loadouts = useQuery({ queryKey: ["loadouts"], queryFn: async () => { const { data, error } = await supabase.from("loadouts" as never).select("*").order("updated_at", { ascending: false }); if (error) throw error; return data as Loadout[]; } });
+  const [selected, setSelected] = useState<BuildWithShip | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareA, setCompareA] = useState("__none__");
+  const [compareB, setCompareB] = useState("__none__");
+  const loadouts = useQuery({ queryKey: ["loadouts"], queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("*").order("updated_at", { ascending: false }); if (error) throw error; return data as Loadout[]; } });
   const builds = useQuery({ queryKey: ["builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("*, ship_instances!builds_ship_instance_id_fkey(*, characters(*)), user_ships!builds_user_ship_id_fkey(id,custom_name,character_id,sto_ship_id,current_build_id,characters(name),sto_ships(name))").order("updated_at", { ascending: false }); if (error) throw error; return data as unknown as (Build & { ship_instances: Ship & { characters: Character | null } | null })[]; } });
   const characters = useQuery({ queryKey: ["characters"], queryFn: async () => { const { data, error } = await supabase.from("characters").select("*").order("name"); if (error) throw error; return (data ?? []) as Character[]; } });
   const ownedShips = useQuery({ queryKey: ["build_owned_ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,character_id,current_build_id,sto_ship_id,ownership_status,characters(name),sto_ships(name)").eq("ownership_status","owned").order("custom_name"); if (error) throw error; return (data ?? []) as any[]; } });
@@ -54,7 +59,7 @@ function BuildsPage() {
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["builds"] }); qc.invalidateQueries({ queryKey: ["user_ships"] }); toast.success("Build deleted and ship returned to the build queue"); setSelected(null); }, onError: (e: Error) => toast.error(e.message) });
 
   return <AppShell title="Builds" subtitle="Ship build configurations"><div className="space-y-6">
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="lcars-label">Build library</p><h2 className="font-display text-2xl text-primary sm:text-3xl">Builds</h2></div><Button onClick={() => { setSelected(null); setOpen(true); }} className="glow-primary"><Plus className="mr-1 size-4" /> New build</Button></div>
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="lcars-label">Build library</p><h2 className="font-display text-2xl text-primary sm:text-3xl">Builds</h2></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => { const list = builds.data ?? []; setCompareA(list[0]?.id ?? "__none__"); setCompareB(list[1]?.id ?? "__none__"); setCompareOpen(true); }} disabled={(builds.data ?? []).length < 2}><GitCompare className="mr-1 size-4" /> Compare builds</Button><Button onClick={() => { setSelected(null); setOpen(true); }} className="glow-primary"><Plus className="mr-1 size-4" /> New build</Button></div></div>
     <div className="panel p-4"><div className="relative"><Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" /><Input className="pl-8" placeholder="Search builds, roles or ships…" value={q} onChange={e => setQ(e.target.value)} /></div></div>
     {builds.isError ? <div className="panel p-6 text-center text-destructive">Unable to load the build library. Refresh and try again.<div className="mt-2 text-xs text-muted-foreground">{builds.error instanceof Error ? builds.error.message : "The build query returned an error."}</div></div> : builds.isLoading ? <p className="text-muted-foreground">Loading build library…</p> : filtered.length === 0 ? <div className="panel p-8 text-center text-muted-foreground"><Wrench className="mx-auto mb-2 size-8 text-primary" />{builds.data?.length ? "No builds match your search." : "No builds yet. Create one and attach it to a ship."}</div> :
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.map(b => <button key={b.id} onClick={() => { setSelected(b); setOpen(true); }} className="panel p-5 text-left transition hover:border-primary"><div className="flex items-start justify-between gap-3"><div><p className="lcars-label">{(b as any).user_ships?.sto_ships?.name ?? (b as any).user_ships?.custom_name ?? b.ship_instances?.name ?? "Unassigned ship"}</p><h3 className="font-display text-xl text-primary">{b.name}</h3>{fleetByBuild.get(b.id) && <p className="mt-1 text-xs text-accent">Fleet ship: {fleetByBuild.get(b.id)?.custom_name || fleetByBuild.get(b.id)?.sto_ships?.name || "Assigned ship"}{fleetByBuild.get(b.id)?.characters?.name ? " • "+fleetByBuild.get(b.id)?.characters?.name : ""}</p>}</div><Wrench className="size-5 text-accent" /></div><div className="mt-3 flex flex-wrap gap-2">{b.role && <Badge variant="outline">{b.role}</Badge>}<Badge variant="secondary">{b.status}</Badge>{(b as any).archived && <Badge variant="outline">ARCHIVED</Badge>}{Array.isArray((b as any).acquisition_needs) && (b as any).acquisition_needs.length > 0 && <Badge variant="outline">{(b as any).acquisition_needs.length} acquisition needs</Badge>}{((b as any).user_ships?.characters?.name ?? b.ship_instances?.characters?.name) && <Badge variant="outline">{(b as any).user_ships?.characters?.name ?? b.ship_instances?.characters?.name}</Badge>}{(() => { const buildLoadouts = (loadouts.data ?? []).filter((l:any) => l.build_id === b.id); const ready = buildLoadouts.some((l:any) => l.is_active); return <Badge variant="outline" className={ready ? "border-primary/40 text-primary" : ""}>{ready ? "READY" : "Needs loadout"}</Badge>; })()}</div></button>)}</div>}
@@ -75,10 +80,41 @@ function BuildsPage() {
       )}
     </section>
     <BuildDialog key={selected?.id ?? "new"} open={open} onOpenChange={setOpen} build={selected} ships={ships.data ?? []} fleetShips={ownedShips.data ?? []} characters={characters.data ?? []} onDeleted={() => selected && remove.mutate(selected.id)} />
+    <Dialog open={compareOpen} onOpenChange={setCompareOpen}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle className="font-display text-primary">Compare builds</DialogTitle></DialogHeader>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1"><Label>Build A</Label><Select value={compareA} onValueChange={setCompareA}><SelectTrigger><SelectValue placeholder="Choose first build" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose build</SelectItem>{(builds.data ?? []).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Build B</Label><Select value={compareB} onValueChange={setCompareB}><SelectTrigger><SelectValue placeholder="Choose second build" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose build</SelectItem>{(builds.data ?? []).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
+      </div>
+      {(() => {
+        const left = (builds.data ?? []).find((item) => item.id === compareA);
+        const right = (builds.data ?? []).find((item) => item.id === compareB);
+        if (!left || !right) return <p className="text-sm text-muted-foreground">Select two builds to compare their saved setup.</p>;
+        const describe = (item: Build) => {
+          const raw = item as any;
+          const ship = raw.user_ships?.custom_name || raw.user_ships?.sto_ships?.name || raw.ship_instances?.name || "Unassigned";
+          const character = raw.user_ships?.characters?.name || raw.ship_instances?.characters?.name || "Unassigned";
+          const captain = raw.captain_setup ?? {};
+          const needs = Array.isArray(raw.acquisition_needs) ? raw.acquisition_needs : [];
+          return [
+            ["Ship", ship], ["Character", character], ["Role", item.role || "—"], ["Status", item.status],
+            ["Active loadout", (loadouts.data ?? []).find((loadout) => loadout.build_id === item.id && loadout.is_active)?.name ?? "None"],
+            ["Loadouts", String((loadouts.data ?? []).filter((loadout) => loadout.build_id === item.id).length)],
+            ["Captain setup", [captain.primary_specialization, captain.secondary_specialization].filter(Boolean).join(" / ") || "—"],
+            ["Acquisition needs", needs.length ? needs.join(", ") : "None"],
+            ["Archived", raw.archived ? "Yes" : "No"],
+            ["Notes", item.notes || "—"],
+          ] as Array<[string, string]>;
+        };
+        const leftRows = describe(left), rightRows = describe(right);
+        return <div className="mt-2 overflow-x-auto rounded border border-border"><table className="w-full min-w-[34rem] text-sm"><thead><tr className="bg-muted/30"><th className="p-2 text-left">Field</th><th className="p-2 text-left">{left.name}</th><th className="p-2 text-left">{right.name}</th></tr></thead><tbody>{leftRows.map(([label, value], index) => <tr key={label} className="border-t border-border"><th className="p-2 text-left font-medium text-muted-foreground">{label}</th><td className={`p-2 ${value !== rightRows[index]?.[1] ? "text-primary" : ""}`}>{value}</td><td className={`p-2 ${value !== rightRows[index]?.[1] ? "text-primary" : ""}`}>{rightRows[index]?.[1] ?? "—"}</td></tr>)}</tbody></table></div>;
+      })()}
+      <DialogFooter><Button variant="ghost" onClick={() => setCompareOpen(false)}>Close</Button></DialogFooter>
+    </DialogContent></Dialog>
+
   </div></AppShell>;
 }
 
-function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters, onDeleted }: { open: boolean; onOpenChange: (v: boolean) => void; build: (Build & { ship_instances: Ship & { characters: Character | null } | null }) | null; ships: (Ship & { characters: Character | null })[]; fleetShips: any[]; characters: Character[]; onDeleted: () => void }) {
+function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters, onDeleted }: { open: boolean; onOpenChange: (v: boolean) => void; build: BuildWithShip | null; ships: (Ship & { characters: Character | null })[]; fleetShips: any[]; characters: Character[]; onDeleted: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState(build?.name ?? "");
   const existingFleetShip = fleetShips.find((s) => s.current_build_id === build?.id) ?? (build as any)?.user_ships ?? null;
@@ -95,6 +131,95 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
   const [acquisitionNeeds, setAcquisitionNeeds] = useState<string[]>(Array.isArray((build as any)?.acquisition_needs) ? (build as any).acquisition_needs : []);
   const [acquisitionNeedInput, setAcquisitionNeedInput] = useState("");
   const [archived, setArchived] = useState(!!(build as any)?.archived);
+  const [copyTargetId, setCopyTargetId] = useState("__none__");
+  const [copyName, setCopyName] = useState(build?.name ? build.name + " copy" : "");
+  const copyToShip = useMutation({
+    mutationFn: async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user || !build?.id) throw new Error("Save a build before copying it.");
+      if (!copyName.trim()) throw new Error("Enter a name for the copied build.");
+      if (copyTargetId === "__none__") throw new Error("Choose a target ship.");
+      const { data, error } = await supabase.rpc("copy_sto_build_to_ship", { p_source_build_id: build.id, p_target_ship_id: copyTargetId, p_new_name: copyName.trim() });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (newBuildId) => {
+      const target = fleetShips.find((item: any) => item.id === copyTargetId);
+      qc.invalidateQueries({ queryKey: ["builds"] }); qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["loadouts"] }); qc.invalidateQueries({ queryKey: ["build_ground_loadouts"] });
+      toast.success("Build copied to " + (target?.custom_name || target?.sto_ships?.name || "the selected ship"));
+      if (target?.character_id !== build?.character_id) toast.info("Character-bound equipment, duty officers, hangar pets and ground selections were left unassigned on the new character.");
+      setCopyTargetId("__none__"); setCopyName(build?.name ? build.name + " copy" : "");
+      onOpenChange(false);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const versions = useQuery({
+    queryKey: ["build_versions", build?.id],
+    enabled: !!build?.id,
+    queryFn: async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user || !build?.id) throw new Error("Build is not available.");
+      const { data, error } = await supabase.from("build_versions").select("id,version_number,summary,created_at")
+        .eq("user_id", auth.user.id).eq("build_id", build.id).order("version_number", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const saveVersion = useMutation({
+    mutationFn: async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user || !build?.id) throw new Error("Save the build before creating a version.");
+      const { data: savedBuild, error: buildError } = await supabase.from("builds").select("*").eq("id", build.id).eq("user_id", auth.user.id).single();
+      if (buildError) throw buildError;
+      const { data: savedLoadouts, error: loadoutsError } = await supabase.from("loadouts").select("*").eq("build_id", build.id).eq("user_id", auth.user.id);
+      if (loadoutsError) throw loadoutsError;
+      const loadoutIds = (savedLoadouts ?? []).map((item) => item.id);
+      const groundResult = await supabase.from("build_ground_loadouts").select("*").eq("build_id", build.id).eq("user_id", auth.user.id);
+      if (groundResult.error) throw groundResult.error;
+      const groundIds = (groundResult.data ?? []).map((item) => item.id);
+      const [equipmentResult, traitsResult, boffsResult, dutyOfficersResult, buildDoffsResult, groundEquipmentResult, hangarPetsResult] = await Promise.all([
+        loadoutIds.length ? supabase.from("loadout_equipment").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
+        loadoutIds.length ? supabase.from("loadout_traits").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
+        loadoutIds.length ? supabase.from("loadout_boffs").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
+        loadoutIds.length ? supabase.from("loadout_duty_officers").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
+        supabase.from("build_doffs").select("*").eq("build_id", build.id),
+        groundIds.length ? supabase.from("ground_loadout_equipment").select("*").in("loadout_id", groundIds) : Promise.resolve({ data: [], error: null }),
+        loadoutIds.length ? supabase.from("loadout_hangar_pets").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
+      ]);
+      for (const result of [equipmentResult, traitsResult, boffsResult, dutyOfficersResult, buildDoffsResult, groundEquipmentResult, hangarPetsResult]) if (result.error) throw result.error;
+      const { data: latest, error: latestError } = await supabase.from("build_versions").select("version_number").eq("build_id", build.id).eq("user_id", auth.user.id).order("version_number", { ascending: false }).limit(1).maybeSingle();
+      if (latestError) throw latestError;
+      const snapshot = {
+        schema_version: 1,
+        captured_at: new Date().toISOString(),
+        build: savedBuild,
+        loadouts: savedLoadouts ?? [],
+        loadout_equipment: equipmentResult.data ?? [],
+        loadout_traits: traitsResult.data ?? [],
+        loadout_boffs: boffsResult.data ?? [],
+        loadout_duty_officers: dutyOfficersResult.data ?? [],
+        build_doffs: buildDoffsResult.data ?? [],
+        build_ground_loadouts: groundResult.data ?? [],
+        ground_loadout_equipment: groundEquipmentResult.data ?? [],
+        loadout_hangar_pets: hangarPetsResult.data ?? [],
+      };
+      const nextVersionNumber = (latest?.version_number ?? 0) + 1;
+      const { error } = await supabase.from("build_versions").insert({
+        user_id: auth.user.id,
+        build_id: build.id,
+        version_number: nextVersionNumber,
+        summary: "Saved build snapshot",
+        snapshot: snapshot as any,
+      });
+      if (error) throw error;
+      return nextVersionNumber;
+    },
+    onSuccess: async (versionNumber) => { await recordAuditEvent("build_version_saved", "build", build?.id ?? null, "Saved build version " + versionNumber, { version_number: versionNumber }); qc.invalidateQueries({ queryKey: ["build_versions", build?.id] }); toast.success("Build version saved"); },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const save = useMutation({ mutationFn: async () => {
     const trimmedName = name.trim();
@@ -140,6 +265,11 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
       <div className="rounded-lg border border-border/70 bg-background/30 p-3"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">Captain setup</p><div className="grid gap-2 sm:grid-cols-2"><Input value={primarySpecialization} onChange={e=>setPrimarySpecialization(e.target.value)} placeholder="Primary specialization" /><Input value={secondarySpecialization} onChange={e=>setSecondarySpecialization(e.target.value)} placeholder="Secondary specialization" /></div><Textarea className="mt-2" value={captainAbilityNotes} onChange={e=>setCaptainAbilityNotes(e.target.value)} placeholder="Captain abilities / setup notes…" /></div>
       <div className="space-y-1"><Label>Status</Label><Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="testing">Testing</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="retired">Retired</SelectItem></SelectContent></Select></div>
       <div className="space-y-1"><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Theme rules, target content, gear notes…" /></div>
+      {build && <div className="rounded-lg border border-border/70 bg-background/30 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-accent">Version history</p><p className="text-[11px] text-muted-foreground">Snapshots preserve the last saved build and its linked loadouts.</p></div><Button type="button" size="sm" variant="outline" onClick={() => saveVersion.mutate()} disabled={saveVersion.isPending}><Package className="mr-1 size-3.5" />{saveVersion.isPending ? "Saving…" : "Save version"}</Button></div>
+        <div className="mt-2 space-y-1">{(versions.data ?? []).map((version) => <div key={version.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border px-2 py-1.5 text-xs"><span>Version {version.version_number}{version.summary ? " · " + version.summary : ""}<span className="ml-2 text-muted-foreground">{new Date(version.created_at).toLocaleString()}</span></span><Button type="button" size="sm" variant="ghost" onClick={async () => { try { const { data: auth, error: authError } = await supabase.auth.getUser(); if (authError) throw authError; if (!auth.user) throw new Error("Not signed in."); const { data, error } = await supabase.from("build_versions").select("snapshot").eq("id", version.id).eq("user_id", auth.user.id).single(); if (error) throw error; await navigator.clipboard.writeText(JSON.stringify(data.snapshot, null, 2)); toast.success("Build snapshot copied as JSON"); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not copy the build snapshot"); } }}>Copy JSON</Button></div>)}{versions.isLoading && <p className="text-xs text-muted-foreground">Loading versions…</p>}{!versions.isLoading && !(versions.data ?? []).length && <p className="text-xs text-muted-foreground">No snapshots yet.</p>}</div>
+      </div>}
+      {build && <div className="rounded-lg border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Copy to another ship</p><p className="mt-1 text-[11px] text-muted-foreground">Creates a separate draft build. Character-bound equipment and ground selections are copied only when the target ship belongs to the same character.</p><div className="mt-2 space-y-2"><Input value={copyName} onChange={(event) => setCopyName(event.target.value)} placeholder="Copied build name" /><Select value={copyTargetId} onValueChange={setCopyTargetId}><SelectTrigger><SelectValue placeholder="Choose target ship" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose target ship</SelectItem>{fleetShips.filter((item: any) => item.id !== build.user_ship_id && !item.current_build_id).map((item: any) => <SelectItem key={item.id} value={item.id}>{item.custom_name || item.sto_ships?.name || "Unnamed ship"}{item.characters?.name ? " — " + item.characters.name : ""}</SelectItem>)}</SelectContent></Select><Button type="button" variant="outline" onClick={() => copyToShip.mutate()} disabled={copyToShip.isPending || !copyName.trim() || copyTargetId === "__none__"}>{copyToShip.isPending ? "Copying…" : "Copy build to ship"}</Button></div></div>}
       <div className="rounded-lg border border-accent/20 bg-accent/5 p-3"><div className="flex items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-accent">Acquisition needs</p><p className="text-[11px] text-muted-foreground">Track items, traits, ships or resources still required for this build.</p></div><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={archived} onChange={e=>setArchived(e.target.checked)} /> Archived</label></div><div className="mt-2 flex gap-2"><Input value={acquisitionNeedInput} onChange={e=>setAcquisitionNeedInput(e.target.value)} placeholder="e.g. DPRM console" /><Button type="button" size="sm" variant="outline" onClick={()=>{const v=acquisitionNeedInput.trim();if(v&&!acquisitionNeeds.includes(v)){setAcquisitionNeeds([...acquisitionNeeds,v]);setAcquisitionNeedInput("");}}}>Add</Button></div><div className="mt-2 flex flex-wrap gap-1.5">{acquisitionNeeds.map((need,i)=><Badge key={`${need}-${i}`} variant="outline" className="cursor-pointer" onClick={()=>setAcquisitionNeeds(acquisitionNeeds.filter((_,j)=>j!==i))}>{need} ×</Badge>)}</div></div>
     </div>
     <DialogFooter className="gap-2">{build && <Button variant="ghost" className="mr-auto text-destructive" onClick={() => { if (confirm("Delete this build?")) onDeleted(); }}><Trash2 className="mr-1 size-4" /> Delete</Button>}<Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={!name.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : build ? "Save changes" : "Create build"}</Button></DialogFooter>
@@ -160,7 +290,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
       if (!u.user) throw new Error("Not signed in");
       const { error: clearError } = await supabase.from("loadouts").update({ is_active: false }).eq("build_id", loadout.build_id).eq("user_id", u.user.id);
       if (clearError) throw clearError;
-      const { error } = await supabase.from("loadouts" as never).update({ is_active: true }).eq("id", loadout.id);
+      const { error } = await supabase.from("loadouts").update({ is_active: true }).eq("id", loadout.id);
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ["loadouts"] });
       toast.success("Loadout activated");
@@ -176,7 +306,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
       if (!u.user) throw new Error("Not signed in");
       const { data: duplicate } = await supabase.from("loadouts").select("id").eq("build_id", loadout.build_id).eq("user_id", u.user.id).eq("name", nextName).neq("id", loadout.id).maybeSingle();
       if (duplicate) throw new Error("A loadout with that name already exists for this build.");
-      const { error } = await supabase.from("loadouts" as never).update({ name: nextName, notes: notes.trim() || null }).eq("id", loadout.id);
+      const { error } = await supabase.from("loadouts").update({ name: nextName, notes: notes.trim() || null }).eq("id", loadout.id);
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ["loadouts"] });
       setEditOpen(false);
@@ -190,17 +320,17 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
-      const { error: equipmentError } = await supabase.from("loadout_equipment" as never).delete().eq("loadout_id", loadout.id);
+      const { error: equipmentError } = await supabase.from("loadout_equipment").delete().eq("loadout_id", loadout.id);
       if (equipmentError) throw equipmentError;
-      const { error: traitsError } = await supabase.from("loadout_traits" as never).delete().eq("loadout_id", loadout.id);
+      const { error: traitsError } = await supabase.from("loadout_traits").delete().eq("loadout_id", loadout.id);
       if (traitsError) throw traitsError;
-      const { error: boffsError } = await supabase.from("loadout_boffs" as never).delete().eq("loadout_id", loadout.id);
+      const { error: boffsError } = await supabase.from("loadout_boffs").delete().eq("loadout_id", loadout.id);
       if (boffsError) throw boffsError;
-      const { error } = await supabase.from("loadouts" as never).delete().eq("id", loadout.id).eq("user_id", u.user.id);
+      const { error } = await supabase.from("loadouts").delete().eq("id", loadout.id).eq("user_id", u.user.id);
       if (error) throw error;
       if (loadout.is_active) {
         const { data: replacement } = await supabase.from("loadouts").select("id").eq("build_id", loadout.build_id).eq("user_id", u.user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-        if (replacement) await supabase.from("loadouts" as never).update({ is_active: true }).eq("id", replacement.id);
+        if (replacement) await supabase.from("loadouts").update({ is_active: true }).eq("id", replacement.id);
       }
       await qc.invalidateQueries({ queryKey: ["loadouts"] });
       toast.success("Loadout deleted");
@@ -220,7 +350,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
     <LoadoutConfiguration loadoutId={loadout.id} />
     <GroundBuildSection buildId={loadout.build_id} />
     <LoadoutReadiness loadoutId={loadout.id} buildId={loadout.build_id} />
-    <ThemeCompliance buildId={build.id} />
+    <ThemeCompliance buildId={loadout.build_id} />
     <LoadoutEquipment loadoutId={loadout.id} buildId={loadout.build_id} />
     <Dialog open={editOpen} onOpenChange={setEditOpen}>
       <DialogContent className="sm:max-w-md">
@@ -257,7 +387,7 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
       .eq("user_id", u.user.id)
       .eq("is_active", true)
       .maybeSingle();
-    const { error } = await supabase.from("loadouts" as never).insert({
+    const { error } = await supabase.from("loadouts").insert({
       user_id: u.user.id,
       build_id: buildId,
       name: trimmedName,
@@ -292,7 +422,7 @@ function ThemeCompliance({ buildId }: { buildId: string }) {
   const ship = useQuery({
     queryKey: ["theme_compliance_ship", buildId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("user_ships" as never).select("theme_id,sto_ships(name,faction,ship_class)").eq("current_build_id", buildId).maybeSingle();
+      const { data, error } = await supabase.from("user_ships").select("theme_id,sto_ships(name,faction,ship_class)").eq("current_build_id", buildId).maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -315,21 +445,21 @@ function ThemeCompliance({ buildId }: { buildId: string }) {
 }
 
 function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: string }) {
-  const equipment = useQuery({ queryKey: ["readiness_equipment", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_equipment" as never).select("slot").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
-  const traits = useQuery({ queryKey: ["readiness_traits", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_traits" as never).select("id,trait_id,trait_type").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
-  const boffs = useQuery({ queryKey: ["readiness_boffs", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_boffs" as never).select("id,station").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
+  const equipment = useQuery({ queryKey: ["readiness_equipment", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_equipment").select("slot").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
+  const traits = useQuery({ queryKey: ["readiness_traits", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_traits").select("id,trait_id,trait_type").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
+  const boffs = useQuery({ queryKey: ["readiness_boffs", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_boffs").select("id,station").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
   const ship = useQuery({ queryKey: ["readiness_ship", buildId], queryFn: async () => {
     // Use the authoritative Build → User Ship relationship. Older builds may have
     // user_ship_id populated even when current_build_id was never backfilled.
-    const { data: build, error: be } = await supabase.from("builds" as never).select("user_ship_id").eq("id", buildId).maybeSingle();
+    const { data: build, error: be } = await supabase.from("builds").select("user_ship_id").eq("id", buildId).maybeSingle();
     if (be) throw be;
     if (!build?.user_ship_id) return null;
-    const { data, error } = await supabase.from("user_ships" as never).select("character_id,sto_ships(*)").eq("id", build.user_ship_id).maybeSingle();
+    const { data, error } = await supabase.from("user_ships").select("character_id,sto_ships(*)").eq("id", build.user_ship_id).maybeSingle();
     if (error) throw error;
     return data as any;
   }});
   const characterTraits = useQuery({ queryKey: ["readiness_character_traits", buildId, ship.data?.character_id], enabled: !!ship.data?.character_id, queryFn: async () => {
-    const {data,error}=await supabase.from("character_traits" as never).select("id,trait_id,domain,trait_category,active").eq("character_id",ship.data.character_id).eq("active",true);
+    const {data,error}=await supabase.from("character_traits").select("id,trait_id,domain,trait_category,active").eq("character_id",ship.data.character_id).eq("active",true);
     if(error) throw error; return data ?? [];
   }});
   const s:any=ship.data?.sto_ships||{};
@@ -353,12 +483,12 @@ function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: 
 function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const qc = useQueryClient();
   const shipContext = useQuery({ queryKey: ["loadout_ship_context", loadoutId], queryFn: async () => {
-    const { data: loadout, error: le } = await supabase.from("loadouts" as never).select("build_id").eq("id", loadoutId).single();
+    const { data: loadout, error: le } = await supabase.from("loadouts").select("build_id").eq("id", loadoutId).single();
     if (le) throw le;
     const { data: build, error: be } = await supabase.from("builds").select("user_ship_id").eq("id", loadout.build_id).single();
     if (be) throw be;
     if (!build?.user_ship_id) return null;
-    const { data: us, error: ue } = await supabase.from("user_ships").select("character_id,sto_ship_id,characters(name),sto_ships(name,ship_trait,special_console)").eq("id", build.user_ship_id).single();
+    const { data: us, error: ue } = await supabase.from("user_ships").select("character_id,sto_ship_id,characters!user_ships_character_id_fkey(name),sto_ships(name,ship_trait,special_console)").eq("id", build.user_ship_id).single();
     if (ue) throw ue;
     if (!us?.character_id) return null;
     const { data: owned, error: oe } = await supabase.from("user_ships").select("sto_ship_id,sto_ships(name,ship_trait,special_console)").eq("character_id", us.character_id).eq("ownership_status","owned");
@@ -370,24 +500,24 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     return { characterId: us.character_id, characterName: us.characters?.name ?? "", shipName: us.sto_ships?.name ?? "", unlocks };
   }});
   const traits = useQuery({ queryKey: ["loadout_traits", loadoutId], queryFn: async () => {
-    const { data, error } = await supabase.from("loadout_traits" as never).select("*").eq("loadout_id", loadoutId).order("name");
+    const { data, error } = await supabase.from("loadout_traits").select("*").eq("loadout_id", loadoutId).order("name");
     if (error) throw error; return data ?? [];
   }});
   const boffs = useQuery({ queryKey: ["loadout_boffs", loadoutId], queryFn: async () => {
-    const { data, error } = await supabase.from("loadout_boffs" as never).select("*").eq("loadout_id", loadoutId).order("station");
+    const { data, error } = await supabase.from("loadout_boffs").select("*").eq("loadout_id", loadoutId).order("station");
     if (error) throw error; return data ?? [];
   }});
-  const buildContext = useQuery({ queryKey: ["loadout_build_context", loadoutId], queryFn: async () => { const { data, error } = await supabase.from("loadouts" as never).select("build_id").eq("id", loadoutId).single(); if (error) throw error; return data as any; }});
-  const dutyOfficers = useQuery({ queryKey: ["build_doffs", buildContext.data?.build_id], enabled: !!buildContext.data?.build_id, queryFn: async () => { const { data, error } = await supabase.from("build_doffs" as never).select("*").eq("build_id", buildContext.data.build_id).order("name"); if (error) throw error; return data ?? []; }});
-  const dutyOfficerCatalog = useQuery({ queryKey: ["doff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("doff_catalog" as never).select("*").order("name"); if (error) throw error; return data ?? []; }});
-  const boffAbilityCatalog = useQuery({ queryKey: ["boff_ability_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_ability_catalog" as never).select("id,name,region,career,description,rank1,rank2,rank3").order("name"); if (error) throw error; return data ?? []; }});
+  const buildContext = useQuery({ queryKey: ["loadout_build_context", loadoutId], queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("build_id").eq("id", loadoutId).single(); if (error) throw error; return data as any; }});
+  const dutyOfficers = useQuery({ queryKey: ["build_doffs", buildContext.data?.build_id], enabled: !!buildContext.data?.build_id, queryFn: async () => { const { data, error } = await supabase.from("build_doffs").select("*").eq("build_id", buildContext.data.build_id).order("name"); if (error) throw error; return data ?? []; }});
+  const dutyOfficerCatalog = useQuery({ queryKey: ["doff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("doff_catalog").select("*").order("name"); if (error) throw error; return data ?? []; }});
+  const boffAbilityCatalog = useQuery({ queryKey: ["boff_ability_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_ability_catalog").select("id,name,region,career,description,rank1,rank2,rank3").order("name"); if (error) throw error; return data ?? []; }});
 
   const traitCatalog = useQuery({ queryKey: ["trait_catalog"], queryFn: async () => {
-    const { data, error } = await supabase.from("trait_catalog" as never).select("*").eq("trait_type","starship").eq("domain","space").order("name");
+    const { data, error } = await supabase.from("trait_catalog").select("*").eq("trait_type","starship").eq("domain","space").order("name");
     if (error) throw error; return data ?? [];
   }});
   const characterTraits = useQuery({ queryKey: ["loadout_character_traits", shipContext.data?.characterId], enabled: !!shipContext.data?.characterId, queryFn: async () => {
-    const { data, error } = await supabase.from("character_traits" as never)
+    const { data, error } = await supabase.from("character_traits")
       .select("id,trait_id,domain,trait_category,slot_index,active,trait_catalog(name,trait_type,domain,description)")
       .eq("character_id", shipContext.data?.characterId ?? "")
       .eq("active", true)
@@ -407,6 +537,9 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const [dutyOfficerSearch, setDutyOfficerSearch] = useState("");
   const [boffAbilitySearch, setBoffAbilitySearch] = useState("");
   const addTrait = async () => {
+    const { data: auth, error: authError } = await supabase.auth.getUser();
+    if (authError) { toast.error(authError.message); return; }
+    if (!auth.user) { toast.error("Not signed in."); return; }
     const picked:any = (traitCatalog.data as any[] || []).find((t:any) => t.id === traitId);
     const name = picked?.name || trait.trim();
     if (!name) return;
@@ -418,20 +551,20 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
       toast.error("Only starship traits can be assigned to a ship loadout.");
       return;
     }
-    const { error } = await supabase.from("loadout_traits" as never).insert({
-      loadout_id: loadoutId, trait_id: picked?.id || null, name, trait_type: "starship", slot: picked?.domain || "space", domain: "space", trait_category: "starship"
+    const { error } = await supabase.from("loadout_traits").insert({
+      user_id: auth.user.id, loadout_id: loadoutId, trait_id: picked?.id || null, name, trait_type: "starship", slot: null, domain: "space", trait_category: "starship"
     });
-    if (error) { toast({ title: "Could not add trait", description: error.message, variant: "destructive" }); return; }
+    if (error) { toast.error("Could not add trait: " + error.message); return; }
     setTrait(""); setTraitId(""); qc.invalidateQueries({ queryKey: ["loadout_traits", loadoutId] });
   };
   const addConsole = async (consoleName: string, sourceShip: string) => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user || !shipContext.data?.characterId || !consoleName.trim()) return;
-    const { data: existing, error: findError } = await supabase.from("equipment_items" as never)
-      .select("id").eq("user_id", u.user.id).eq("character_id", shipContext.data.characterId).eq("name", consoleName.trim()).eq("category", "Console").maybeSingle();
+    const { data: existing, error: findError } = await supabase.from("equipment_items")
+      .select("id").eq("user_id", u.user.id).eq("character_id", shipContext.data.characterId).eq("name", consoleName.trim()).eq("category", "Console").limit(1).maybeSingle();
     if (findError) { toast.error(findError.message); return; }
     if (existing) { toast.info(`${consoleName} is already in character equipment`); return; }
-    const { error } = await supabase.from("equipment_items" as never).insert({
+    const { error } = await supabase.from("equipment_items").insert({
       user_id: u.user.id, character_id: shipContext.data.characterId, name: consoleName.trim(),
       category: "Console", slot: "Universal Console", notes: `Unlocked from owned ship: ${sourceShip}`,
     });
@@ -441,16 +574,19 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   };
   const saveOfficer = async () => {
     if (!station.trim()) return;
-    const { error } = await supabase.from("loadout_boffs" as never).upsert({ loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null, specialization: specialization.trim() || null, abilities: abilities.split(",").map((x) => x.trim()).filter(Boolean) });
-    if (error) { toast({ title: "Could not save officer", description: error.message, variant: "destructive" }); return; }
+    const { data: auth, error: authError } = await supabase.auth.getUser();
+    if (authError) { toast.error(authError.message); return; }
+    if (!auth.user) { toast.error("Not signed in."); return; }
+    const { error } = await supabase.from("loadout_boffs").upsert({ user_id: auth.user.id, loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null, specialization: specialization.trim() || null, abilities: abilities.split(",").map((x) => x.trim()).filter(Boolean) });
+    if (error) { toast.error("Could not save officer: " + error.message); return; }
     setStation(""); setOfficer(""); setSpecialization(""); setAbilities(""); qc.invalidateQueries({ queryKey: ["loadout_boffs", loadoutId] });
   };
   const saveDutyOfficer = async () => {
     const picked:any = (dutyOfficerCatalog.data as any[] || []).find((d:any) => d.id === dutyOfficerId);
     if (!picked) return;
     if (!buildContext.data?.build_id) return;
-    const { error } = await supabase.from("build_doffs" as never).insert({ build_id: buildContext.data.build_id, doff_id: picked.id, name: picked.name, department: picked.department || null, specialization: picked.specialization || null, assignment: picked.domain || null });
-    if (error) { toast({ title: "Could not save duty officer", description: error.message, variant: "destructive" }); return; }
+    const { error } = await supabase.from("build_doffs").insert({ build_id: buildContext.data.build_id, doff_id: picked.id, name: picked.name, department: picked.department || null, specialization: picked.specialization || null, assignment: picked.domain || null });
+    if (error) { toast.error("Could not save duty officer: " + error.message); return; }
     setDutyOfficerId(""); qc.invalidateQueries({ queryKey: ["build_doffs", buildContext.data?.build_id] });
   };
   const remove = async (table: string, id: string, key: string) => {
@@ -530,7 +666,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const ship = useQuery({
     queryKey: ["loadout_ship", buildId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("user_ships" as never)
+      const { data, error } = await supabase.from("user_ships")
         .select("id,character_id,sto_ship_id,custom_name,sto_ships(*)")
         .eq("current_build_id", buildId)
         .maybeSingle();
@@ -547,7 +683,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const equipment = useQuery({
     queryKey: ["equipment_items"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("equipment_items" as never).select("*").order("name");
+      const { data, error } = await supabase.from("equipment_items").select("*").order("name");
       if (error) throw error; return (data ?? []) as any[];
     },
   });
@@ -556,7 +692,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const assigned = useQuery({
     queryKey: ["loadout_equipment", loadoutId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("loadout_equipment" as never).select("*, equipment_items(*)").eq("loadout_id", loadoutId);
+      const { data, error } = await supabase.from("loadout_equipment").select("*, equipment_items(*)").eq("loadout_id", loadoutId);
       if (error) throw error; return (data ?? []) as any[];
     },
   });
@@ -573,12 +709,97 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
     return out;
   })();
   const bySlot = new Map((assigned.data ?? []).map((a:any) => [a.slot, a]));
+  const catalogItemIds = useMemo(() => Array.from(new Set((assigned.data ?? []).map((item: any) => item.equipment_items?.catalog_item_id).filter(Boolean) as string[])), [assigned.data]);
+  const setPieces = useQuery({
+    queryKey: ["equipment_set_pieces", catalogItemIds],
+    enabled: catalogItemIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("equipment_catalog").select("id,name,set_name,set_piece").in("id", catalogItemIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const setBonusRules = useQuery({
+    queryKey: ["sto_equipment_set_bonuses"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("sto_equipment_set_bonuses").select("*").eq("verified", true).order("set_name").order("piece_threshold");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const setCounts = useMemo(() => {
+    const catalogById = new Map((setPieces.data ?? []).map((item) => [item.id, item]));
+    const countedEquipment = new Set<string>();
+    const piecesBySet = new Map<string, Set<string>>();
+    for (const assignment of assigned.data ?? []) {
+      if (countedEquipment.has(assignment.equipment_id)) continue;
+      countedEquipment.add(assignment.equipment_id);
+      const catalogItem = catalogById.get(assignment.equipment_items?.catalog_item_id);
+      if (!catalogItem?.set_name) continue;
+      const pieces = piecesBySet.get(catalogItem.set_name) ?? new Set<string>();
+      // Variant items (for example, three Prevailing Regalia engine styles) are one set piece.
+      pieces.add(catalogItem.set_piece || catalogItem.id);
+      piecesBySet.set(catalogItem.set_name, pieces);
+    }
+    return Array.from(piecesBySet.entries()).map(([setName, pieces]) => ({
+      setName, count: pieces.size,
+      bonuses: (setBonusRules.data ?? []).filter((rule) => rule.set_name === setName && rule.piece_threshold <= pieces.size),
+    }));
+  }, [assigned.data, setPieces.data, setBonusRules.data]);
+  const hangarSlots = Array.from({ length: Math.max(0, Number(shipData?.hangar_bays ?? 0)) }, (_, index) => "Hangar Bay " + (index + 1));
+  const [petSlot, setPetSlot] = useState("Hangar Bay 1");
+  const [petName, setPetName] = useState("");
+  const [petQuantity, setPetQuantity] = useState("1");
+  const [petSource, setPetSource] = useState("");
+  const [petNotes, setPetNotes] = useState("");
+  const hangarPets = useQuery({
+    queryKey: ["loadout_hangar_pets", loadoutId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("loadout_hangar_pets").select("*").eq("loadout_id", loadoutId).order("hangar_slot");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const saveHangarPet = useMutation({
+    mutationFn: async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) throw new Error("Not signed in.");
+      if (!hangarSlots.length) throw new Error("This ship has no recorded hangar bays.");
+      if (!petName.trim()) throw new Error("Enter the exact hangar pet name.");
+      const quantity = Number(petQuantity);
+      if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Pet quantity must be a positive whole number.");
+      const selectedSlot = hangarSlots.includes(petSlot) ? petSlot : (hangarSlots[0] ?? "Hangar Bay 1");
+      const { error } = await supabase.from("loadout_hangar_pets").upsert({
+        user_id: auth.user.id, loadout_id: loadoutId, hangar_slot: selectedSlot, pet_name: petName.trim(),
+        quantity, source_reference: petSource.trim() || null, notes: petNotes.trim() || null,
+      }, { onConflict: "loadout_id,hangar_slot" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["loadout_hangar_pets", loadoutId] });
+      setPetName(""); setPetQuantity("1"); setPetSource(""); setPetNotes("");
+      toast.success("Hangar pet assignment saved");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const removeHangarPet = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) throw new Error("Not signed in.");
+      const { error } = await supabase.from("loadout_hangar_pets").delete().eq("id", id).eq("user_id", auth.user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["loadout_hangar_pets", loadoutId] }),
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const save = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
-      const { error } = await supabase.from("loadout_equipment" as never).upsert(
+      const { error } = await supabase.from("loadout_equipment").upsert(
         { user_id: u.user.id, loadout_id: loadoutId, equipment_id: equipmentId, slot: slot.trim() },
         { onConflict: "loadout_id,slot" }
       );
@@ -588,7 +809,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
     onError: (e: Error) => toast.error(e.message),
   });
   const remove = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("loadout_equipment" as never).delete().eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => { const { error } = await supabase.from("loadout_equipment").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["loadout_equipment", loadoutId] }),
   });
 
@@ -608,6 +829,26 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       {Object.keys(boff).length > 0 && <div className="rounded-lg border border-border/70 bg-background/30 p-3"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bridge Officer Stations</p><div className="space-y-1">{Object.entries(boff).map(([station, value]) => <div key={station} className="flex justify-between gap-3 rounded border border-border px-2 py-1.5 text-sm"><span>{station}</span><span className="text-primary">{typeof value === "string" ? value : JSON.stringify(value)}</span></div>)}</div></div>}
       {(trait || special.length > 0) && <div className="rounded-lg border border-border/70 bg-background/30 p-3"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ship Identity</p>{trait && <div className="mb-2 rounded border border-primary/30 bg-primary/5 px-2 py-1.5"><span className="text-xs text-muted-foreground">Ship Trait</span><p className="text-sm text-primary">{trait}</p></div>}{special.map((x,i)=><div key={i} className="mb-1 rounded border border-border px-2 py-1.5 text-sm">{x}</div>)}</div>}
     </div>}
+    <div className="mt-3 rounded-lg border border-accent/20 bg-accent/5 p-3">
+      <div className="flex items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-accent">Equipment set tracker</p><p className="text-[11px] text-muted-foreground">Counts only catalogue-linked set pieces. Bonus effects appear only when a verified source is recorded.</p></div><Badge variant="outline">{setCounts.length} sets</Badge></div>
+      <div className="mt-2 space-y-2">
+        {setCounts.map((set) => <div key={set.setName} className="rounded border border-border bg-background/40 p-2">
+          <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium text-primary">{set.setName}</p><Badge variant="secondary">{set.count} piece{set.count === 1 ? "" : "s"}</Badge></div>
+          {set.bonuses.length ? set.bonuses.map((bonus) => <div key={bonus.id} className="mt-2 border-t border-border pt-2"><p className="text-xs font-medium">{bonus.piece_threshold}-piece bonus: {bonus.bonus_name}</p><p className="mt-1 text-xs text-muted-foreground">{bonus.bonus_description}</p><a className="mt-1 inline-block text-[10px] text-primary underline" href={bonus.source_reference} target="_blank" rel="noreferrer">Verified source</a></div>) : <p className="mt-1 text-xs text-muted-foreground">No verified bonus threshold is registered for this set. No effect is assumed.</p>}
+        </div>)}
+        {!setCounts.length && <p className="text-xs text-muted-foreground">{(assigned.data ?? []).length ? "The assigned items are not linked to catalogue set metadata yet." : "Assign equipment to see set-piece counts."}</p>}
+      </div>
+    </div>
+    <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-primary">Carrier hangar pets</p><p className="text-[11px] text-muted-foreground">Record exact pet names and optional source links. No pet is assumed or invented from the ship type.</p></div><Badge variant="outline">{hangarPets.data?.length ?? 0} assignments</Badge></div>
+      {!hangarSlots.length ? <p className="mt-2 text-xs text-muted-foreground">No hangar bays are recorded for this ship.</p> : <>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2"><div className="space-y-1"><Label>Hangar bay</Label><Select value={hangarSlots.includes(petSlot) ? petSlot : hangarSlots[0]} onValueChange={setPetSlot}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{hangarSlots.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div><div className="space-y-1"><Label>Pet quantity</Label><Input type="number" min="1" step="1" value={petQuantity} onChange={(event) => setPetQuantity(event.target.value)} /></div></div>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2"><div className="space-y-1"><Label>Exact pet name</Label><Input value={petName} onChange={(event) => setPetName(event.target.value)} placeholder="Enter the pet you own" /></div><div className="space-y-1"><Label>Source URL (optional)</Label><Input value={petSource} onChange={(event) => setPetSource(event.target.value)} placeholder="STO Wiki or acquisition source" /></div></div>
+        <Input className="mt-2" value={petNotes} onChange={(event) => setPetNotes(event.target.value)} placeholder="Pet rarity, unlock notes or details (optional)" />
+        <Button className="mt-2" size="sm" variant="outline" onClick={() => saveHangarPet.mutate()} disabled={saveHangarPet.isPending || !petName.trim()}>{saveHangarPet.isPending ? "Saving…" : "Save hangar pet"}</Button>
+        <div className="mt-3 space-y-2">{(hangarPets.data ?? []).map((pet) => <div key={pet.id} className="flex items-start justify-between gap-2 rounded border border-border bg-background/50 p-2"><div><p className="text-sm font-medium">{pet.hangar_slot}: {pet.pet_name} <span className="text-muted-foreground">×{pet.quantity}</span></p>{pet.notes && <p className="mt-1 text-xs text-muted-foreground">{pet.notes}</p>}{pet.source_reference && <a href={pet.source_reference} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[10px] text-primary underline">Open source</a>}</div><Button size="icon" variant="ghost" onClick={() => removeHangarPet.mutate(pet.id)} aria-label={"Remove " + pet.pet_name}><Trash2 className="size-3.5 text-destructive" /></Button></div>)}</div>
+      </>}
+    </div>
     <div className="mt-3 grid gap-3 sm:grid-cols-2">
       {groups.map(([group, groupSlots]) => groupSlots.length ? <div key={group} className="rounded-lg border border-border/70 bg-background/30 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group}</p>
