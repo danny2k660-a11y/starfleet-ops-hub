@@ -78,7 +78,7 @@ function Page() {
       if(!parsed || typeof parsed !== "object" || !Array.isArray(parsed.characters) || !Array.isArray(parsed.user_ships) || !Array.isArray(parsed.builds)) throw new Error("This is not a valid STO Command Center backup.");
       const userId=account.data.id;
       const sourceUserId=typeof parsed.account_id==="string"?parsed.account_id:userId;
-      const order=["characters","ship_instances","user_ships","sto_ship_ownership","builds","loadouts","equipment_items","inventory_items","loadout_equipment","sto_projects","sto_project_tasks","sto_resource_balances","character_boffs","character_ship_unlocks","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"];
+      const order=["characters","ship_instances","user_ships","sto_ship_ownership","builds","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"];
       for(const table of order){
         const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && row.user_id===sourceUserId).map((row:any)=>({...row,user_id:userId})):[];
         if(!rows.length) continue;
