@@ -14,7 +14,7 @@ type TableDef<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
 };
 
 type ProfileRow = { id: string; display_name: string | null; avatar_url: string | null; created_at: string; updated_at: string };
-type ProjectRow = { id: string; user_id: string; name: string; description: string | null; status: "active" | "paused" | "complete" | "archived"; priority: "low" | "normal" | "high" | "critical"; character_id: string | null; target_date: string | null; progress: number; created_at: string; updated_at: string };
+type ProjectRow = { id: string; user_id: string; name: string; project_type: "build" | "ship acquisition" | "upgrade" | "reputation" | "campaign" | "collection" | "other"; description: string | null; status: "active" | "paused" | "complete" | "archived"; priority: "low" | "normal" | "high" | "critical"; character_id: string | null; target_date: string | null; progress: number; created_at: string; updated_at: string };
 type ProjectTaskRow = { id: string; user_id: string; project_id: string; title: string; done: boolean; sort_order: number; created_at: string };
 type ResourceBalanceRow = { id: string; user_id: string; character_id: string | null; name: string; category: string; quantity: number; target: number | null; notes: string | null; updated_at: string };
 type InventoryItemRow = { id: string; user_id: string; character_id: string | null; name: string; category: string; quantity: number; location: string; notes: string | null; created_at: string; updated_at: string };
