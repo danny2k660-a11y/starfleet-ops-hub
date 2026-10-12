@@ -83,7 +83,7 @@ function Page() {
       for(const table of order){
         const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && row.user_id===sourceUserId).map((row:any)=>{const mapped={...row,user_id:userId}; if(table==="builds") delete mapped.user_ship_id; if(table==="user_ships") delete mapped.current_build_id; return mapped;}):[];
         if(!rows.length) continue;
-        const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id"});
+        const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id",ignoreDuplicates:table==="build_versions"});
         if(error) throw new Error(table+": "+error.message);
       }
       const childTables=[
