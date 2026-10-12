@@ -13,7 +13,7 @@ export async function recordAuditEvent(
     const { error } = await supabase.rpc("record_sto_audit_event", {
       p_action: action,
       p_entity_type: entityType,
-      p_entity_id: entityId,
+      p_entity_id: entityId ?? undefined,
       p_summary: summary,
       p_details: details,
     });
