@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ClipboardList, PackagePlus, Rocket, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
 import { ensureShipUnlocksForCharacters } from "@/lib/ship-unlocks";
 import { recordAuditEvent } from "@/lib/audit";
 import { AppShell } from "@/components/app-shell";
