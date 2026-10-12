@@ -200,6 +200,7 @@ function ShipDatabasePage() {
     if (!targetCharacters.length) throw new Error("Choose a character.");
 
     setAssignmentBusy(true);
+    let assignmentSaved = false;
     try {
       const shipSources = sourcesByShip.get(ship.id) ?? [];
       const sourceName = shipSources[0]?.source_name ?? "Ship assignment";
@@ -215,6 +216,7 @@ function ShipDatabasePage() {
         p_acquisition_group: sourceName,
       } as never);
       if (claimError) throw claimError;
+      assignmentSaved = true;
 
       // Every assigned captain receives the ship's actual unlockables as character inventory:
       // starship trait, unique console, and special/experimental weapon when the catalogue has one.
@@ -246,8 +248,7 @@ function ShipDatabasePage() {
             name: ship.special_console,
             category: "console",
             quantity: 1,
-            source: "Ship unlock",
-            notes: ship.name,
+            notes: "Unlocked from ship: " + ship.name,
           });
         }
         if (ship.special_weapons) {
@@ -290,11 +291,12 @@ function ShipDatabasePage() {
             user_id: u.user.id,
             character_id: character.id,
             trait_id: (matchingTrait as any).id,
-            active: true,
-            slot_index: 0,
+            // Unlocked does not mean equipped; preserve chosen trait slots.
+            active: false,
+            slot_index: null,
             domain: "space",
             trait_category: "starship",
-            slot_group: "space",
+            slot_group: null,
             source_type: "ship_unlock",
             source_name: ship.name,
           }));
@@ -326,6 +328,11 @@ function ShipDatabasePage() {
       window.alert(mode === "all"
         ? `${ship.name} assigned to every character. Ship trait, unique console and special/experimental weapon were added where available.`
         : `${ship.name} assigned to the selected character. Ship trait, unique console and special/experimental weapon were added where available.`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Unknown error";
+      window.alert(assignmentSaved
+        ? "Ship ownership was saved, but some unlocks could not be recorded: " + detail
+        : "Ship assignment failed: " + detail);
     } finally {
       setAssignmentBusy(false);
     }
