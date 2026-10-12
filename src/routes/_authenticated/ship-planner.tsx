@@ -4,6 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ClipboardList, PackagePlus, Rocket, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import { ensureShipUnlocksForCharacters } from "@/lib/ship-unlocks";
+import { recordAuditEvent } from "@/lib/audit";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/ship-planner")({
 });
 
 type Character = { id: string; name: string };
-type CatalogShip = { id: string; name: string; ship_class: string | null; faction: string | null };
+type CatalogShip = { id: string; name: string; ship_class: string | null; faction: string | null; ship_trait: string | null; special_console: string | null; special_weapons: string | null };
 type FleetShip = { id: string; custom_name?: string | null; character_id: string | null; sto_ship_id: string; current_build_id?: string | null; ownership_status: string; acquisition_source_id?: string | null; acquisition_group?: string | null; usage_mode?: string | null; characters?: Character | null; sto_ships?: CatalogShip | null };
 const ACQUISITION_SOURCES = ["Zen Store", "Bundle", "Event", "Lockbox", "Lobi", "Campaign", "Promo", "Fleet", "Other"];
 
@@ -33,7 +36,7 @@ function ShipPlannerPage() {
   const [selectedBundle, setSelectedBundle] = useState("");
 
   const characters = useQuery({ queryKey: ["characters"], queryFn: async () => { const { data: u, error: authError } = await supabase.auth.getUser(); if (authError) throw authError; if (!u.user) throw new Error("Not signed in."); const { data, error } = await supabase.from("characters").select("id,name").eq("user_id", u.user.id).order("name"); if (error) throw error; return (data ?? []) as Character[]; } });
-  const catalog = useQuery({ queryKey: ["sto_ships"], queryFn: async () => { const { data, error } = await supabase.from("sto_ships").select("id,name,ship_class,faction").order("name"); if (error) throw error; return (data ?? []) as CatalogShip[]; } });
+  const catalog = useQuery({ queryKey: ["sto_ships"], queryFn: async () => { const { data, error } = await supabase.from("sto_ships").select("id,name,ship_class,faction,ship_trait,special_console,special_weapons").order("name"); if (error) throw error; return (data ?? []) as CatalogShip[]; } });
   const sources = useQuery({ queryKey: ["sto_ship_sources"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_sources").select("id,sto_ship_id,source_name,source_type,bundle_id,account_unlock").order("source_name"); if (error) throw error; return (data ?? []) as any[]; } });
   const bundles = useQuery({ queryKey: ["sto_ship_bundles"], queryFn: async () => { const { data, error } = await supabase.from("sto_ship_bundles").select("id,name,availability_status,account_unlock,price_currency,price_amount,sto_ship_bundle_items(sto_ship_id,quantity,account_unlock,sto_ships(name))").order("name"); if (error) throw error; return (data ?? []) as any[]; } });
   const fleet = useQuery({
@@ -54,7 +57,7 @@ function ShipPlannerPage() {
 
       const [shipResult, characterResult] = await Promise.all([
         shipIds.length
-          ? supabase.from("sto_ships").select("id,name,ship_class,faction").in("id", shipIds)
+          ? supabase.from("sto_ships").select("id,name,ship_class,faction,ship_trait,special_console,special_weapons").in("id", shipIds)
           : Promise.resolve({ data: [], error: null }),
         characterIds.length
           ? supabase.from("characters").select("id,name").eq("user_id", u.user.id).in("id", characterIds)
@@ -111,7 +114,11 @@ function ShipPlannerPage() {
         p_acquisition_group: claimGroup.trim() || (source?.account_unlock === true ? source?.source_name ?? null : null),
       });
       if (claimError) throw claimError;
+      const ship = (catalog.data ?? []).find((item) => item.id === sto_ship_id);
+      if (!ship) throw new Error("Ship catalogue data was not found for " + sto_ship_id);
+      await ensureShipUnlocksForCharacters(u.user.id, ship as Tables<"sto_ships">, targetCharacters, source?.source_name ?? claimSource);
     }
+    await recordAuditEvent("ship_claim", "ship", null, "Processed ship planner claims", { ship_count: selectedSources.length, character_id: claimCharacter });
     return selectedSources.length;
   }, onSuccess: (count) => { qc.invalidateQueries({ queryKey: ["user_ships"] }); setSelectedCatalog([]); toast.success(count + " ship claim" + (count === 1 ? "" : "s") + " processed; already-owned ships remain unchanged."); }, onError: (e: Error) => toast.error(e.message) });
   const claimBundle = useMutation({ mutationFn: async () => {
@@ -136,6 +143,9 @@ function ShipPlannerPage() {
         p_acquisition_group: bundle.name,
       });
       if (claimError) throw claimError;
+      const ship = (catalog.data ?? []).find((item) => item.id === item.sto_ship_id);
+      if (!ship) throw new Error("Ship catalogue data was not found for " + item.sto_ship_id);
+      await ensureShipUnlocksForCharacters(u.user.id, ship as Tables<"sto_ships">, targetCharacters, source?.source_name ?? bundle.name);
       claimedCount += targetCharacters.length;
     }
 
