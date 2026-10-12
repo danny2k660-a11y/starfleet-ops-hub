@@ -91,7 +91,7 @@ function Page() {
     queryFn: async () => {
       const all: CatalogItem[] = [];
       for (let from = 0; ; from += 1000) {
-        const { data, error } = await supabase.from("equipment_catalog" as never).select("*").order("name").range(from, from + 999);
+        const { data, error } = await supabase.from("equipment_catalog").select("*").order("name").range(from, from + 999);
         if (error) throw error;
         const page = (data ?? []) as unknown as CatalogItem[];
         all.push(...page);
@@ -104,7 +104,7 @@ function Page() {
   const equipment = useQuery({
     queryKey: ["equipment_items"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("equipment_items" as never).select("*").order("name");
+      const { data, error } = await supabase.from("equipment_items").select("*").order("name");
       if (error) throw error;
       return (data ?? []) as unknown as Equipment[];
     },
@@ -167,7 +167,7 @@ function Page() {
         character_id: null,
         notes: [item.source_type, item.source_name, item.reputation_name].filter(Boolean).join(" • ") || null,
       };
-      const { error } = await supabase.from("equipment_items" as never).insert(payload);
+      const { error } = await supabase.from("equipment_items").insert(payload);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -188,10 +188,10 @@ function Page() {
         notes: notes.trim() || null,
       };
       if (editing) {
-        const { error } = await supabase.from("equipment_items" as never).update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("equipment_items").update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("equipment_items" as never).insert(payload);
+        const { error } = await supabase.from("equipment_items").insert(payload);
         if (error) throw error;
       }
     },
@@ -205,7 +205,7 @@ function Page() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("equipment_items" as never).delete().eq("id", id);
+      const { error } = await supabase.from("equipment_items").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["equipment_items"] }); toast.success("Equipment removed"); },
