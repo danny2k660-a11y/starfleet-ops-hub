@@ -116,7 +116,7 @@ function ShipPlannerPage() {
       if (claimError) throw claimError;
       const ship = (catalog.data ?? []).find((item) => item.id === sto_ship_id);
       if (!ship) throw new Error("Ship catalogue data was not found for " + sto_ship_id);
-      await ensureShipUnlocksForCharacters(u.user.id, ship as Tables<"sto_ships">, targetCharacters, source?.source_name ?? claimSource);
+      try { await ensureShipUnlocksForCharacters(u.user.id, ship, targetCharacters, source?.source_name ?? claimSource); } catch (error) { throw new Error("Ship ownership was saved, but unlock recording failed: " + (error instanceof Error ? error.message : "unknown error")); }
     }
     await recordAuditEvent("ship_claim", "ship", null, "Processed ship planner claims", { ship_count: selectedSources.length, character_id: claimCharacter });
     return selectedSources.length;
@@ -143,12 +143,13 @@ function ShipPlannerPage() {
         p_acquisition_group: bundle.name,
       });
       if (claimError) throw claimError;
-      const ship = (catalog.data ?? []).find((item) => item.id === item.sto_ship_id);
+      const ship = (catalog.data ?? []).find((catalogShip) => catalogShip.id === item.sto_ship_id);
       if (!ship) throw new Error("Ship catalogue data was not found for " + item.sto_ship_id);
-      await ensureShipUnlocksForCharacters(u.user.id, ship as Tables<"sto_ships">, targetCharacters, source?.source_name ?? bundle.name);
+      try { await ensureShipUnlocksForCharacters(u.user.id, ship, targetCharacters, source?.source_name ?? bundle.name); } catch (error) { throw new Error("Bundle ship ownership was saved, but unlock recording failed: " + (error instanceof Error ? error.message : "unknown error")); }
       claimedCount += targetCharacters.length;
     }
 
+    await recordAuditEvent("bundle_claim", "bundle", bundle.id, "Processed ship planner bundle: " + bundle.name, { ship_count: items.length, character_count: targetCharacters.length });
     return claimedCount;
   }, onSuccess: (count) => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["sto_ship_ownership"] }); setSelectedBundle(""); toast.success("Bundle processed: " + count + " ship-to-character assignments requested."); }, onError: (e: Error) => toast.error(e.message) });
   const setUsage = useMutation({ mutationFn: async ({ id, mode }: { id: string; mode: string }) => { const { error } = await supabase.from("user_ships").update({ usage_mode: mode } as never).eq("id", id); if (error) throw error; }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["user_ships"] }); qc.invalidateQueries({ queryKey: ["build_readiness"] }); }, onError: (e: Error) => toast.error(e.message) });
