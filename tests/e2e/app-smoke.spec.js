@@ -96,7 +96,8 @@ test.describe("STO Command Center smoke suite", () => {
 
     const viewport = await page.locator('meta[name="viewport"]').getAttribute("content");
     expect(viewport).toContain("width=device-width");
-    expect(viewport).toContain("user-scalable=no");
+    expect(viewport).toContain("initial-scale=1");
+    expect(viewport).not.toMatch(/user-scalable\s*=\s*no|maximum-scale\s*=\s*1/);
 
     const fontSizes = await page.locator("input, select, textarea, button").evaluateAll(
       (els) => els.map((el) => Number.parseFloat(getComputedStyle(el).fontSize)).filter(Number.isFinite)
