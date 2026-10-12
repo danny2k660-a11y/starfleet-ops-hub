@@ -1019,7 +1019,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
 
       const equipmentUnlocks = targetCharacterIds.flatMap((targetId) => [
         specialConsole ? { character_id: targetId, name: specialConsole, category: "Console" } : null,
-        specialWeapon ? { character_id: targetId, name: specialWeapon, category: "Experimental weapon" } : null,
+        specialWeapon ? { character_id: targetId, name: specialWeapon, category: "Experimental Weapon" } : null,
       ].filter((item): item is { character_id: string; name: string; category: string } => item !== null));
       for (const item of equipmentUnlocks) {
         const { data: existing, error: findError } = await supabase.from("equipment_items").select("id")
