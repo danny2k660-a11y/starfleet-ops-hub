@@ -931,6 +931,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
   const [sourceFilter, setSourceFilter] = useState("all");
 
   const results = (catalog ?? []).filter((s) => `${s.name} ${s.ship_class ?? ""} ${s.faction ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+  const selectedCatalogShip = (catalog ?? []).find((s) => s.id === shipId) ?? null;
 
   const createChar = useMutation({
     mutationFn: async () => {
@@ -1072,6 +1073,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
                 </button>
               ))}
             </div>
+            {selectedCatalogShip && <div className="rounded border border-primary/20 bg-primary/5 p-2 text-xs"><p className="font-medium text-primary">{selectedCatalogShip.name}</p><p className="mt-1 text-muted-foreground">Review the source before registering. Opening the wiki does not verify or claim the ship automatically.</p><div className="mt-2 flex flex-wrap gap-2"><a className="rounded border border-border px-2 py-1 text-primary hover:border-primary/60" href={`https://stowiki.net/wiki/Special:Search?search=${encodeURIComponent(selectedCatalogShip.name)}`} target="_blank" rel="noopener noreferrer">Search STOWiki</a>{typeof selectedCatalogShip.source_reference === "string" && /^https?:\/\//i.test(selectedCatalogShip.source_reference) && <a className="rounded border border-border px-2 py-1 hover:border-primary/60" href={selectedCatalogShip.source_reference} target="_blank" rel="noopener noreferrer">Open recorded source</a>}</div></div>}
           </div>
           <div className="space-y-2">
             <Label>2. Character ownership</Label>
