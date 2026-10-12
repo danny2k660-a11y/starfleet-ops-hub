@@ -13,7 +13,29 @@ export type Database = {
     PostgrestVersion: "14.18"
   }
   public: {
+type TableDef<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
+  Row: Row;
+  Insert: Insert;
+  Update: Update;
+  Relationships: [];
+};
+
+type ProfileRow = { id: string; display_name: string | null; avatar_url: string | null; created_at: string; updated_at: string };
+type ProjectRow = { id: string; user_id: string; name: string; description: string | null; status: "active" | "paused" | "complete" | "archived"; priority: "low" | "normal" | "high" | "critical"; character_id: string | null; target_date: string | null; progress: number; created_at: string; updated_at: string };
+type ProjectTaskRow = { id: string; user_id: string; project_id: string; title: string; done: boolean; sort_order: number; created_at: string };
+type ResourceBalanceRow = { id: string; user_id: string; character_id: string | null; name: string; category: string; quantity: number; target: number | null; notes: string | null; updated_at: string };
+type InventoryItemRow = { id: string; user_id: string; character_id: string | null; name: string; category: string; quantity: number; location: string; notes: string | null; created_at: string; updated_at: string };
+type ThemeRuleRow = { id: string; user_id: string; theme_name: string; rule_type: "required" | "allowed" | "forbidden" | "keyword"; value: string; created_at: string };
+type CharacterShipUnlockRow = { id: string; user_id: string; character_id: string; sto_ship_id: string; unlock_type: "ship_trait" | "console" | "special_weapon"; name: string; source_name: string | null; created_at: string };
+
     Tables: {
+      profiles: TableDef<ProfileRow, { id: string; display_name?: string | null; avatar_url?: string | null; created_at?: string; updated_at?: string }>;
+      projects: TableDef<ProjectRow, { id?: string; user_id?: string; name: string; description?: string | null; status?: ProjectRow["status"]; priority?: ProjectRow["priority"]; character_id?: string | null; target_date?: string | null; progress?: number; created_at?: string; updated_at?: string }>;
+      project_tasks: TableDef<ProjectTaskRow, { id?: string; user_id?: string; project_id: string; title: string; done?: boolean; sort_order?: number; created_at?: string }>;
+      resource_balances: TableDef<ResourceBalanceRow, { id?: string; user_id?: string; character_id?: string | null; name: string; category?: string; quantity?: number; target?: number | null; notes?: string | null; updated_at?: string }>;
+      inventory_items: TableDef<InventoryItemRow, { id?: string; user_id?: string; character_id?: string | null; name: string; category?: string; quantity?: number; location?: string; notes?: string | null; created_at?: string; updated_at?: string }>;
+      theme_rules: TableDef<ThemeRuleRow, { id?: string; user_id?: string; theme_name: string; rule_type: ThemeRuleRow["rule_type"]; value: string; created_at?: string }>;
+      character_ship_unlocks: TableDef<CharacterShipUnlockRow, { id?: string; user_id?: string; character_id: string; sto_ship_id: string; unlock_type: CharacterShipUnlockRow["unlock_type"]; name: string; source_name?: string | null; created_at?: string }>;
       boff_ability_catalog: {
         Row: {
           canonical_key: string
