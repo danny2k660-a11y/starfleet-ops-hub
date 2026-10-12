@@ -44,6 +44,7 @@ create index if not exists user_ships_ship_fk_idx on public.user_ships(sto_ship_
 
 drop index if exists public.idx_boff_ability_catalog_key;
 drop index if exists public.idx_character_ship_unlocks_character;
+drop index if exists public.character_ship_unlocks_character_idx;
 drop index if exists public.idx_character_ship_unlocks_ship;
 drop index if exists public.idx_character_traits_character_domain;
 drop index if exists public.idx_trait_catalog_availability;
