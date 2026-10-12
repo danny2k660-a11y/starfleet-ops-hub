@@ -342,6 +342,8 @@ export type Database = {
       }
       builds: {
         Row: {
+          acquisition_needs: string[]
+          archived: boolean
           build_domain: string
           captain_setup: Json | null
           character_id: string | null
@@ -363,6 +365,8 @@ export type Database = {
           user_ship_id: string | null
         }
         Insert: {
+          acquisition_needs?: string[]
+          archived?: boolean
           build_domain?: string
           captain_setup?: Json | null
           character_id?: string | null
@@ -384,6 +388,8 @@ export type Database = {
           user_ship_id?: string | null
         }
         Update: {
+          acquisition_needs?: string[]
+          archived?: boolean
           build_domain?: string
           captain_setup?: Json | null
           character_id?: string | null
