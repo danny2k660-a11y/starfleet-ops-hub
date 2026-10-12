@@ -1,6 +1,4 @@
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
-
 const directory = "supabase/migrations";
 const files = readdirSync(directory).filter((name) => name.endsWith(".sql")).sort();
 const seen = new Map();
