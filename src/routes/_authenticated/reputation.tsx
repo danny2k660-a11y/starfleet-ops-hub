@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { recordAuditEvent } from "@/lib/audit";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,7 +77,8 @@ function ReputationPage() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await recordAuditEvent("reputation_progress_saved", "character_reputation", null, "Saved reputation progress: " + name.trim(), { character_id: characterId, tier: Number(tier), progress: Number(progress) });
       qc.invalidateQueries({ queryKey: ["character_reputations"] });
       setName(""); setTier("0"); setProgress("0"); setDailyClaimed(false); setNotes("");
       toast.success("Reputation progress saved");
