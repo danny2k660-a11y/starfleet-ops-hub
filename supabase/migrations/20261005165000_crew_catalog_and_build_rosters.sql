@@ -266,13 +266,10 @@ create index if not exists boff_catalog_name_idx on public.boff_catalog(lower(na
 create index if not exists doff_catalog_name_idx on public.doff_catalog(lower(name));
 create index if not exists duty_officer_catalog_name_idx on public.duty_officer_catalog(lower(name));
 create index if not exists boff_ability_catalog_name_idx on public.boff_ability_catalog(lower(name));
-create unique index if not exists character_boffs_character_boff_unique on public.character_boffs(character_id, boff_id);
 create index if not exists character_boffs_user_idx on public.character_boffs(user_id);
 create index if not exists character_boffs_character_idx on public.character_boffs(character_id);
-create unique index if not exists character_duty_officers_character_officer_unique on public.character_duty_officers(character_id, duty_officer_id);
 create index if not exists character_duty_officers_user_idx on public.character_duty_officers(user_id);
 create index if not exists character_duty_officers_character_idx on public.character_duty_officers(character_id);
-create unique index if not exists character_doffs_character_doff_unique on public.character_doffs(character_id, doff_id);
 create index if not exists character_doffs_user_idx on public.character_doffs(user_id);
 create index if not exists character_doffs_character_idx on public.character_doffs(character_id);
 create unique index if not exists character_trait_slot_unlocks_character_slot_unique on public.character_trait_slot_unlocks(character_id, slot_group);
