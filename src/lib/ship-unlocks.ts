@@ -7,7 +7,7 @@ import type { Tables } from "@/integrations/supabase/types";
  */
 export async function ensureShipUnlocksForCharacters(
   userId: string,
-  ship: Tables<"sto_ships">,
+  ship: Pick<Tables<"sto_ships">, "id" | "name" | "ship_trait" | "special_console" | "special_weapons">,
   characterIds: string[],
   sourceName: string,
 ): Promise<void> {
