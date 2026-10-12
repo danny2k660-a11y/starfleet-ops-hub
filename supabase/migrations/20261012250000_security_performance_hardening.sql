@@ -21,7 +21,6 @@ drop policy if exists "owners manage ground equipment" on public.ground_loadout_
 
 
 
-create index if not exists build_doffs_doff_fk_idx on public.build_doffs(doff_id);
 create index if not exists build_ground_loadouts_build_fk_idx on public.build_ground_loadouts(build_id);
 create index if not exists builds_ship_instance_fk_idx on public.builds(ship_instance_id);
 create index if not exists character_traits_user_fk_idx on public.character_traits(user_id);
@@ -50,3 +49,10 @@ drop index if exists public.idx_character_traits_character_domain;
 drop index if exists public.idx_trait_catalog_availability;
 drop index if exists public.trait_catalog_availability_idx;
 drop index if exists public.idx_user_ships_acquisition_source;
+
+drop index if exists public.build_doffs_doff_fk_idx;
+drop index if exists public.character_boffs_user_fk_idx;
+drop index if exists public.idx_character_boffs_character;
+drop index if exists public.character_boffs_character_boff_unique;
+drop index if exists public.character_doffs_character_doff_unique;
+drop index if exists public.character_duty_officers_character_officer_unique;
