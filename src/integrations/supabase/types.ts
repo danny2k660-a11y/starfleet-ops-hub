@@ -1231,6 +1231,7 @@ export type Database = {
       }
       loadout_boffs: {
         Row: {
+          user_id: string
           abilities: Json
           boff_id: string | null
           created_at: string
@@ -1245,6 +1246,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          user_id: string
           abilities?: Json
           boff_id?: string | null
           created_at?: string
@@ -1259,6 +1261,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          user_id?: string
           abilities?: Json
           boff_id?: string | null
           created_at?: string
@@ -1384,6 +1387,7 @@ export type Database = {
       }
       loadout_traits: {
         Row: {
+          user_id: string
           created_at: string
           domain: string | null
           id: string
@@ -1396,6 +1400,7 @@ export type Database = {
           trait_type: string
         }
         Insert: {
+          user_id: string
           created_at?: string
           domain?: string | null
           id?: string
@@ -1408,6 +1413,7 @@ export type Database = {
           trait_type?: string
         }
         Update: {
+          user_id?: string
           created_at?: string
           domain?: string | null
           id?: string
