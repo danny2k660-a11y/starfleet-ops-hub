@@ -30,7 +30,7 @@ export type Database = {
   public: {
     Tables: {
       profiles: TableDef<ProfileRow, { id: string; display_name?: string | null; avatar_url?: string | null; created_at?: string; updated_at?: string }>;
-      projects: TableDef<ProjectRow, { id?: string; user_id?: string; name: string; description?: string | null; status?: ProjectRow["status"]; priority?: ProjectRow["priority"]; character_id?: string | null; target_date?: string | null; progress?: number; created_at?: string; updated_at?: string }>;
+      projects: TableDef<ProjectRow, { id?: string; user_id?: string; name: string; project_type?: ProjectRow["project_type"]; description?: string | null; status?: ProjectRow["status"]; priority?: ProjectRow["priority"]; character_id?: string | null; target_date?: string | null; progress?: number; created_at?: string; updated_at?: string }>;
       project_tasks: TableDef<ProjectTaskRow, { id?: string; user_id?: string; project_id: string; title: string; done?: boolean; sort_order?: number; created_at?: string }>;
       resource_balances: TableDef<ResourceBalanceRow, { id?: string; user_id?: string; character_id?: string | null; name: string; category?: string; quantity?: number; target?: number | null; notes?: string | null; updated_at?: string }>;
       inventory_items: TableDef<InventoryItemRow, { id?: string; user_id?: string; character_id?: string | null; name: string; category?: string; quantity?: number; location?: string; notes?: string | null; created_at?: string; updated_at?: string }>;
