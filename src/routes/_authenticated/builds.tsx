@@ -34,7 +34,7 @@ function BuildsPage() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<BuildWithShip | null>(null);
-  const loadouts = useQuery({ queryKey: ["loadouts"], queryFn: async () => { const { data, error } = await supabase.from("loadouts" as never).select("*").order("updated_at", { ascending: false }); if (error) throw error; return data as Loadout[]; } });
+  const loadouts = useQuery({ queryKey: ["loadouts"], queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("*").order("updated_at", { ascending: false }); if (error) throw error; return data as Loadout[]; } });
   const builds = useQuery({ queryKey: ["builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("*, ship_instances!builds_ship_instance_id_fkey(*, characters(*)), user_ships!builds_user_ship_id_fkey(id,custom_name,character_id,sto_ship_id,current_build_id,characters(name),sto_ships(name))").order("updated_at", { ascending: false }); if (error) throw error; return data as unknown as (Build & { ship_instances: Ship & { characters: Character | null } | null })[]; } });
   const characters = useQuery({ queryKey: ["characters"], queryFn: async () => { const { data, error } = await supabase.from("characters").select("*").order("name"); if (error) throw error; return (data ?? []) as Character[]; } });
   const ownedShips = useQuery({ queryKey: ["build_owned_ships"], queryFn: async () => { const { data, error } = await supabase.from("user_ships").select("id,custom_name,character_id,current_build_id,sto_ship_id,ownership_status,characters(name),sto_ships(name)").eq("ownership_status","owned").order("custom_name"); if (error) throw error; return (data ?? []) as any[]; } });
@@ -161,7 +161,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
       if (!u.user) throw new Error("Not signed in");
       const { error: clearError } = await supabase.from("loadouts").update({ is_active: false }).eq("build_id", loadout.build_id).eq("user_id", u.user.id);
       if (clearError) throw clearError;
-      const { error } = await supabase.from("loadouts" as never).update({ is_active: true }).eq("id", loadout.id);
+      const { error } = await supabase.from("loadouts").update({ is_active: true }).eq("id", loadout.id);
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ["loadouts"] });
       toast.success("Loadout activated");
@@ -177,7 +177,7 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
       if (!u.user) throw new Error("Not signed in");
       const { data: duplicate } = await supabase.from("loadouts").select("id").eq("build_id", loadout.build_id).eq("user_id", u.user.id).eq("name", nextName).neq("id", loadout.id).maybeSingle();
       if (duplicate) throw new Error("A loadout with that name already exists for this build.");
-      const { error } = await supabase.from("loadouts" as never).update({ name: nextName, notes: notes.trim() || null }).eq("id", loadout.id);
+      const { error } = await supabase.from("loadouts").update({ name: nextName, notes: notes.trim() || null }).eq("id", loadout.id);
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ["loadouts"] });
       setEditOpen(false);
@@ -191,17 +191,17 @@ function LoadoutCard({ loadout, buildName }: { loadout: Loadout; buildName: stri
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
-      const { error: equipmentError } = await supabase.from("loadout_equipment" as never).delete().eq("loadout_id", loadout.id);
+      const { error: equipmentError } = await supabase.from("loadout_equipment").delete().eq("loadout_id", loadout.id);
       if (equipmentError) throw equipmentError;
-      const { error: traitsError } = await supabase.from("loadout_traits" as never).delete().eq("loadout_id", loadout.id);
+      const { error: traitsError } = await supabase.from("loadout_traits").delete().eq("loadout_id", loadout.id);
       if (traitsError) throw traitsError;
-      const { error: boffsError } = await supabase.from("loadout_boffs" as never).delete().eq("loadout_id", loadout.id);
+      const { error: boffsError } = await supabase.from("loadout_boffs").delete().eq("loadout_id", loadout.id);
       if (boffsError) throw boffsError;
-      const { error } = await supabase.from("loadouts" as never).delete().eq("id", loadout.id).eq("user_id", u.user.id);
+      const { error } = await supabase.from("loadouts").delete().eq("id", loadout.id).eq("user_id", u.user.id);
       if (error) throw error;
       if (loadout.is_active) {
         const { data: replacement } = await supabase.from("loadouts").select("id").eq("build_id", loadout.build_id).eq("user_id", u.user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-        if (replacement) await supabase.from("loadouts" as never).update({ is_active: true }).eq("id", replacement.id);
+        if (replacement) await supabase.from("loadouts").update({ is_active: true }).eq("id", replacement.id);
       }
       await qc.invalidateQueries({ queryKey: ["loadouts"] });
       toast.success("Loadout deleted");
@@ -258,7 +258,7 @@ function LoadoutButton({ builds, onSaved }: { builds: Build[]; onSaved: () => vo
       .eq("user_id", u.user.id)
       .eq("is_active", true)
       .maybeSingle();
-    const { error } = await supabase.from("loadouts" as never).insert({
+    const { error } = await supabase.from("loadouts").insert({
       user_id: u.user.id,
       build_id: buildId,
       name: trimmedName,
@@ -293,7 +293,7 @@ function ThemeCompliance({ buildId }: { buildId: string }) {
   const ship = useQuery({
     queryKey: ["theme_compliance_ship", buildId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("user_ships" as never).select("theme_id,sto_ships(name,faction,ship_class)").eq("current_build_id", buildId).maybeSingle();
+      const { data, error } = await supabase.from("user_ships").select("theme_id,sto_ships(name,faction,ship_class)").eq("current_build_id", buildId).maybeSingle();
       if (error) throw error;
       return data as any;
     },
@@ -316,21 +316,21 @@ function ThemeCompliance({ buildId }: { buildId: string }) {
 }
 
 function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: string }) {
-  const equipment = useQuery({ queryKey: ["readiness_equipment", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_equipment" as never).select("slot").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
-  const traits = useQuery({ queryKey: ["readiness_traits", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_traits" as never).select("id,trait_id,trait_type").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
-  const boffs = useQuery({ queryKey: ["readiness_boffs", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_boffs" as never).select("id,station").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
+  const equipment = useQuery({ queryKey: ["readiness_equipment", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_equipment").select("slot").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
+  const traits = useQuery({ queryKey: ["readiness_traits", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_traits").select("id,trait_id,trait_type").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
+  const boffs = useQuery({ queryKey: ["readiness_boffs", loadoutId], queryFn: async () => { const {data,error}=await supabase.from("loadout_boffs").select("id,station").eq("loadout_id",loadoutId); if(error) throw error; return data ?? []; }});
   const ship = useQuery({ queryKey: ["readiness_ship", buildId], queryFn: async () => {
     // Use the authoritative Build → User Ship relationship. Older builds may have
     // user_ship_id populated even when current_build_id was never backfilled.
-    const { data: build, error: be } = await supabase.from("builds" as never).select("user_ship_id").eq("id", buildId).maybeSingle();
+    const { data: build, error: be } = await supabase.from("builds").select("user_ship_id").eq("id", buildId).maybeSingle();
     if (be) throw be;
     if (!build?.user_ship_id) return null;
-    const { data, error } = await supabase.from("user_ships" as never).select("character_id,sto_ships(*)").eq("id", build.user_ship_id).maybeSingle();
+    const { data, error } = await supabase.from("user_ships").select("character_id,sto_ships(*)").eq("id", build.user_ship_id).maybeSingle();
     if (error) throw error;
     return data as any;
   }});
   const characterTraits = useQuery({ queryKey: ["readiness_character_traits", buildId, ship.data?.character_id], enabled: !!ship.data?.character_id, queryFn: async () => {
-    const {data,error}=await supabase.from("character_traits" as never).select("id,trait_id,domain,trait_category,active").eq("character_id",ship.data.character_id).eq("active",true);
+    const {data,error}=await supabase.from("character_traits").select("id,trait_id,domain,trait_category,active").eq("character_id",ship.data.character_id).eq("active",true);
     if(error) throw error; return data ?? [];
   }});
   const s:any=ship.data?.sto_ships||{};
@@ -354,7 +354,7 @@ function LoadoutReadiness({ loadoutId, buildId }: { loadoutId: string; buildId: 
 function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const qc = useQueryClient();
   const shipContext = useQuery({ queryKey: ["loadout_ship_context", loadoutId], queryFn: async () => {
-    const { data: loadout, error: le } = await supabase.from("loadouts" as never).select("build_id").eq("id", loadoutId).single();
+    const { data: loadout, error: le } = await supabase.from("loadouts").select("build_id").eq("id", loadoutId).single();
     if (le) throw le;
     const { data: build, error: be } = await supabase.from("builds").select("user_ship_id").eq("id", loadout.build_id).single();
     if (be) throw be;
@@ -371,24 +371,24 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     return { characterId: us.character_id, characterName: us.characters?.name ?? "", shipName: us.sto_ships?.name ?? "", unlocks };
   }});
   const traits = useQuery({ queryKey: ["loadout_traits", loadoutId], queryFn: async () => {
-    const { data, error } = await supabase.from("loadout_traits" as never).select("*").eq("loadout_id", loadoutId).order("name");
+    const { data, error } = await supabase.from("loadout_traits").select("*").eq("loadout_id", loadoutId).order("name");
     if (error) throw error; return data ?? [];
   }});
   const boffs = useQuery({ queryKey: ["loadout_boffs", loadoutId], queryFn: async () => {
-    const { data, error } = await supabase.from("loadout_boffs" as never).select("*").eq("loadout_id", loadoutId).order("station");
+    const { data, error } = await supabase.from("loadout_boffs").select("*").eq("loadout_id", loadoutId).order("station");
     if (error) throw error; return data ?? [];
   }});
-  const buildContext = useQuery({ queryKey: ["loadout_build_context", loadoutId], queryFn: async () => { const { data, error } = await supabase.from("loadouts" as never).select("build_id").eq("id", loadoutId).single(); if (error) throw error; return data as any; }});
-  const dutyOfficers = useQuery({ queryKey: ["build_doffs", buildContext.data?.build_id], enabled: !!buildContext.data?.build_id, queryFn: async () => { const { data, error } = await supabase.from("build_doffs" as never).select("*").eq("build_id", buildContext.data.build_id).order("name"); if (error) throw error; return data ?? []; }});
-  const dutyOfficerCatalog = useQuery({ queryKey: ["doff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("doff_catalog" as never).select("*").order("name"); if (error) throw error; return data ?? []; }});
-  const boffAbilityCatalog = useQuery({ queryKey: ["boff_ability_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_ability_catalog" as never).select("id,name,region,career,description,rank1,rank2,rank3").order("name"); if (error) throw error; return data ?? []; }});
+  const buildContext = useQuery({ queryKey: ["loadout_build_context", loadoutId], queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("build_id").eq("id", loadoutId).single(); if (error) throw error; return data as any; }});
+  const dutyOfficers = useQuery({ queryKey: ["build_doffs", buildContext.data?.build_id], enabled: !!buildContext.data?.build_id, queryFn: async () => { const { data, error } = await supabase.from("build_doffs").select("*").eq("build_id", buildContext.data.build_id).order("name"); if (error) throw error; return data ?? []; }});
+  const dutyOfficerCatalog = useQuery({ queryKey: ["doff_catalog"], queryFn: async () => { const { data, error } = await supabase.from("doff_catalog").select("*").order("name"); if (error) throw error; return data ?? []; }});
+  const boffAbilityCatalog = useQuery({ queryKey: ["boff_ability_catalog"], queryFn: async () => { const { data, error } = await supabase.from("boff_ability_catalog").select("id,name,region,career,description,rank1,rank2,rank3").order("name"); if (error) throw error; return data ?? []; }});
 
   const traitCatalog = useQuery({ queryKey: ["trait_catalog"], queryFn: async () => {
-    const { data, error } = await supabase.from("trait_catalog" as never).select("*").eq("trait_type","starship").eq("domain","space").order("name");
+    const { data, error } = await supabase.from("trait_catalog").select("*").eq("trait_type","starship").eq("domain","space").order("name");
     if (error) throw error; return data ?? [];
   }});
   const characterTraits = useQuery({ queryKey: ["loadout_character_traits", shipContext.data?.characterId], enabled: !!shipContext.data?.characterId, queryFn: async () => {
-    const { data, error } = await supabase.from("character_traits" as never)
+    const { data, error } = await supabase.from("character_traits")
       .select("id,trait_id,domain,trait_category,slot_index,active,trait_catalog(name,trait_type,domain,description)")
       .eq("character_id", shipContext.data?.characterId ?? "")
       .eq("active", true)
@@ -419,7 +419,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
       toast.error("Only starship traits can be assigned to a ship loadout.");
       return;
     }
-    const { error } = await supabase.from("loadout_traits" as never).insert({
+    const { error } = await supabase.from("loadout_traits").insert({
       loadout_id: loadoutId, trait_id: picked?.id || null, name, trait_type: "starship", slot: picked?.domain || "space", domain: "space", trait_category: "starship"
     });
     if (error) { toast.error("Could not add trait: " + error.message); return; }
@@ -428,11 +428,11 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const addConsole = async (consoleName: string, sourceShip: string) => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user || !shipContext.data?.characterId || !consoleName.trim()) return;
-    const { data: existing, error: findError } = await supabase.from("equipment_items" as never)
+    const { data: existing, error: findError } = await supabase.from("equipment_items")
       .select("id").eq("user_id", u.user.id).eq("character_id", shipContext.data.characterId).eq("name", consoleName.trim()).eq("category", "Console").maybeSingle();
     if (findError) { toast.error(findError.message); return; }
     if (existing) { toast.info(`${consoleName} is already in character equipment`); return; }
-    const { error } = await supabase.from("equipment_items" as never).insert({
+    const { error } = await supabase.from("equipment_items").insert({
       user_id: u.user.id, character_id: shipContext.data.characterId, name: consoleName.trim(),
       category: "Console", slot: "Universal Console", notes: `Unlocked from owned ship: ${sourceShip}`,
     });
@@ -442,7 +442,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   };
   const saveOfficer = async () => {
     if (!station.trim()) return;
-    const { error } = await supabase.from("loadout_boffs" as never).upsert({ loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null, specialization: specialization.trim() || null, abilities: abilities.split(",").map((x) => x.trim()).filter(Boolean) });
+    const { error } = await supabase.from("loadout_boffs").upsert({ loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null, specialization: specialization.trim() || null, abilities: abilities.split(",").map((x) => x.trim()).filter(Boolean) });
     if (error) { toast.error("Could not save officer: " + error.message); return; }
     setStation(""); setOfficer(""); setSpecialization(""); setAbilities(""); qc.invalidateQueries({ queryKey: ["loadout_boffs", loadoutId] });
   };
@@ -450,7 +450,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     const picked:any = (dutyOfficerCatalog.data as any[] || []).find((d:any) => d.id === dutyOfficerId);
     if (!picked) return;
     if (!buildContext.data?.build_id) return;
-    const { error } = await supabase.from("build_doffs" as never).insert({ build_id: buildContext.data.build_id, doff_id: picked.id, name: picked.name, department: picked.department || null, specialization: picked.specialization || null, assignment: picked.domain || null });
+    const { error } = await supabase.from("build_doffs").insert({ build_id: buildContext.data.build_id, doff_id: picked.id, name: picked.name, department: picked.department || null, specialization: picked.specialization || null, assignment: picked.domain || null });
     if (error) { toast.error("Could not save duty officer: " + error.message); return; }
     setDutyOfficerId(""); qc.invalidateQueries({ queryKey: ["build_doffs", buildContext.data?.build_id] });
   };
@@ -531,7 +531,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const ship = useQuery({
     queryKey: ["loadout_ship", buildId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("user_ships" as never)
+      const { data, error } = await supabase.from("user_ships")
         .select("id,character_id,sto_ship_id,custom_name,sto_ships(*)")
         .eq("current_build_id", buildId)
         .maybeSingle();
@@ -548,7 +548,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const equipment = useQuery({
     queryKey: ["equipment_items"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("equipment_items" as never).select("*").order("name");
+      const { data, error } = await supabase.from("equipment_items").select("*").order("name");
       if (error) throw error; return (data ?? []) as any[];
     },
   });
@@ -557,7 +557,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
   const assigned = useQuery({
     queryKey: ["loadout_equipment", loadoutId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("loadout_equipment" as never).select("*, equipment_items(*)").eq("loadout_id", loadoutId);
+      const { data, error } = await supabase.from("loadout_equipment").select("*, equipment_items(*)").eq("loadout_id", loadoutId);
       if (error) throw error; return (data ?? []) as any[];
     },
   });
@@ -579,7 +579,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
-      const { error } = await supabase.from("loadout_equipment" as never).upsert(
+      const { error } = await supabase.from("loadout_equipment").upsert(
         { user_id: u.user.id, loadout_id: loadoutId, equipment_id: equipmentId, slot: slot.trim() },
         { onConflict: "loadout_id,slot" }
       );
@@ -589,7 +589,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
     onError: (e: Error) => toast.error(e.message),
   });
   const remove = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("loadout_equipment" as never).delete().eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => { const { error } = await supabase.from("loadout_equipment").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["loadout_equipment", loadoutId] }),
   });
 
