@@ -69,7 +69,7 @@ function Page() {
       const userId=account.data.id;
       const db = supabase as any; // Table names are drawn from fixed backup allowlists.
       const result:Record<string,unknown>={exported_at:new Date().toISOString(),schema_version:3,account_id:userId};
-      const accountTables=["characters","user_ships","sto_ship_ownership","ship_instances","builds","build_versions","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_bridge_officers","character_reputations","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"] as const;
+      const accountTables=["characters","user_ships","sto_ship_ownership","ship_instances","builds","build_versions","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_bridge_officers","character_reputations","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts"] as const;
       const {data:profileRow,error:profileError}=await supabase.from("profiles").select("*").eq("id",userId).maybeSingle();
       if(profileError) throw new Error(`profiles: ${profileError.message}`);
       result["profiles"]=profileRow ? [profileRow] : [];
@@ -120,7 +120,7 @@ function Page() {
       const userId=account.data.id;
       const db = supabase as any; // Dynamic table names are restricted to the restore allowlists below.
       const sourceUserId=typeof parsed.account_id==="string"?parsed.account_id:userId;
-      const order=["characters","ship_instances","builds","user_ships","sto_ship_ownership","build_versions","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_bridge_officers","character_reputations","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts","theme_rules"];
+      const order=["characters","ship_instances","builds","user_ships","sto_ship_ownership","build_versions","loadouts","equipment_items","inventory_items","loadout_equipment","projects","project_tasks","resource_balances","character_boffs","character_bridge_officers","character_reputations","character_traits","character_duty_officers","character_doffs","character_trait_slot_unlocks","build_ground_loadouts"];
       for(const table of order){
         const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && row.user_id===sourceUserId).map((row:any)=>{const mapped={...row,user_id:userId}; if(table==="builds") delete mapped.user_ship_id; if(table==="user_ships") delete mapped.current_build_id; return mapped;}):[];
         if(!rows.length) continue;
