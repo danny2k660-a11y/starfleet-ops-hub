@@ -914,7 +914,7 @@ function UpgradeChecks({ t6, t6x, t6x2, set }: { t6: boolean; t6x: boolean; t6x2
   );
 }
 
-function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], onSaved }: {
+function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], referenceData = [], onSaved }: {
   open: boolean; onOpenChange: (o: boolean) => void; catalog: StoShip[]; characters: Character[]; sources?: any[]; referenceData?: any[]; onSaved: (id: string) => void;
 }) {
   const qc = useQueryClient();
@@ -966,12 +966,12 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
       }
 
       const selectedSource = sourceId === "__none__" ? null : sources.find((x) => x.id === sourceId);
-      const { error: claimError } = await supabase.rpc("claim_ship_assignments" as never, {
+      const { error: claimError } = await supabase.rpc("claim_ship_assignments", {
         p_ship_id: shipId,
         p_character_ids: targetCharacterIds,
         p_acquisition_source_id: selectedSource?.id ?? null,
         p_acquisition_group: selectedSource?.source_name ?? null,
-      } as never);
+      });
       if (claimError) throw claimError;
 
       const rows = targetCharacterIds.map((id) => ({
@@ -988,7 +988,7 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
       }));
 
       const { error: detailError } = await supabase.from("user_ships").update({
-        custom_name: name.trim() || null,
+        custom_name: name.trim() || selectedCatalogShip.name,
         usage_mode: usageMode,
         acquisition_source_id: selectedSource?.id ?? null,
         acquisition_group: selectedSource?.source_name ?? null,
@@ -1007,12 +1007,14 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
         unlock_type, name, source_name: "Ship assignment",
       }))));
       if (unlockRows.length) {
-        const { error: unlockError } = await supabase.from("character_ship_unlocks" as never)
-          .upsert(unlockRows as never[], { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name", ignoreDuplicates: true });
+        const { error: unlockError } = await supabase.from("character_ship_unlocks")
+          .upsert(unlockRows, { onConflict: "user_id,character_id,sto_ship_id,unlock_type,name", ignoreDuplicates: true });
         if (unlockError) throw unlockError;
       }
 
-      return { ids: (data ?? []).map((row: any) => row.id), added: rows.length, total: targetCharacterIds.length };
+      const { data: registeredShips, error: registeredError } = await supabase.from("user_ships").select("id").eq("user_id", u.user.id).eq("sto_ship_id", shipId).in("character_id", targetCharacterIds);
+      if (registeredError) throw registeredError;
+      return { ids: (registeredShips ?? []).map((row) => row.id), added: rows.length, total: targetCharacterIds.length };
     },
     onSuccess: ({ ids, added, total }) => {
       qc.invalidateQueries({ queryKey: ["user_ships"] });
