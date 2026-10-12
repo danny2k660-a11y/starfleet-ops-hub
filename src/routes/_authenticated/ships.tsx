@@ -1032,16 +1032,18 @@ function AddShipDialog({ open, onOpenChange, catalog, characters, sources = [], 
 
       const { data: registeredShips, error: registeredError } = await supabase.from("user_ships").select("id").eq("user_id", u.user.id).eq("sto_ship_id", shipId).in("character_id", targetCharacterIds);
       if (registeredError) throw registeredError;
-      return { ids: (registeredShips ?? []).map((row) => row.id), added: rows.length, total: targetCharacterIds.length };
+      const firstId = registeredShips?.[0]?.id;
+      if (!firstId) throw new Error("Ship assignment succeeded, but the fleet record could not be found.");
+      return { firstId, added: rows.length, total: targetCharacterIds.length };
     },
-    onSuccess: ({ ids, added, total }) => {
+    onSuccess: ({ firstId, added, total }) => {
       qc.invalidateQueries({ queryKey: ["user_ships"] });
       toast.success(addToAllCharacters
         ? added + " ship registration" + (added === 1 ? "" : "s") + " added across your " + total + " character" + (total === 1 ? "" : "s") + "."
         : "Ship registered");
       setSearch(""); setShipId(null); setName(""); setCharacterId(""); setAddToAllCharacters(false);
       setUsageMode("build_pending"); setSourceId("__none__"); setSourceFilter("all"); setUp({ t6: false, t6x: false, t6x2: false });
-      onSaved(ids[0]);
+      onSaved(firstId);
     },
     onError: (e: Error) => toast.error(e.message),
   });
