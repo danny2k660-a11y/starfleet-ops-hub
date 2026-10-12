@@ -12,17 +12,22 @@ create table if not exists public.build_versions (
 
 alter table public.build_versions enable row level security;
 drop policy if exists build_versions_owner_all on public.build_versions;
-create policy build_versions_owner_all
-  on public.build_versions for all to authenticated
+drop policy if exists build_versions_select_own on public.build_versions;
+drop policy if exists build_versions_insert_own on public.build_versions;
+create policy build_versions_select_own
+  on public.build_versions for select to authenticated
   using (
     user_id = auth.uid()
     and exists (select 1 from public.builds b where b.id = build_id and b.user_id = auth.uid())
-  )
+  );
+create policy build_versions_insert_own
+  on public.build_versions for insert to authenticated
   with check (
     user_id = auth.uid()
     and exists (select 1 from public.builds b where b.id = build_id and b.user_id = auth.uid())
   );
 
-grant select, insert, update, delete on public.build_versions to authenticated;
+revoke update, delete on public.build_versions from authenticated;
+grant select, insert on public.build_versions to authenticated;
 create index if not exists build_versions_build_created_idx
   on public.build_versions(build_id, created_at desc);
