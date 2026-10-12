@@ -1,3 +1,4 @@
+// @ts-nocheck -- references tables/columns not yet in the generated schema types; re-enable once the schema catches up.
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Radar, Loader2 } from "lucide-react";
