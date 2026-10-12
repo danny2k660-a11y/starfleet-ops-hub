@@ -141,8 +141,7 @@ create table if not exists public.character_trait_slot_unlocks (
   unlocked boolean not null default false,
   notes text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique(character_id, slot_group)
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.loadout_duty_officers (
@@ -272,6 +271,7 @@ create index if not exists character_duty_officers_user_idx on public.character_
 create index if not exists character_duty_officers_character_idx on public.character_duty_officers(character_id);
 create index if not exists character_doffs_user_idx on public.character_doffs(user_id);
 create index if not exists character_doffs_character_idx on public.character_doffs(character_id);
+create unique index if not exists character_trait_slot_unlocks_character_slot_unique on public.character_trait_slot_unlocks(character_id, slot_group);
 create unique index if not exists character_trait_slot_unlocks_character_slot_unique on public.character_trait_slot_unlocks(character_id, slot_group);
 create index if not exists character_trait_slot_unlocks_user_character_idx on public.character_trait_slot_unlocks(user_id, character_id);
 create index if not exists loadout_duty_officers_loadout_idx on public.loadout_duty_officers(loadout_id);
