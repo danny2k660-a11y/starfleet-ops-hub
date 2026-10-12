@@ -32,6 +32,7 @@ create policy character_bridge_officers_owner_all
 grant select, insert, update, delete on public.character_bridge_officers to authenticated;
 create index if not exists character_bridge_officers_character_idx
   on public.character_bridge_officers(user_id, character_id, active);
+drop trigger if exists character_bridge_officers_updated_at on public.character_bridge_officers;
 create trigger character_bridge_officers_updated_at
   before update on public.character_bridge_officers
   for each row execute function public.update_updated_at_column();
