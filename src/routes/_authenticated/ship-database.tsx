@@ -299,7 +299,7 @@ function ShipDatabasePage() {
             source_name: ship.name,
           }));
           const { error } = await supabase
-            .from("character_traits" as never)
+            .from("character_traits")
             .upsert(traitRows, { onConflict: "character_id,trait_id", ignoreDuplicates: true });
           if (error) throw error;
         }
@@ -620,12 +620,12 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
       let assignedCount = 0;
       for (const item of claimItems) {
         const source = sources.find((s: any) => s.bundle_id === bundle.id && s.sto_ship_id === item.sto_ship_id);
-        const { error: claimError } = await supabase.rpc("claim_ship_assignments" as never, {
+        const { data: assigned, error: claimError } = await supabase.rpc("claim_ship_assignments", {
           p_ship_id: item.sto_ship_id,
           p_character_ids: targetCharacters,
           p_acquisition_source_id: source?.id ?? null,
           p_acquisition_group: bundle.name,
-        } as never);
+        });
         if (claimError) throw claimError;
         assignedCount += assigned ?? 0;
       }
