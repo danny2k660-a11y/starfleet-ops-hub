@@ -488,7 +488,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
     const { data: build, error: be } = await supabase.from("builds").select("user_ship_id").eq("id", loadout.build_id).single();
     if (be) throw be;
     if (!build?.user_ship_id) return null;
-    const { data: us, error: ue } = await supabase.from("user_ships").select("character_id,sto_ship_id,characters(name),sto_ships(name,ship_trait,special_console)").eq("id", build.user_ship_id).single();
+    const { data: us, error: ue } = await supabase.from("user_ships").select("character_id,sto_ship_id,characters!user_ships_character_id_fkey(name),sto_ships(name,ship_trait,special_console)").eq("id", build.user_ship_id).single();
     if (ue) throw ue;
     if (!us?.character_id) return null;
     const { data: owned, error: oe } = await supabase.from("user_ships").select("sto_ship_id,sto_ships(name,ship_trait,special_console)").eq("character_id", us.character_id).eq("ownership_status","owned");
