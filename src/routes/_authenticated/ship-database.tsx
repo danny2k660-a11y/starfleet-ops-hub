@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, Database, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Check, Package } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { recordAuditEvent } from "@/lib/audit";
 import type { Tables } from "@/integrations/supabase/types";
 import { AppShell } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
@@ -327,11 +328,12 @@ function ShipDatabasePage() {
           .maybeSingle();
         if (equipmentLookupError) throw equipmentLookupError;
         if (!existingEquipment) {
-          const { error } = await supabase.from("equipment_items" as never).insert(equipment as never);
+          const { error } = await supabase.from("equipment_items").insert(equipment);
           if (error) throw error;
         }
       }
 
+      await recordAuditEvent("ship_assignment", "ship", ship.id, "Assigned " + ship.name + " to character(s)", { character_count: targetCharacters.length, mode });
       setAssignmentShip(null);
       setAssignmentCharacter("");
       window.alert(mode === "all"
@@ -650,6 +652,7 @@ function BundleClaim({ bundle, characters, sources, onClaimed }: { bundle: any; 
         if (claimError) throw claimError;
       }
 
+      await recordAuditEvent("bundle_claim", "bundle", bundle.id, "Processed bundle ship assignments: " + bundle.name, { character_count: targetCharacters.length, ship_count: claimItems.length, new_assignments: assignedCount });
       onClaimed();
       if (assignedCount === 0) {
         window.alert(accountWide ? "This bundle is already registered on every character." : "This bundle is already registered on this character.");
