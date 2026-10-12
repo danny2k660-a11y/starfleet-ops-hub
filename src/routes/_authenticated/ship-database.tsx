@@ -264,7 +264,7 @@ function ShipDatabasePage() {
             user_id: u.user.id,
             character_id: character.id,
             name: ship.special_weapons,
-            category: "Experimental Weapon",
+            category: "Experimental",
             quantity: 1,
             notes: "Unlocked from ship: " + ship.name,
           });
