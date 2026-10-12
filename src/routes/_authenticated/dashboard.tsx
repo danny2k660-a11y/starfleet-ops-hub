@@ -72,7 +72,8 @@ function Dashboard() {
   } });
   const attentionBuilds = useQuery({ queryKey: ["dashboard-attention-builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("id,name,status").in("status",["draft","testing"]); if(error) throw error; return data ?? []; } });
   const attentionProjects = useQuery({ queryKey: ["dashboard-attention-projects"], queryFn: async () => { const { data: auth, error: authError } = await supabase.auth.getUser(); if (authError) throw authError; if (!auth.user) throw new Error("Not signed in."); const { data, error } = await supabase.from("projects").select("id,name,status").eq("user_id", auth.user.id).eq("status","active"); if(error) throw error; return data ?? []; } });
-  const attention = { data: { shipsWithoutBuild: attentionShips.data ?? [], draftBuilds: attentionBuilds.data ?? [], activeProjects: attentionProjects.data ?? [], resourcesNearTarget: [] }, isLoading: attentionShips.isLoading || attentionBuilds.isLoading || attentionProjects.isLoading, isError: !!(attentionShips.error || attentionBuilds.error || attentionProjects.error) };
+  const attentionResources = useQuery({ queryKey: ["dashboard-attention-resources"], queryFn: async () => { const { data: auth, error: authError } = await supabase.auth.getUser(); if (authError) throw authError; if (!auth.user) throw new Error("Not signed in."); const { data, error } = await supabase.from("resource_balances").select("id,name,quantity,target").eq("user_id", auth.user.id).not("target","is",null); if (error) throw error; return (data ?? []).filter((item) => item.target !== null && item.target > 0 && item.quantity >= item.target * 0.8 && item.quantity < item.target); } });
+  const attention = { data: { shipsWithoutBuild: attentionShips.data ?? [], draftBuilds: attentionBuilds.data ?? [], activeProjects: attentionProjects.data ?? [], resourcesNearTarget: attentionResources.data ?? [] }, isLoading: attentionShips.isLoading || attentionBuilds.isLoading || attentionProjects.isLoading || attentionResources.isLoading, isError: !!(attentionShips.error || attentionBuilds.error || attentionProjects.error || attentionResources.error) };
 
 
   const readinessShips = useQuery({
@@ -188,7 +189,8 @@ function Dashboard() {
           <Link to="/ships" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Ships without build</p><p className="mt-1 font-display text-2xl text-primary">{attention.data?.shipsWithoutBuild.length ?? "—"}</p></Link>
           <Link to="/builds" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Builds needing work</p><p className="mt-1 font-display text-2xl text-primary">{attention.data?.draftBuilds.length ?? "—"}</p></Link>
           <Link to="/ship-planner" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Ships awaiting build</p><p className="mt-1 font-display text-2xl text-primary">{plannerShips.data ?? "—"}</p></Link>
-          <Link to="/ship-planner" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Planner queue</p><p className="mt-1 font-display text-2xl text-primary">{plannerShips.data ?? "—"}</p></Link>
+          <Link to="/projects" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Active projects</p><p className="mt-1 font-display text-2xl text-primary">{attention.data?.activeProjects.length ?? "—"}</p></Link>
+          <Link to="/resources" className="rounded border border-border p-3 hover:border-primary"><p className="text-xs text-muted-foreground">Resources near target</p><p className="mt-1 font-display text-2xl text-primary">{attention.data?.resourcesNearTarget.length ?? "—"}</p></Link>
         </div>
       </div>
       <div className="panel p-5">
