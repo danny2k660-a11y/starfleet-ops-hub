@@ -25,6 +25,7 @@ type BuildVersionRow = { id: string; user_id: string; build_id: string; version_
 type StoEquipmentSetBonusRow = { id: string; set_name: string; piece_threshold: number; bonus_name: string; bonus_description: string; source_reference: string; verified: boolean; data_version: string | null; verified_at: string | null; created_at: string; updated_at: string };
 type LoadoutHangarPetRow = { id: string; user_id: string; loadout_id: string; hangar_slot: string; pet_name: string; quantity: number; notes: string | null; source_reference: string | null; created_at: string; updated_at: string };
 type CharacterReputationRow = { id: string; user_id: string; character_id: string; reputation_name: string; tier: number; progress: number; daily_claimed: boolean; notes: string | null; created_at: string; updated_at: string };
+type UserAuditLogRow = { id: string; user_id: string; action: string; entity_type: string; entity_id: string | null; summary: string; details: Json; created_at: string };
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
@@ -46,6 +47,7 @@ export type Database = {
       sto_equipment_set_bonuses: TableDef<StoEquipmentSetBonusRow, { id?: string; set_name: string; piece_threshold: number; bonus_name: string; bonus_description: string; source_reference: string; verified?: boolean; data_version?: string | null; verified_at?: string | null; created_at?: string; updated_at?: string }>;
       loadout_hangar_pets: TableDef<LoadoutHangarPetRow, { id?: string; user_id?: string; loadout_id: string; hangar_slot: string; pet_name: string; quantity?: number; notes?: string | null; source_reference?: string | null; created_at?: string; updated_at?: string }>;
       character_reputations: TableDef<CharacterReputationRow, { id?: string; user_id?: string; character_id: string; reputation_name: string; tier?: number; progress?: number; daily_claimed?: boolean; notes?: string | null; created_at?: string; updated_at?: string }>;
+      user_audit_log: TableDef<UserAuditLogRow, { id?: string; user_id?: string; action: string; entity_type: string; entity_id?: string | null; summary: string; details?: Json; created_at?: string }>;
       boff_ability_catalog: {
         Row: {
           canonical_key: string
@@ -2545,6 +2547,10 @@ export type Database = {
       }
       copy_sto_build_to_ship: {
         Args: { p_source_build_id: string; p_target_ship_id: string; p_new_name: string }
+        Returns: string
+      }
+      record_sto_audit_event: {
+        Args: { p_action: string; p_entity_type: string; p_entity_id?: string | null; p_summary: string; p_details?: Json }
         Returns: string
       }
       claim_sto_ship_bundle: {
