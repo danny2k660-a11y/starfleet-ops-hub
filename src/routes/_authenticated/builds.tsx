@@ -762,7 +762,7 @@ function LoadoutEquipment({ loadoutId, buildId }: { loadoutId: string; buildId: 
       if (!petName.trim()) throw new Error("Enter the exact hangar pet name.");
       const quantity = Number(petQuantity);
       if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Pet quantity must be a positive whole number.");
-      const selectedSlot = hangarSlots.includes(petSlot) ? petSlot : hangarSlots[0];
+      const selectedSlot = hangarSlots.includes(petSlot) ? petSlot : (hangarSlots[0] ?? "Hangar Bay 1");
       const { error } = await supabase.from("loadout_hangar_pets").upsert({
         user_id: auth.user.id, loadout_id: loadoutId, hangar_slot: selectedSlot, pet_name: petName.trim(),
         quantity, source_reference: petSource.trim() || null, notes: petNotes.trim() || null,
