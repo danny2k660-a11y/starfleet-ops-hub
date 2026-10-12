@@ -92,7 +92,7 @@ function Page() {
       ] as const;
       for(const [table,foreignKey,parentTable] of childTables){
         const parents=new Set(((parsed[parentTable] as Array<{id:string;user_id:string}>|undefined)??[]).filter(row=>row.user_id===sourceUserId).map(row=>row.id));
-        const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && parents.has(row[foreignKey])):[];
+        const rows=Array.isArray(parsed[table])?parsed[table].filter((row:any)=>row && parents.has(row[foreignKey])).map((row:any)=>row.user_id ? {...row,user_id:userId} : row):[];
         if(!rows.length) continue;
         const {error}=await supabase.from(table as never).upsert(rows as never,{onConflict:"id"});
         if(error) throw new Error(table+": "+error.message);
