@@ -408,6 +408,9 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   const [dutyOfficerSearch, setDutyOfficerSearch] = useState("");
   const [boffAbilitySearch, setBoffAbilitySearch] = useState("");
   const addTrait = async () => {
+    const { data: auth, error: authError } = await supabase.auth.getUser();
+    if (authError) { toast.error(authError.message); return; }
+    if (!auth.user) { toast.error("Not signed in."); return; }
     const picked:any = (traitCatalog.data as any[] || []).find((t:any) => t.id === traitId);
     const name = picked?.name || trait.trim();
     if (!name) return;
@@ -420,7 +423,7 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
       return;
     }
     const { error } = await supabase.from("loadout_traits").insert({
-      loadout_id: loadoutId, trait_id: picked?.id || null, name, trait_type: "starship", slot: picked?.domain || "space", domain: "space", trait_category: "starship"
+      user_id: auth.user.id, loadout_id: loadoutId, trait_id: picked?.id || null, name, trait_type: "starship", slot: null, domain: "space", trait_category: "starship"
     });
     if (error) { toast.error("Could not add trait: " + error.message); return; }
     setTrait(""); setTraitId(""); qc.invalidateQueries({ queryKey: ["loadout_traits", loadoutId] });
@@ -442,7 +445,10 @@ function LoadoutConfiguration({ loadoutId }: { loadoutId: string }) {
   };
   const saveOfficer = async () => {
     if (!station.trim()) return;
-    const { error } = await supabase.from("loadout_boffs").upsert({ loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null, specialization: specialization.trim() || null, abilities: abilities.split(",").map((x) => x.trim()).filter(Boolean) });
+    const { data: auth, error: authError } = await supabase.auth.getUser();
+    if (authError) { toast.error(authError.message); return; }
+    if (!auth.user) { toast.error("Not signed in."); return; }
+    const { error } = await supabase.from("loadout_boffs").upsert({ user_id: auth.user.id, loadout_id: loadoutId, station: station.trim(), officer_name: officer.trim() || null, specialization: specialization.trim() || null, abilities: abilities.split(",").map((x) => x.trim()).filter(Boolean) });
     if (error) { toast.error("Could not save officer: " + error.message); return; }
     setStation(""); setOfficer(""); setSpecialization(""); setAbilities(""); qc.invalidateQueries({ queryKey: ["loadout_boffs", loadoutId] });
   };
