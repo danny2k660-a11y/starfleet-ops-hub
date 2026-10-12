@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, CheckCircle2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { recordAuditEvent } from "@/lib/audit";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,7 +69,8 @@ function Page() {
       });
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await recordAuditEvent("project_created", "project", null, "Created project: " + name.trim(), { project_type: type, priority });
       qc.invalidateQueries({ queryKey: ["projects"] });
       setOpen(false); setName(""); setDescription(""); setType("build"); setPriority("normal");
       toast.success("Project created");
