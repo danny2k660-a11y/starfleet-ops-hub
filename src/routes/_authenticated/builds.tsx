@@ -179,15 +179,16 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
       const groundResult = await supabase.from("build_ground_loadouts").select("*").eq("build_id", build.id).eq("user_id", auth.user.id);
       if (groundResult.error) throw groundResult.error;
       const groundIds = (groundResult.data ?? []).map((item) => item.id);
-      const [equipmentResult, traitsResult, boffsResult, dutyOfficersResult, buildDoffsResult, groundEquipmentResult] = await Promise.all([
+      const [equipmentResult, traitsResult, boffsResult, dutyOfficersResult, buildDoffsResult, groundEquipmentResult, hangarPetsResult] = await Promise.all([
         loadoutIds.length ? supabase.from("loadout_equipment").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
         loadoutIds.length ? supabase.from("loadout_traits").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
         loadoutIds.length ? supabase.from("loadout_boffs").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
         loadoutIds.length ? supabase.from("loadout_duty_officers").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
         supabase.from("build_doffs").select("*").eq("build_id", build.id),
         groundIds.length ? supabase.from("ground_loadout_equipment").select("*").in("loadout_id", groundIds) : Promise.resolve({ data: [], error: null }),
+        loadoutIds.length ? supabase.from("loadout_hangar_pets").select("*").in("loadout_id", loadoutIds) : Promise.resolve({ data: [], error: null }),
       ]);
-      for (const result of [equipmentResult, traitsResult, boffsResult, dutyOfficersResult, buildDoffsResult, groundEquipmentResult]) if (result.error) throw result.error;
+      for (const result of [equipmentResult, traitsResult, boffsResult, dutyOfficersResult, buildDoffsResult, groundEquipmentResult, hangarPetsResult]) if (result.error) throw result.error;
       const { data: latest, error: latestError } = await supabase.from("build_versions").select("version_number").eq("build_id", build.id).eq("user_id", auth.user.id).order("version_number", { ascending: false }).limit(1).maybeSingle();
       if (latestError) throw latestError;
       const snapshot = {
@@ -202,6 +203,7 @@ function BuildDialog({ open, onOpenChange, build, ships, fleetShips, characters,
         build_doffs: buildDoffsResult.data ?? [],
         build_ground_loadouts: groundResult.data ?? [],
         ground_loadout_equipment: groundEquipmentResult.data ?? [],
+        loadout_hangar_pets: hangarPetsResult.data ?? [],
       };
       const { error } = await supabase.from("build_versions").insert({
         user_id: auth.user.id,
