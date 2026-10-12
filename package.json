@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "android:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android",
-    "typecheck": "tsr generate && tsc --noEmit"
+    "typecheck": "npm run build && tsc --noEmit"
   },
   "overrides": {
     "rolldown": "1.2.1"
