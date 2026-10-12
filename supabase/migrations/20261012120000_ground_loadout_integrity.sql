@@ -16,6 +16,7 @@ alter table public.ground_loadout_equipment enable row level security;
 drop policy if exists "own ground loadout equipment" on public.ground_loadout_equipment;
 drop policy if exists "ground loadout equipment owner" on public.ground_loadout_equipment;
 drop policy if exists "Users can manage own ground loadout equipment" on public.ground_loadout_equipment;
+drop policy if exists "owners manage ground equipment" on public.ground_loadout_equipment;
 drop policy if exists ground_loadout_equipment_owner_all on public.ground_loadout_equipment;
 create policy ground_loadout_equipment_owner_all
   on public.ground_loadout_equipment for all to authenticated
