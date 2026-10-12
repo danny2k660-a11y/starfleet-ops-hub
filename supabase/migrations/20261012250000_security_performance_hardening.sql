@@ -2,6 +2,9 @@
 alter table public.catalog_validation_runs enable row level security;
 revoke all on table public.catalog_validation_runs from public, anon, authenticated;
 grant all on table public.catalog_validation_runs to service_role;
+drop policy if exists catalog_validation_runs_deny_client on public.catalog_validation_runs;
+create policy catalog_validation_runs_deny_client on public.catalog_validation_runs
+  for all to anon, authenticated using (false) with check (false);
 
 create index if not exists projects_character_fk_idx on public.projects(character_id);
 create index if not exists project_tasks_user_idx on public.project_tasks(user_id);
