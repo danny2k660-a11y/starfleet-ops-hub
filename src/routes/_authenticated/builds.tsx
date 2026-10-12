@@ -2,7 +2,7 @@ import { getThemePreset } from "@/lib/theme-presets";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Wrench, Trash2, Package } from "lucide-react";
+import { Plus, Search, Wrench, Trash2, Package, GitCompare } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +34,9 @@ function BuildsPage() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<BuildWithShip | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareA, setCompareA] = useState("__none__");
+  const [compareB, setCompareB] = useState("__none__");
   const loadouts = useQuery({ queryKey: ["loadouts"], queryFn: async () => { const { data, error } = await supabase.from("loadouts").select("*").order("updated_at", { ascending: false }); if (error) throw error; return data as Loadout[]; } });
   const builds = useQuery({ queryKey: ["builds"], queryFn: async () => { const { data, error } = await supabase.from("builds").select("*, ship_instances!builds_ship_instance_id_fkey(*, characters(*)), user_ships!builds_user_ship_id_fkey(id,custom_name,character_id,sto_ship_id,current_build_id,characters(name),sto_ships(name))").order("updated_at", { ascending: false }); if (error) throw error; return data as unknown as (Build & { ship_instances: Ship & { characters: Character | null } | null })[]; } });
   const characters = useQuery({ queryKey: ["characters"], queryFn: async () => { const { data, error } = await supabase.from("characters").select("*").order("name"); if (error) throw error; return (data ?? []) as Character[]; } });
@@ -55,7 +58,7 @@ function BuildsPage() {
   }, onSuccess: () => { qc.invalidateQueries({ queryKey: ["builds"] }); qc.invalidateQueries({ queryKey: ["user_ships"] }); toast.success("Build deleted and ship returned to the build queue"); setSelected(null); }, onError: (e: Error) => toast.error(e.message) });
 
   return <AppShell title="Builds" subtitle="Ship build configurations"><div className="space-y-6">
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="lcars-label">Build library</p><h2 className="font-display text-2xl text-primary sm:text-3xl">Builds</h2></div><Button onClick={() => { setSelected(null); setOpen(true); }} className="glow-primary"><Plus className="mr-1 size-4" /> New build</Button></div>
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="lcars-label">Build library</p><h2 className="font-display text-2xl text-primary sm:text-3xl">Builds</h2></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => { const list = builds.data ?? []; setCompareA(list[0]?.id ?? "__none__"); setCompareB(list[1]?.id ?? "__none__"); setCompareOpen(true); }} disabled={(builds.data ?? []).length < 2}><GitCompare className="mr-1 size-4" /> Compare builds</Button><Button onClick={() => { setSelected(null); setOpen(true); }} className="glow-primary"><Plus className="mr-1 size-4" /> New build</Button></div></div>
     <div className="panel p-4"><div className="relative"><Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" /><Input className="pl-8" placeholder="Search builds, roles or ships…" value={q} onChange={e => setQ(e.target.value)} /></div></div>
     {builds.isError ? <div className="panel p-6 text-center text-destructive">Unable to load the build library. Refresh and try again.<div className="mt-2 text-xs text-muted-foreground">{builds.error instanceof Error ? builds.error.message : "The build query returned an error."}</div></div> : builds.isLoading ? <p className="text-muted-foreground">Loading build library…</p> : filtered.length === 0 ? <div className="panel p-8 text-center text-muted-foreground"><Wrench className="mx-auto mb-2 size-8 text-primary" />{builds.data?.length ? "No builds match your search." : "No builds yet. Create one and attach it to a ship."}</div> :
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.map(b => <button key={b.id} onClick={() => { setSelected(b); setOpen(true); }} className="panel p-5 text-left transition hover:border-primary"><div className="flex items-start justify-between gap-3"><div><p className="lcars-label">{(b as any).user_ships?.sto_ships?.name ?? (b as any).user_ships?.custom_name ?? b.ship_instances?.name ?? "Unassigned ship"}</p><h3 className="font-display text-xl text-primary">{b.name}</h3>{fleetByBuild.get(b.id) && <p className="mt-1 text-xs text-accent">Fleet ship: {fleetByBuild.get(b.id)?.custom_name || fleetByBuild.get(b.id)?.sto_ships?.name || "Assigned ship"}{fleetByBuild.get(b.id)?.characters?.name ? " • "+fleetByBuild.get(b.id)?.characters?.name : ""}</p>}</div><Wrench className="size-5 text-accent" /></div><div className="mt-3 flex flex-wrap gap-2">{b.role && <Badge variant="outline">{b.role}</Badge>}<Badge variant="secondary">{b.status}</Badge>{(b as any).archived && <Badge variant="outline">ARCHIVED</Badge>}{Array.isArray((b as any).acquisition_needs) && (b as any).acquisition_needs.length > 0 && <Badge variant="outline">{(b as any).acquisition_needs.length} acquisition needs</Badge>}{((b as any).user_ships?.characters?.name ?? b.ship_instances?.characters?.name) && <Badge variant="outline">{(b as any).user_ships?.characters?.name ?? b.ship_instances?.characters?.name}</Badge>}{(() => { const buildLoadouts = (loadouts.data ?? []).filter((l:any) => l.build_id === b.id); const ready = buildLoadouts.some((l:any) => l.is_active); return <Badge variant="outline" className={ready ? "border-primary/40 text-primary" : ""}>{ready ? "READY" : "Needs loadout"}</Badge>; })()}</div></button>)}</div>}
@@ -76,6 +79,37 @@ function BuildsPage() {
       )}
     </section>
     <BuildDialog key={selected?.id ?? "new"} open={open} onOpenChange={setOpen} build={selected} ships={ships.data ?? []} fleetShips={ownedShips.data ?? []} characters={characters.data ?? []} onDeleted={() => selected && remove.mutate(selected.id)} />
+    <Dialog open={compareOpen} onOpenChange={setCompareOpen}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle className="font-display text-primary">Compare builds</DialogTitle></DialogHeader>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1"><Label>Build A</Label><Select value={compareA} onValueChange={setCompareA}><SelectTrigger><SelectValue placeholder="Choose first build" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose build</SelectItem>{(builds.data ?? []).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label>Build B</Label><Select value={compareB} onValueChange={setCompareB}><SelectTrigger><SelectValue placeholder="Choose second build" /></SelectTrigger><SelectContent><SelectItem value="__none__">Choose build</SelectItem>{(builds.data ?? []).map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div>
+      </div>
+      {(() => {
+        const left = (builds.data ?? []).find((item) => item.id === compareA);
+        const right = (builds.data ?? []).find((item) => item.id === compareB);
+        if (!left || !right) return <p className="text-sm text-muted-foreground">Select two builds to compare their saved setup.</p>;
+        const describe = (item: Build) => {
+          const raw = item as any;
+          const ship = raw.user_ships?.custom_name || raw.user_ships?.sto_ships?.name || raw.ship_instances?.name || "Unassigned";
+          const character = raw.user_ships?.characters?.name || raw.ship_instances?.characters?.name || "Unassigned";
+          const captain = raw.captain_setup ?? {};
+          const needs = Array.isArray(raw.acquisition_needs) ? raw.acquisition_needs : [];
+          return [
+            ["Ship", ship], ["Character", character], ["Role", item.role || "—"], ["Status", item.status],
+            ["Active loadout", (loadouts.data ?? []).find((loadout) => loadout.build_id === item.id && loadout.is_active)?.name ?? "None"],
+            ["Loadouts", String((loadouts.data ?? []).filter((loadout) => loadout.build_id === item.id).length)],
+            ["Captain setup", [captain.primary_specialization, captain.secondary_specialization].filter(Boolean).join(" / ") || "—"],
+            ["Acquisition needs", needs.length ? needs.join(", ") : "None"],
+            ["Archived", raw.archived ? "Yes" : "No"],
+            ["Notes", item.notes || "—"],
+          ] as Array<[string, string]>;
+        };
+        const leftRows = describe(left), rightRows = describe(right);
+        return <div className="mt-2 overflow-x-auto rounded border border-border"><table className="w-full min-w-[34rem] text-sm"><thead><tr className="bg-muted/30"><th className="p-2 text-left">Field</th><th className="p-2 text-left">{left.name}</th><th className="p-2 text-left">{right.name}</th></tr></thead><tbody>{leftRows.map(([label, value], index) => <tr key={label} className="border-t border-border"><th className="p-2 text-left font-medium text-muted-foreground">{label}</th><td className={`p-2 ${value !== rightRows[index]?.[1] ? "text-primary" : ""}`}>{value}</td><td className={`p-2 ${value !== rightRows[index]?.[1] ? "text-primary" : ""}`}>{rightRows[index]?.[1] ?? "—"}</td></tr>)}</tbody></table></div>;
+      })()}
+      <DialogFooter><Button variant="ghost" onClick={() => setCompareOpen(false)}>Close</Button></DialogFooter>
+    </DialogContent></Dialog>
+
   </div></AppShell>;
 }
 
